@@ -41,6 +41,8 @@ markdown_extensions:
   - pymdownx.snippets
   - pymdownx.tabbed:
       alternate_style: true
+  - pymdownx.arithmatex:
+      generic: true
 
 plugins:
   - search
@@ -70,10 +72,6 @@ nav:
   - Core & Utilities:
       - Core Runtime: core-and-utils/runtime.md
       - Utilities: core-and-utils/utils.md
-
-markdown_extensions:
-  - pymdownx.arithmatex:
-      generic: true
 
 extra_javascript:
   - javascripts/mathjax.js

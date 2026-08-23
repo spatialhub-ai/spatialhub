@@ -44,6 +44,12 @@ For GPU acceleration (CUDA):
 pip install "spatialhub[gpu]"
 ```
 
+For 3D CAD mesh rendering support (Pyrender & Trimesh):
+
+```bash
+pip install "spatialhub[render]"
+```
+
 ---
 
 ## Quickstart

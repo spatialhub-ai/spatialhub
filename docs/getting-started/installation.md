@@ -12,12 +12,18 @@ Install the lightweight CPU package directly from PyPI:
 pip install spatialhub
 ```
 
-### Optional Hardware Acceleration
+### Optional Hardware & Rendering Extras
 
 For GPU hardware acceleration via CUDA:
 
 ```bash
 pip install "spatialhub[gpu]"
+```
+
+For 3D CAD mesh template rendering support:
+
+```bash
+pip install "spatialhub[render]"
 ```
 
 ---
@@ -28,7 +34,7 @@ SpatialHub uses **`uv`** for virtual environment management and project synchron
 
 ### Step 1: Clone Repository
 ```bash
-git clone https://github.com/pankajkaushik12/spatialhub.git
+git clone https://github.com/spatialhub-ai/spatialhub.git
 cd spatialhub
 ```
 

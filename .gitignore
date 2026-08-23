@@ -13,3 +13,7 @@ wheels/
 
 main.py
 self.md
+tests/
+
+# MKdocs build output
+site/

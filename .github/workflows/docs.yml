@@ -24,7 +24,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install Dependencies
-        run: uv sync
+        run: uv sync --only-group docs
 
       - name: Deploy MkDocs Documentation
         run: uv run mkdocs gh-deploy --force

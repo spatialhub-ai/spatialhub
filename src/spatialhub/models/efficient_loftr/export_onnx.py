@@ -1,81 +1,146 @@
+"""ONNX export utility for EfficientLoFTR."""
+
 import argparse
-from src.loftr import LoFTR, full_default_cfg, reparameter
 from copy import deepcopy
+import logging
+from pathlib import Path
 
 import onnx
 import torch
 
-def load_model(weights_path, device="cpu"):
+from src.loftr import LoFTR, full_default_cfg, reparameter
 
-    _default_cfg = deepcopy(full_default_cfg)
-    
-    matcher = LoFTR(config=_default_cfg)
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+logger = logging.getLogger(__name__)
 
-    if weights_path is None:
-        raise ValueError("weights_path must be provided.")
-    
-    # Load the weights
-    state = torch.load(weights_path, map_location=device, weights_only=False)
-    matcher.load_state_dict(state['state_dict'])
 
-    # Reparameterize the model for better performance
+def load_model(weights_path: str | Path, device: str = "cpu") -> torch.nn.Module:
+    """Load and reparameterize PyTorch EfficientLoFTR model checkpoint.
+
+    Args:
+        weights_path: Path to PyTorch (.ckpt) pretrained weights file.
+        device: Hardware device to load model on ('cpu' or 'cuda').
+
+    Returns:
+        torch.nn.Module: Reparameterized, evaluation-mode EfficientLoFTR model.
+    """
+    weights_path = Path(weights_path)
+    if not weights_path.exists():
+        raise FileNotFoundError(f"Weights file not found at: {weights_path}")
+
+    logger.info("Loading EfficientLoFTR model configuration and weights from %s...", weights_path)
+    cfg = deepcopy(full_default_cfg)
+    matcher = LoFTR(config=cfg)
+
+    state = torch.load(str(weights_path), map_location=device, weights_only=False)
+    matcher.load_state_dict(state["state_dict"])
+
+    logger.info("Reparameterizing model for optimal inference...")
     matcher = reparameter(matcher)
     matcher = matcher.eval()
 
     return matcher
 
-# Create onnx
-def export_onnx(matcher, onnx_path = None):
 
-    if onnx_path is None:
-        raise ValueError("onnx_path must be provided.")
+def export_onnx(
+    matcher: torch.nn.Module,
+    output_path: str | Path,
+    opset: int = 17,
+) -> Path:
+    """Export PyTorch EfficientLoFTR model to ONNX format.
 
-    # Dummy inputs for ONNX export
+    Args:
+        matcher: Prepared PyTorch matcher model.
+        output_path: Target path for the exported .onnx model.
+        opset: ONNX operator set version (default: 17).
+
+    Returns:
+        Path: Path to exported ONNX model file.
+    """
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
     dummy0 = torch.randn(1, 1, 480, 640, dtype=torch.float32)
     dummy1 = torch.randn(1, 1, 480, 640, dtype=torch.float32)
 
-    # Export the model to ONNX format
+    logger.info("Exporting EfficientLoFTR graph to ONNX (opset %d) -> %s...", opset, output_path)
     with torch.no_grad():
         torch.onnx.export(
-                        matcher,
-                        (dummy0, dummy1),
-                        onnx_path,
-                        opset_version=17,
-                        input_names=["image0", "image1"],
-                        output_names=["mkpts0_f", "mkpts1_f", "mconf"],
-                        dynamic_axes={
-                            "image0": {2: "height", 3: "width"},
-                            "image1": {2: "height", 3: "width"},
-                            "mkpts0_f": {0: "num_matches"},
-                            "mkpts1_f": {0: "num_matches"},
-                            "mconf": {0: "num_matches"},
-                        }
-                    )
-    
-    print("ONNX export successful!")
+            matcher,
+            (dummy0, dummy1),
+            str(output_path),
+            opset_version=opset,
+            input_names=["image0", "image1"],
+            output_names=["mkpts0_f", "mkpts1_f", "mconf"],
+            dynamic_axes={
+                "image0": {2: "height", 3: "width"},
+                "image1": {2: "height", 3: "width"},
+                "mkpts0_f": {0: "num_matches"},
+                "mkpts1_f": {0: "num_matches"},
+                "mconf": {0: "num_matches"},
+            },
+        )
 
-# Check the exported ONNX model
-def check_onnx(onnx_path):
+    logger.info("ONNX export completed successfully!")
+    return output_path
 
-    model = onnx.load(onnx_path)
+
+def validate_onnx(onnx_path: str | Path) -> bool:
+    """Validate exported ONNX model graph.
+
+    Args:
+        onnx_path: Path to ONNX model binary.
+
+    Returns:
+        bool: True if graph is clean and valid.
+    """
+    onnx_path = Path(onnx_path)
+    logger.info("Validating ONNX graph integrity at %s...", onnx_path)
+    model = onnx.load(str(onnx_path))
 
     try:
-        onnx.checker.check_model(model=model)
-        print("The ONNX graph is clean and valid!")
-    except onnx.checker.ValidationError as e:
-        print(f"Graph validation failed: {e}")
+        onnx.checker.check_model(model)
+        logger.info("ONNX graph validation passed cleanly!")
+        return True
+    except onnx.checker.ValidationError as err:
+        logger.error("ONNX graph validation failed: %s", err)
+        return False
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Export EfficientLoFTR PyTorch model to ONNX format.")
+    parser.add_argument(
+        "--checkpoint",
+        type=str,
+        default="weights/eloftr_outdoor.ckpt",
+        help="Path to pretrained PyTorch checkpoint (.ckpt).",
+    )
+    parser.add_argument(
+        "--output-path",
+        type=str,
+        default="weights/eloftr_outdoor.onnx",
+        help="Destination path for exported .onnx file.",
+    )
+    parser.add_argument(
+        "--opset",
+        type=int,
+        default=17,
+        help="ONNX operator set version (default: 17).",
+    )
+    parser.add_argument(
+        "--device",
+        type=str,
+        default="cpu",
+        help="Hardware device to use during export ('cpu' or 'cuda').",
+    )
+    args = parser.parse_args()
+
+    matcher = load_model(weights_path=args.checkpoint, device=args.device)
+    onnx_file = export_onnx(matcher, output_path=args.output_path, opset=args.opset)
+    validate_onnx(onnx_file)
+
 
 if __name__ == "__main__":
+    main()
 
-    arg = argparse.ArgumentParser(description="Export EfficientLoFTR model to ONNX format.")
-    arg.add_argument("--weights_path", type=str, default="weights/eloftr_outdoor.ckpt", help="Path to the pretrained weights.")
-    arg.add_argument("--onnx_path", type=str, default="weights/eloftr_outdoor.onnx", help="Path to save the exported ONNX model.")
-    arg.add_argument("--device", type=str, default="cpu", help="Device to use for exporting the model (e.g., 'cpu' or 'cuda').")
-    args = arg.parse_args()
-
-    model = load_model(weights_path=args.weights_path, device=args.device)
-
-    export_onnx(model, onnx_path=args.onnx_path)
-
-    check_onnx(onnx_path=args.onnx_path)
 

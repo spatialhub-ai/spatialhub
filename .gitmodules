@@ -1,3 +1,6 @@
 [submodule "src/spatialhub/models/depth_anything_3/DepthAnything3"]
 	path = src/spatialhub/models/depth_anything_3/DepthAnything3
 	url = https://github.com/pankajkaushik12/DepthAnything3.git
+[submodule "src/spatialhub/models/cnos/CNOS"]
+	path = src/spatialhub/models/cnos/CNOS
+	url = https://github.com/SpatialHub/CNOS.git

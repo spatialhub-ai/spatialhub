@@ -14,18 +14,21 @@ authors = [
 ]
 dependencies = [
     "huggingface-hub>=1.22.0",
+    "mkdocs-material>=9.7.7",
+    "mkdocstrings[python]>=1.0.6",
     "numpy>=2.5.1",
     "onnxruntime>=1.27.0",
     "opencv-python-headless>=5.0.0.93",
 ]
 
 [project.urls]
-Homepage = "https://github.com/pankajkaushik12/spatialhub"
-Repository = "https://github.com/pankajkaushik12/spatialhub.git"
+Homepage = "https://github.com/spatialhub-ai/spatialhub"
+Repository = "https://github.com/spatialhub-ai/spatialhub.git"
 
 [project.optional-dependencies]
 gpu = ["onnxruntime-gpu>=1.19.2"]
 dev = ["pytest>=9.1.1"]
+render = ["pyrender>=0.1.45", "trimesh>=5.0.0", "pyopengl>=3.1.0"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/spatialhub"]
@@ -34,7 +37,14 @@ packages = ["src/spatialhub"]
 exclude = [
     "src/spatialhub/models/efficient_loftr",
     "src/spatialhub/models/depth_anything_3/DepthAnything3",
+    "src/spatialhub/models/cnos/CNOS",
+    "src/spatialhub/models/dinov2/DINOv2",
+    "src/spatialhub/models/fastsam/FastSAM",
+    "src/spatialhub/models/sam/SAM",
 ]
+
+[tool.setuptools.package-data]
+"spatialhub.models.cnos" = ["assets/*.npy"]
 
 [tool.hatch.build]
 exclude = [
@@ -50,5 +60,12 @@ exclude = [
 
 [dependency-groups]
 dev = [
+    "pytest>=9.1.1",
     "twine>=6.2.0",
 ]
+
+[tool.pytest.ini_options]
+markers = [
+    "integration: marks tests as integration tests requiring full model inference or remote weight downloads",
+]
+

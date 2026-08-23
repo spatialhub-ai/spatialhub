@@ -1,0 +1,82 @@
+site_name: SpatialHub
+site_description: High-performance, zero-PyTorch spatial AI and perception library.
+site_url: https://spatialhub-ai.github.io/spatialhub/
+repo_url: https://github.com/spatialhub-ai/spatialhub
+repo_name: spatialhub-ai/spatialhub
+
+theme:
+  name: material
+  language: en
+  palette:
+    # Light mode
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    # Dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: google
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: getting-started/installation.md
+      - Quickstart: getting-started/quickstart.md
+  - Data Structures:
+      - Overview: structures/overview.md
+  - ONNX Export Guide:
+      - Workflow Overview: onnx-export/overview.md
+  - Models:
+      - Overview: models/overview.md
+      - EfficientLoFTR: models/eloftr.md
+      - Depth Anything 3: models/depthanything3.md
+      - DINOv2: models/dinov2.md
+      - FastSAM: models/fastsam.md
+      - SAM: models/sam.md
+      - CNOS: models/cnos.md
+  - Core & Utilities:
+      - Core Runtime: core-and-utils/runtime.md
+      - Utilities: core-and-utils/utils.md
+
+markdown_extensions:
+  - pymdownx.arithmatex:
+      generic: true
+
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
+
+

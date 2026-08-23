@@ -1,0 +1,1 @@
+from .adapter import DINOv2Adapter

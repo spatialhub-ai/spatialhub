@@ -2,15 +2,19 @@ import cv2
 import numpy as np
 from pathlib import Path
 
-from .._imageio import load_image
+from typing import Union
+
+from .image import load_image
 
 def _load_and_format_for_viz(img_input: str | Path | np.ndarray) -> np.ndarray:
     """
     Loads paths and converts Grayscale/RGBA into standard BGR for colorful OpenCV drawing.
     """
 
-    # Load the image using the utility function
-    img = load_image(img_input)
+    if isinstance(img_input, str) or isinstance(img_input, Path):
+        img = load_image(img_input)
+    else:
+        img = img_input
 
     # Normalize to 3-channel BGR for drawing colored circles and lines
     if len(img.shape) == 2:
@@ -95,3 +99,47 @@ def visualize_matches(img0_input: str | Path | np.ndarray,
 
     return vis
 
+def visualize_masks(image, boxes, masks, scores, save_path: Union[str, Path, None] = None, alpha: float = 0.4) -> np.ndarray:
+    num_dets = len(boxes)
+    if num_dets == 0:
+        return image.copy()
+
+    # Generate visually distinct colors using the Golden Angle (137.5 degrees)
+    hsv_colors = np.zeros((num_dets, 1, 3), dtype=np.uint8)
+    for i in range(num_dets):
+        # OpenCV Hue is 0-179. (137.508 scaled to 180 bounds)
+        hsv_colors[i, 0, 0] = int((i * 68.75) % 180) 
+        hsv_colors[i, 0, 1] = 200  # Saturation
+        hsv_colors[i, 0, 2] = 255  # Value
+    rgb_colors = cv2.cvtColor(hsv_colors, cv2.COLOR_HSV2RGB).reshape(-1, 3)
+
+    # Convert image to grayscale base for better mask visibility
+    gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+    vis_img = cv2.cvtColor(gray, cv2.COLOR_GRAY2RGB)
+
+    for idx in range(num_dets):
+        mask = masks[idx]
+        box = boxes[idx].astype(int)
+        score = scores[idx]
+        color = rgb_colors[idx].tolist()
+
+        # Overlay Mask
+        vis_img[mask] = vis_img[mask] * (1 - alpha) + np.array(color) * alpha
+
+        # Draw Mask Edge (Contour)
+        contours, _ = cv2.findContours(mask.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        cv2.drawContours(vis_img, contours, -1, color, 2)
+
+        # Draw Bounding Box & Score
+        cv2.rectangle(vis_img, (box[0], box[1]), (box[2], box[3]), color, 2)
+        
+        label = f"{score:.2f}"
+        (w, h), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
+        cv2.rectangle(vis_img, (box[0], box[1] - h - 4), (box[0] + w, box[1]), color, -1)
+        cv2.putText(vis_img, label, (box[0], box[1] - 2), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+
+    if save_path:
+        # OpenCV expects BGR for saving
+        cv2.imwrite(str(save_path), cv2.cvtColor(vis_img, cv2.COLOR_RGB2BGR))
+
+    return vis_img

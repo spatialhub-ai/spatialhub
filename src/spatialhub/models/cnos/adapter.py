@@ -45,7 +45,7 @@ class CNOSAdapter:
             model_unit: Scale unit of CAD mesh ('m', 'cm', 'mm').
             descriptor: Optional pre-initialized DINOv2 feature extractor.
             segmentor: Optional pre-initialized FastSAM or SAM proposal segmentor.
-            providers: ONNX Runtime execution providers.
+            providers: Execution providers.
         """
         self.model_path = Path(model_path)
         if not self.model_path.exists():
@@ -176,7 +176,7 @@ class CNOSAdapter:
         if isinstance(image, (str, Path)):
             image = load_image(image, color_mode="RGB")
 
-        # 1. Generate Object Proposals
+        # Generate Object Proposals
         logger.info("Generating object proposals...")
         proposals = self.segmentor.generate_masks(image, conf_threshold=0.05, iou_threshold=0.90)
 
@@ -195,7 +195,7 @@ class CNOSAdapter:
                 class_ids=np.empty((0,), dtype=int),
             )
 
-        # 2. Extract Bounding Box Crops
+        # Extract Bounding Box Crops
         proposal_crops = []
         for box in boxes:
             x1, y1, x2, y2 = map(int, box)
@@ -204,7 +204,7 @@ class CNOSAdapter:
             crop = image[y1:y2, x1:x2, :3]
             proposal_crops.append(crop)
 
-        # 3. Compute DINOv2 Features for Scene Proposals
+        # Compute DINOv2 Features for Scene Proposals
         start = time.time()
         scene_features = []
         for i in range(0, num_proposals, self.chunk_size):
@@ -215,7 +215,7 @@ class CNOSAdapter:
         logger.debug("Time taken to compute scene features: %.4f s", time.time() - start)
         scene_features = np.concatenate(scene_features, axis=0)
 
-        # 4. Cosine Similarity Matching
+        # Cosine Similarity Matching
         sim = np.dot(scene_features, self.ref_features.T)
 
         k = min(5, sim.shape[1])
@@ -226,7 +226,7 @@ class CNOSAdapter:
         else:
             semantic_scores = np.max(sim, axis=1)
 
-        # 5. Filter Detections
+        # Filter Detections
         keep_idx = semantic_scores > conf_threshold
         boxes = boxes[keep_idx]
         masks = masks[keep_idx]

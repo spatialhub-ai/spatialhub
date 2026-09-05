@@ -1,7 +1,10 @@
-import numpy as np
-import cv2
+from __future__ import annotations
+
 from pathlib import Path
-from typing import Tuple, Optional, Literal, List
+from typing import Literal
+
+import cv2
+import numpy as np
 
 
 IMAGENET_MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32,)
@@ -109,7 +112,7 @@ def normalize_image(image: np.ndarray, mean: np.ndarray = IMAGENET_MEAN, std: np
 
     return normalized.astype(np.float32)
 
-def extract_foreground_bbox(image: np.ndarray) -> Tuple[int, int, int, int]:
+def extract_foreground_bbox(image: np.ndarray) -> tuple[int, int, int, int]:
     """
     Extracts bounding box [x_min, y_min, x_max, y_max] from non-background pixels.
     Supports RGBA (via alpha channel) or RGB (via thresholding non-black pixels).
@@ -130,7 +133,7 @@ def extract_foreground_bbox(image: np.ndarray) -> Tuple[int, int, int, int]:
     y_max, x_max = nonzero_coords.max(axis=0)
     return int(x_min), int(y_min), int(x_max + 1), int(y_max + 1)
 
-def square_crop_and_resize(image: np.ndarray, bbox: Tuple[int, int, int, int], target_size: Optional[int] = None) -> np.ndarray:
+def square_crop_and_resize(image: np.ndarray, bbox: tuple[int, int, int, int], target_size: int | None = None) -> np.ndarray:
     """
     Crops an image to the bounding box, pads it to a perfect square to maintain aspect ratio, and optionally resizes it.
 
@@ -160,9 +163,8 @@ def square_crop_and_resize(image: np.ndarray, bbox: Tuple[int, int, int, int], t
 
     return square_crop
 
-def non_max_suppression(boxes: np.ndarray, scores: np.ndarray, iou_threshold: float) -> List[int]:
-    """
-    Standard Non-Maximum Suppression (NMS) in pure NumPy.
+def non_max_suppression(boxes: np.ndarray, scores: np.ndarray, iou_threshold: float) -> list[int]:
+    """Non-Maximum Suppression (NMS) for bounding box filtering.
     
     Args:
         boxes: Array of shape (N, 4) in [x1, y1, x2, y2] format.

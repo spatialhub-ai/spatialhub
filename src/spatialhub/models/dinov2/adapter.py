@@ -12,11 +12,10 @@ logger = logging.getLogger(__name__)
 
 
 class DINOv2Adapter:
-    """ONNX Runtime adapter for DINOv2 image feature extraction.
+    """Image feature extraction pipeline using DINOv2.
 
-    Loads a DINOv2 ONNX model, applies ImageNet channel normalization and square padding,
-    runs batched ONNX inference, and returns global CLS-token embeddings as a
-    FeatureExtractionResult.
+    Applies ImageNet channel normalization and square padding, runs feature
+    extraction, and returns global CLS-token embeddings as a FeatureExtractionResult.
 
     Supported model variants include:
     - dinov2_vits14 (384-dim)
@@ -31,22 +30,22 @@ class DINOv2Adapter:
         model_variant: str | None = "dinov2_vitl14",
         providers: list[str] | str | None = None,
     ) -> None:
-        """Initialize DINOv2 ONNX Runtime adapter.
+        """Initialize DINOv2 feature extractor.
 
         Args:
             model_path:
-                Optional explicit path to local ONNX model binary. If None, resolves
+                Optional explicit path to local model binary. If None, resolves
                 automatically from Hugging Face Hub.
             model_variant:
                 DINOv2 variant ('dinov2_vits14', 'dinov2_vitb14', 'dinov2_vitl14', 'dinov2_vitg14', or short names 'vits14', 'vitb14', 'vitl14', 'vitg14').
             providers:
-                ONNX Runtime execution providers.
+                Execution providers.
 
         Raises:
             FileNotFoundError:
                 If model cannot be resolved locally or remotely.
             RuntimeError:
-                If ONNX session creation fails.
+                If model initialization fails.
         """
         variant = str(model_variant or "dinov2_vitl14")
         if not variant.startswith("dinov2_") and not variant.endswith(".onnx"):
@@ -119,14 +118,14 @@ class DINOv2Adapter:
         if isinstance(images, (str, Path)):
             images = load_image(images, color_mode="RGB")
 
-        # 1. Preprocess
+        # Preprocess
         input_tensor = self._preprocess(images)
 
-        # 2. ONNX Inference
+        # Model inference
         outputs = self.session.run(None, {self.input_name: input_tensor})
         features = outputs[0].astype(np.float32)
 
-        # 3. Optional L2 Normalization
+        # Optional L2 Normalization
         if l2_normalize:
             norms = np.linalg.norm(features, axis=-1, keepdims=True)
             features = features / np.maximum(norms, 1e-6)

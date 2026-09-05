@@ -12,13 +12,12 @@ logger = logging.getLogger(__name__)
 
 
 class EfficientLoFTRAdapter:
-    """ONNX Runtime adapter for EfficientLoFTR semi-dense local feature matching.
+    """Semi-dense local feature matching pipeline using EfficientLoFTR.
 
     EfficientLoFTR performs coarse-to-fine semi-dense keypoint matching between
-    image pairs without requiring PyTorch at runtime. Inputs are preprocessed
-    to grayscale, dynamically scaled to spatial dimensions divisible by 32,
-    and batched for ONNX inference. Keypoints are automatically projected back
-    to original image coordinates.
+    image pairs. Inputs are preprocessed to grayscale, dynamically scaled to
+    spatial dimensions divisible by 32, and batched for feature matching.
+    Keypoints are automatically projected back to original image coordinates.
     """
 
     def __init__(
@@ -27,17 +26,16 @@ class EfficientLoFTRAdapter:
         model_type: str = "full",
         providers: list[str] | str | None = None,
     ) -> None:
-        """Initialize the EfficientLoFTR ONNX adapter.
+        """Initialize the EfficientLoFTR matcher.
 
         Args:
             model_path:
-                Optional explicit path to local ONNX model weights. If None,
+                Optional explicit path to local model weights. If None,
                 weights are automatically downloaded from Hugging Face.
             model_type:
                 Model variant, either 'full' (higher accuracy) or 'opt' (faster).
             providers:
-                ONNX Runtime execution providers (e.g. 'CUDAExecutionProvider',
-                'CPUExecutionProvider').
+                Execution providers (e.g. 'CUDAExecutionProvider', 'CPUExecutionProvider').
 
         Raises:
             ValueError:
@@ -45,7 +43,7 @@ class EfficientLoFTRAdapter:
             FileNotFoundError:
                 If specified local weights cannot be found.
             RuntimeError:
-                If ONNX Runtime session initialization fails.
+                If model initialization fails.
         """
         if model_type not in ["full", "opt"]:
             raise ValueError("model_type must be either 'full' or 'opt'")
@@ -59,7 +57,7 @@ class EfficientLoFTRAdapter:
             filename=filename if model_path is None else None,
         )
 
-        # Initialize ONNX session via core runtime helper
+        # Initialize session via core runtime helper
         self.session = create_ort_session(
             model_path=resolved_path,
             providers=providers,
@@ -88,11 +86,11 @@ class EfficientLoFTRAdapter:
                 Dataclass containing image inputs, matched keypoints in original image
                 coordinates, and matching confidence scores.
         """
-        # 1. Preprocess images (grayscale conversion, resize to multiples of 32, normalize)
+        # Preprocess images (grayscale conversion, resize to multiples of 32, normalize)
         tensor_a, scale_a = self._preprocess(image_a, max_dim=max_dim)
         tensor_b, scale_b = self._preprocess(image_b, max_dim=max_dim)
 
-        # 2. Pad both input tensors to shared maximum spatial dimensions
+        # Pad both input tensors to shared maximum spatial dimensions
         h_a, w_a = tensor_a.shape[2:]
         h_b, w_b = tensor_b.shape[2:]
         max_h = max(h_a, h_b)
@@ -104,7 +102,7 @@ class EfficientLoFTRAdapter:
         tensor_a = np.pad(tensor_a, pad_a, mode="constant", constant_values=0)
         tensor_b = np.pad(tensor_b, pad_b, mode="constant", constant_values=0)
 
-        # 3. Execute ONNX inference
+        # Execute model inference
         outputs = self.session.run(
             ["mkpts0_f", "mkpts1_f", "mconf"],
             {
@@ -124,11 +122,11 @@ class EfficientLoFTRAdapter:
                 confidence=np.empty((0,), dtype=np.float32),
             )
 
-        # 4. Project matched keypoints back to original image coordinate spaces
+        # Project matched keypoints back to original image coordinate spaces
         mkpts0_orig = mkpts0_raw * scale_a
         mkpts1_orig = mkpts1_raw * scale_b
 
-        # 5. Filter out matches that fall within the zero-padded boundary region
+        # Filter out matches that fall within the zero-padded boundary region
         valid_mask = (
             (mkpts0_raw[:, 0] < w_a)
             & (mkpts0_raw[:, 1] < h_a)

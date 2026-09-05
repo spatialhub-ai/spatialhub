@@ -31,7 +31,7 @@ def crop_mask(masks: np.ndarray, boxes: np.ndarray) -> np.ndarray:
 
 
 class FastSAMAdapter:
-    """ONNX Runtime adapter for FastSAM (YOLOv8-Seg) instance segmentation.
+    """Instance segmentation and proposal generation pipeline using FastSAM.
 
     Performs fast proposal generation, bounding box decoding, prototype mask matrix
     combination, and non-maximum suppression (NMS) over input images.
@@ -46,11 +46,11 @@ class FastSAMAdapter:
         iou_threshold: float = 0.7,
         providers: list[str] | str | None = None,
     ) -> None:
-        """Initialize FastSAM ONNX Runtime adapter.
+        """Initialize FastSAM segmentor.
 
         Args:
             model_path:
-                Optional explicit path to FastSAM ONNX model. If None, resolves
+                Optional explicit path to local model binary. If None, resolves
                 automatically from Hugging Face Hub.
             model_variant:
                 FastSAM model variant ('FastSAM-x' or 'FastSAM-s', or short names 'x' or 's').
@@ -61,7 +61,7 @@ class FastSAMAdapter:
             iou_threshold:
                 Default IoU threshold for Non-Maximum Suppression.
             providers:
-                ONNX Runtime execution providers.
+                Execution providers.
         """
         variant = str(model_variant or "FastSAM-x")
         if not variant.startswith("FastSAM-") and not variant.endswith(".onnx"):
@@ -206,13 +206,13 @@ class FastSAMAdapter:
 
         orig_h, orig_w = image.shape[:2]
 
-        # 1. Preprocessing
+        # Preprocessing
         input_tensor, letterbox = self._preprocess(image, orig_h, orig_w)
 
-        # 2. ONNX Inference
+        # Model inference
         outputs = self.session.run(None, {self.input_name: input_tensor})
 
-        # 3. Decode Detections
+        # Decode Detections
         boxes, scores, mask_coeffs = self._decode_predictions(
             output=outputs[0],
             conf_threshold=conf_thresh,
@@ -228,7 +228,7 @@ class FastSAMAdapter:
                 scores=np.empty((0,), dtype=np.float32),
             )
 
-        # 4. Decode Masks & Scale Boxes
+        # Decode Masks & Scale Boxes
         prototypes = outputs[1][0]
         masks = self._decode_masks(
             mask_coeffs,

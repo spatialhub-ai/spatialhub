@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 class DepthAnything3Adapter:
-    """ONNX Runtime adapter for Depth Anything 3 (DA3).
+    """Depth estimation and camera alignment pipeline using Depth Anything 3 (DA3).
 
     Supports monocular relative depth estimation, metric depth scaling, multi-view
     camera pose alignment using Umeyama Sim(3) transformations, and nested dual-model
@@ -35,7 +35,7 @@ class DepthAnything3Adapter:
         align_to_input_ext_scale: bool = True,
         ransac_view_thresh: int = 10,
     ) -> None:
-        """Initialize Depth Anything 3 ONNX Runtime adapter.
+        """Initialize Depth Anything 3 pipeline.
 
         Args:
             model_name:
@@ -48,8 +48,7 @@ class DepthAnything3Adapter:
                 Explicit model variant ('relative', 'metric', or 'metric_nested').
                 Auto-parsed from model_name if None.
             providers:
-                ONNX Runtime execution providers (e.g. 'CUDAExecutionProvider',
-                'CPUExecutionProvider').
+                Execution providers (e.g. 'CUDAExecutionProvider', 'CPUExecutionProvider').
             align_to_input_ext_scale:
                 If True, scales predicted depth to match original input camera extrinsics scale.
             ransac_view_thresh:
@@ -59,7 +58,7 @@ class DepthAnything3Adapter:
             ValueError:
                 If more than 2 models are passed.
             RuntimeError:
-                If model download or ONNX session creation fails.
+                If model initialization fails.
         """
         model_names = [model_name] if isinstance(model_name, str) else model_name
 
@@ -134,10 +133,10 @@ class DepthAnything3Adapter:
                 Structured prediction dataclass containing depth maps, confidence maps,
                 and aligned camera intrinsics/extrinsics.
         """
-        # 1. Preprocess input images and camera parameters
+        # Preprocess input images and camera parameters
         np_inputs = self._preprocess(images=images, extrinsics=extrinsics, intrinsics=intrinsics)
 
-        # 2. Run ONNX Inference (single session or dual-model nested session)
+        # Run inference (single session or dual-model nested session)
         if len(self.ort_sessions) == 1:
             raw_output = self._run_inference(self.ort_sessions[0], np_inputs)
             depth, conf, sky, pred_ext, pred_int = self._extract_outputs(raw_output)
@@ -167,10 +166,10 @@ class DepthAnything3Adapter:
             if pred_ext is not None:
                 pred_ext[:, :3, 3] *= scale
 
-        # 3. Postprocess Sky Suppression
+        # Postprocess Sky Suppression
         depth, conf = process_mono_sky_estimation_np(depth, conf, sky)
 
-        # 4. Umeyama Camera Trajectory Alignment
+        # Umeyama Camera Trajectory Alignment
         orig_extrinsics = np_inputs.get("original_extrinsics")
         depth, pred_ext = self._align_prediction_extrinsics(
             depth=depth,
@@ -193,7 +192,7 @@ class DepthAnything3Adapter:
         extrinsics: np.ndarray | None = None,
         intrinsics: np.ndarray | None = None,
     ) -> dict[str, np.ndarray | None]:
-        """Preprocess inputs for ONNX model execution."""
+        """Preprocess inputs for model execution."""
         imgs_cpu, extrinsics, intrinsics = self.input_processor(
             images,
             extrinsics.copy() if extrinsics is not None else None,
@@ -227,7 +226,7 @@ class DepthAnything3Adapter:
         }
 
     def _run_inference(self, session: ort.InferenceSession, np_inputs: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
-        """Run ONNX inference pass on preprocessed NumPy arrays."""
+        """Run inference pass on preprocessed arrays."""
         onnx_feed = {
             "image": np_inputs["imgs"].astype(np.float32),
             "extrinsics_in": np_inputs["ex_t_norm"].astype(np.float32),
@@ -242,7 +241,7 @@ class DepthAnything3Adapter:
         self,
         raw_output: dict[str, np.ndarray],
     ) -> tuple[np.ndarray, np.ndarray | None, np.ndarray | None, np.ndarray | None, np.ndarray | None]:
-        """Extract and reshape raw ONNX output arrays."""
+        """Extract and reshape raw model output arrays."""
         depth = np.squeeze(raw_output["depth"], axis=0)
         conf = raw_output.get("depth_conf", None)
         if conf is not None and conf.size > 0:

@@ -28,11 +28,11 @@ def masks_to_boxes(masks: np.ndarray) -> np.ndarray:
 
 
 class SAMAdapter:
-    """ONNX Runtime adapter for Segment Anything Model (SAM) Automatic Mask Generation (AMG).
+    """Automatic Mask Generation (AMG) pipeline using Segment Anything Model (SAM).
 
-    Executes SAM image encoder and mask decoder ONNX sessions independently,
-    grid-sampling prompt coordinates across input images to generate fine-grained
-    segmentation proposals.
+    Executes image encoder and mask decoder models independently, grid-sampling
+    prompt coordinates across input images to generate fine-grained segmentation
+    proposals.
     """
 
     def __init__(
@@ -47,13 +47,13 @@ class SAMAdapter:
         box_nms_thresh: float = 0.7,
         providers: list[str] | str | None = None,
     ) -> None:
-        """Initialize SAM ONNX Runtime adapter.
+        """Initialize SAM segmentor.
 
         Args:
             encoder_onnx_path:
-                Optional path to SAM image encoder ONNX model. Resolved automatically if None.
+                Optional path to image encoder model. Resolved automatically if None.
             decoder_onnx_path:
-                Optional path to SAM mask decoder ONNX model. Resolved automatically if None.
+                Optional path to mask decoder model. Resolved automatically if None.
             model_variant:
                 SAM backbone variant identifier ('sam_vit_h', 'sam_vit_l', 'sam_vit_b', or short names 'vit_h', 'vit_l', 'vit_b').
             points_per_side:
@@ -67,7 +67,7 @@ class SAMAdapter:
             box_nms_thresh:
                 IoU cutoff threshold for duplicate mask removal via NMS.
             providers:
-                ONNX Runtime execution providers.
+                Execution providers.
         """
         variant = str(model_variant or "sam_vit_h")
         if not variant.startswith("sam_") and not variant.endswith(".onnx"):
@@ -154,17 +154,17 @@ class SAMAdapter:
 
         orig_h, orig_w = image.shape[:2]
 
-        # 1. Encode Image
+        # Encode Image
         image_embedding, scale = self._encode_image(image)
 
-        # 2. Point Grid Generation & Coordinate Scaling
+        # Point Grid Generation & Coordinate Scaling
         points_rel = self._generate_point_grid()
         points_orig = points_rel * np.array([orig_w, orig_h])
         points_resized = points_orig * scale
 
         all_masks, all_scores, all_boxes = [], [], []
 
-        # 3. Batched Mask Decoder Pass
+        # Batched Mask Decoder Pass
         for i in range(0, len(points_resized), self.points_per_batch):
             batch_pts = points_resized[i : i + self.points_per_batch]
             batch_size = len(batch_pts)
@@ -212,7 +212,7 @@ class SAMAdapter:
                 scores=np.empty((0,), dtype=np.float32),
             )
 
-        # 4. Consolidate and Apply NMS
+        # Consolidate and Apply NMS
         final_boxes = np.concatenate(all_boxes, axis=0)
         final_scores = np.concatenate(all_scores, axis=0)
         final_masks = np.concatenate(all_masks, axis=0)

@@ -25,7 +25,12 @@ Repository = "https://github.com/spatialhub-ai/spatialhub.git"
 
 [project.optional-dependencies]
 gpu = ["onnxruntime-gpu>=1.19.2"]
-render = ["pyrender>=0.1.45", "trimesh>=5.0.0", "pyopengl>=3.1.0"]
+render = [
+    "pyrender>=0.1.45", 
+    "trimesh>=5.0.0", 
+    "pyopengl>=3.1.0", 
+    "moderngl>=5.12.0"
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/spatialhub"]
@@ -38,6 +43,7 @@ exclude = [
     "src/spatialhub/models/dinov2/DINOv2",
     "src/spatialhub/models/fastsam/FastSAM",
     "src/spatialhub/models/sam/SAM",
+    "src/spatialhub/models/foundationpose/FoundationPose",
 ]
 
 [tool.setuptools.package-data]
@@ -61,6 +67,7 @@ exclude = [
 
 [dependency-groups]
 dev = [
+    "psutil>=7.2.2",
     "pytest>=9.1.1",
     "twine>=6.2.0",
 ]

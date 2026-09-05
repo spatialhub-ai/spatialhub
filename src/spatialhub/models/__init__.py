@@ -4,6 +4,7 @@ from .cnos import CNOSAdapter as CNOS
 from .fastsam import FastSAMAdapter as FastSAM
 from .sam import SAMAdapter as SAM
 from .dinov2 import DINOv2Adapter as DINOV2
+from .foundationpose import FoundationPoseAdapter as FoundationPose
 
 __all__ = [
     "EfficientLoFTR",
@@ -12,4 +13,5 @@ __all__ = [
     "FastSAM",
     "SAM",
     "DINOV2",
+    "FoundationPose"
 ]

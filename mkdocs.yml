@@ -3,6 +3,13 @@ site_description: High-performance, zero-PyTorch spatial AI and perception libra
 site_url: https://spatialhub-ai.github.io/spatialhub/
 repo_url: https://github.com/spatialhub-ai/spatialhub
 repo_name: spatialhub-ai/spatialhub
+copyright: 'Built by <a href="https://github.com/pankajkaushik12">Pankaj Kaushik</a> • <a href="https://github.com/spatialhub-ai/spatialhub">GitHub Repo</a>'
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/spatialhub-ai/spatialhub
+      name: SpatialHub on GitHub
 
 theme:
   name: material
@@ -25,7 +32,6 @@ theme:
   features:
     - navigation.instant
     - navigation.tabs
-    - navigation.sections
     - navigation.top
     - search.suggest
     - search.highlight
@@ -52,29 +58,46 @@ plugins:
           options:
             docstring_style: google
 
+extra_css:
+  - stylesheets/extra.css
+
 nav:
   - Home: index.md
   - Getting Started:
       - Installation: getting-started/installation.md
       - Quickstart: getting-started/quickstart.md
-  - Data Structures:
-      - Overview: structures/overview.md
-  - ONNX Export Guide:
-      - Workflow Overview: onnx-export/overview.md
-  - Models:
-      - Overview: models/overview.md
-      - EfficientLoFTR: models/eloftr.md
-      - Depth Anything 3: models/depthanything3.md
-      - DINOv2: models/dinov2.md
-      - FastSAM: models/fastsam.md
-      - SAM: models/sam.md
-      - CNOS: models/cnos.md
-  - Core & Utilities:
-      - Core Runtime: core-and-utils/runtime.md
-      - Utilities: core-and-utils/utils.md
+  - API Reference:
+      - Core:
+          - Models:
+              - Overview: models/overview.md
+              - FoundationPose: models/foundationpose.md
+              - EfficientLoFTR: models/eloftr.md
+              - Depth Anything 3: models/depthanything3.md
+              - DINOv2: models/dinov2.md
+              - FastSAM: models/fastsam.md
+              - SAM: models/sam.md
+              - CNOS: models/cnos.md
+          - Data Structures:
+              - Overview: core-and-utils/structures/overview.md
+              - MatchResult: core-and-utils/structures/match_result.md
+              - DepthPredictionResult: core-and-utils/structures/depth_prediction_result.md
+              - FeatureExtractionResult: core-and-utils/structures/feature_extraction_result.md
+              - SegmentationResult: core-and-utils/structures/segmentation_result.md
+              - PoseEstimationResult: core-and-utils/structures/pose_estimation_result.md
+          - Runtime & Execution: core-and-utils/runtime.md
+          - ONNX Export Workflow: onnx-export/overview.md
+      - Geometry & Vision:
+          - Camera Geometry: core-and-utils/camera.md
+          - 3D Mesh Processing: core-and-utils/mesh.md
+          - Image Preprocessing: core-and-utils/image.md
+          - Visualization: core-and-utils/viz.md
+      - Rendering:
+          - ModernGL Overview: core-and-utils/moderngl/index.md
+          - Context & Headless Setup: core-and-utils/moderngl/context.md
+          - Batched Atlas Renderer: core-and-utils/moderngl/renderer.md
+          - Fullscreen Shader: core-and-utils/moderngl/fullscreen.md
+          - 3D Template Renderer: core-and-utils/template_renderer.md
 
 extra_javascript:
   - javascripts/mathjax.js
   - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
-
-

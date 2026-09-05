@@ -1,10 +1,10 @@
-# Segment Anything Model (SAM) Technical Reference
+﻿# Segment Anything Model (SAM) Technical Reference
 
 `spatialhub.models.sam` provides an ONNX Runtime adapter for **Segment Anything Model (SAM)**, running Automatic Mask Generation (AMG) via decoupled Image Encoder and Mask Decoder ONNX sessions.
 
 ---
 
-## 1. Supported Model Variants
+## Supported Model Variants
 
 `SAMAdapter` supports 3 Vision Transformer backbone variants via `model_variant`:
 
@@ -16,7 +16,7 @@
 
 ---
 
-## 2. Overview & Mathematical Preprocessing
+## Overview & Mathematical Preprocessing
 
 SAM processes images in two decoupled execution stages:
 1. **Image Encoder ONNX Session:** Processes $(1, 3, 1024, 1024)$ input images and outputs $(1, 256, 64, 64)$ feature embedding maps.
@@ -44,7 +44,7 @@ $$
 
 ---
 
-## 3. ONNX Export Guide
+## ONNX Export Guide
 
 The export environment for SAM sits beside its `pyproject.toml` file at `src/spatialhub/models/sam/SAM`.
 
@@ -67,7 +67,7 @@ uv run python export_onnx.py \
 
 ---
 
-## 4. SpatialHub Adapter API & Usage
+## SpatialHub Adapter API & Usage
 
 ```python
 from spatialhub import SAM
@@ -87,9 +87,9 @@ result.visualize_mask(save_path="sam_masks.png")
 
 ---
 
-## 5. Returned Result Data Structure
+## Returned Result Data Structure
 
-Returns a [`SegmentationResult`](../structures/overview.md#4-segmentationresult) dataclass:
+Returns a [`SegmentationResult`](../core-and-utils/structures/segmentation_result.md) dataclass:
 
 | Attribute | Type | Shape | Description |
 | :--- | :--- | :--- | :--- |

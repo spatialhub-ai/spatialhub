@@ -1,14 +1,14 @@
-# CNOS (CAD-based Novel Object Segmentation) Technical Reference
+﻿# CNOS (CAD-based Novel Object Segmentation) Technical Reference
 
 `spatialhub.models.cnos` provides an ONNX Runtime adapter for **CNOS**, executing CAD mesh template rendering, DINOv2 feature extraction, FastSAM/SAM proposal segmenting, and cosine similarity matching for zero-shot object detection.
 
 ---
 
-## 1. Supported Sub-Adapter Components
+## Supported Sub-Adapter Components
 
 CNOS operates by coupling 2 pluggable sub-adapter pipelines with a 3D CAD mesh input file (`.ply`, `.obj`, `.stl`):
 
-### 1. Proposal Segmentor Sub-Adapters (`segmentor`)
+### Proposal Segmentor Sub-Adapters (`segmentor`)
 Generates spatial object mask proposals across the scene image:
 
 | Segmentor Adapter Class | Supported Variants | Target Performance |
@@ -16,7 +16,7 @@ Generates spatial object mask proposals across the scene image:
 | `FastSAMAdapter` (Default) | `"FastSAM-x"`, `"FastSAM-s"` | Real-time candidate box & mask proposal generation. |
 | `SAMAdapter` | `"sam_vit_h"`, `"sam_vit_l"`, `"sam_vit_b"` | High-precision Automatic Mask Generation (AMG). |
 
-### 2. Feature Descriptor Sub-Adapter (`descriptor`)
+### Feature Descriptor Sub-Adapter (`descriptor`)
 Extracts L2-normalized feature embeddings from 2D rendered CAD templates and scene mask proposals:
 
 | Descriptor Adapter Class | Supported Variants | Description |
@@ -25,7 +25,7 @@ Extracts L2-normalized feature embeddings from 2D rendered CAD templates and sce
 
 ---
 
-## 2. Overview & Mathematical Preprocessing
+## Overview & Mathematical Preprocessing
 
 CNOS loads a 3D CAD mesh file (`.ply`, `.obj`, `.stl`), renders 2D template views across pre-computed camera poses, extracts DINOv2 feature embeddings for each template, and matches image segment proposals via cosine similarity.
 
@@ -53,7 +53,7 @@ $$
 
 ---
 
-## 3. ONNX Export Guide
+## ONNX Export Guide
 
 The export environments for CNOS submodules reside beside their `pyproject.toml` file at `src/spatialhub/models/cnos/CNOS`.
 
@@ -79,7 +79,7 @@ uv run python export_sam.py --model-type vit_h --out-encoder ./pretrained/sam_im
 
 ---
 
-## 4. SpatialHub Adapter API & Usage
+## SpatialHub Adapter API & Usage
 
 ### Usage with FastSAM Segmentor (Real-Time)
 
@@ -131,9 +131,9 @@ result.visualize_mask(save_path="cnos_sam_detection.png")
 
 ---
 
-## 5. Returned Result Data Structure
+## Returned Result Data Structure
 
-Returns a [`SegmentationResult`](../structures/overview.md#4-segmentationresult) dataclass:
+Returns a [`SegmentationResult`](../core-and-utils/structures/segmentation_result.md) dataclass:
 
 | Attribute | Type | Shape | Description |
 | :--- | :--- | :--- | :--- |

@@ -1,10 +1,10 @@
-# FastSAM Technical Reference
+﻿# FastSAM Technical Reference
 
 `spatialhub.models.fastsam` provides an ONNX Runtime adapter for **FastSAM (YOLOv8-Seg)**, performing real-time instance segmentation and mask proposal generation.
 
 ---
 
-## 1. Supported Model Variants
+## Supported Model Variants
 
 `FastSAMAdapter` supports 2 YOLOv8-Seg model variants via `model_variant`:
 
@@ -15,7 +15,7 @@
 
 ---
 
-## 2. Overview & Mathematical Preprocessing
+## Overview & Mathematical Preprocessing
 
 FastSAM decodes bounding boxes, confidence scores, and prototype mask coefficient matrices from a YOLOv8-Seg ONNX graph output tensor of shape $(1, 37, 8400)$ and prototype tensor of shape $(1, 32, 160, 160)$.
 
@@ -41,7 +41,7 @@ $$
 
 ---
 
-## 3. ONNX Export Guide
+## ONNX Export Guide
 
 The export environment for FastSAM sits beside its `pyproject.toml` file at `src/spatialhub/models/fastsam/FastSAM`.
 
@@ -65,7 +65,7 @@ uv run python export_onnx.py \
 
 ---
 
-## 4. SpatialHub Adapter API & Usage
+## SpatialHub Adapter API & Usage
 
 ```python
 from spatialhub import FastSAM
@@ -85,9 +85,9 @@ result.visualize_mask(save_path="fastsam_masks.png")
 
 ---
 
-## 5. Returned Result Data Structure
+## Returned Result Data Structure
 
-Returns a [`SegmentationResult`](../structures/overview.md#4-segmentationresult) dataclass:
+Returns a [`SegmentationResult`](../core-and-utils/structures/segmentation_result.md) dataclass:
 
 | Attribute | Type | Shape | Description |
 | :--- | :--- | :--- | :--- |

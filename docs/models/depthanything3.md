@@ -1,14 +1,14 @@
-# Depth Anything 3 Technical Reference
+﻿# Depth Anything 3 Technical Reference
 
 `spatialhub.models.depth_anything_3` provides an ONNX Runtime adapter for **Depth Anything 3 (DA3)**, supporting monocular relative and metric depth estimation, multi-view camera pose alignment, and nested dual-model stitching.
 
 ---
 
-## 1. Supported Model Presets & Series
+## Supported Model Presets & Series
 
 `DepthAnything3Adapter` supports 4 categories of model presets via `model_name`:
 
-### 🌟 DA3 Main Series (Monocular & Multi-View Geometry)
+### ðŸŒŸ DA3 Main Series (Monocular & Multi-View Geometry)
 Flagship foundation models trained with a unified depth-ray representation for monocular depth, multi-view depth, and camera pose estimation:
 
 | Preset Name (`model_name`) | ONNX File | Model Architecture | Description |
@@ -18,21 +18,21 @@ Flagship foundation models trained with a unified depth-ray representation for m
 | `"da3_large"` | `da3_large.onnx` | DINO Large Backbone | High-accuracy foundation model for 3D reconstruction. |
 | `"da3_giant"` | `da3_giant.onnx` | DINO Giant Backbone | Flagship model with maximum visual geometry resolution. |
 
-### 📐 DA3 Metric Series (Real-World Physical Scale)
+### ðŸ“ DA3 Metric Series (Real-World Physical Scale)
 Specialized models fine-tuned for physical scale estimation (depth output measured in meters):
 
 | Preset Name (`model_name`) | ONNX File | Description |
 | :--- | :--- | :--- |
 | `"da3_metric_large"` | `da3_mono_large.onnx` | Predicts monocular depth in physical metric scale (meters). |
 
-### 🔍 DA3 Monocular Series (High-Precision Relative Depth)
+### ðŸ” DA3 Monocular Series (High-Precision Relative Depth)
 Dedicated models for high-quality relative monocular depth without disparity distortion:
 
 | Preset Name (`model_name`) | ONNX File | Description |
 | :--- | :--- | :--- |
 | `"da3_mono_large"` | `da3_mono_large.onnx` | High-precision relative monocular depth estimation. |
 
-### 🔗 DA3 Nested Dual-Model Series (Detail + Metric Scale)
+### ðŸ”— DA3 Nested Dual-Model Series (Detail + Metric Scale)
 Combines high-resolution geometric detail of any-view Giant with physical metric scale of Metric Large via least-squares scale-and-shift alignment (`align_nested_depth_np`):
 
 ```python
@@ -42,7 +42,7 @@ estimator = DepthAnything3(model_name=["da3_giant", "da3_metric_large"])
 
 ---
 
-## 2. Overview & Mathematical Preprocessing
+## Overview & Mathematical Preprocessing
 
 Depth Anything 3 processes input image batches of shape $(B, N, 3, H, W)$ where $B=1$ and $N$ represents the view count.
 
@@ -60,7 +60,7 @@ $$
 
 ---
 
-## 3. ONNX Export Guide
+## ONNX Export Guide
 
 The export environment for Depth Anything 3 resides beside its `pyproject.toml` file at `src/spatialhub/models/depth_anything_3/DepthAnything3`.
 
@@ -86,7 +86,7 @@ uv run python export_onnx.py \
 
 ---
 
-## 4. SpatialHub Adapter API & Usage
+## SpatialHub Adapter API & Usage
 
 ```python
 import cv2
@@ -108,9 +108,9 @@ cv2.imwrite("depth_view1.png", cv2.cvtColor(colorized_depth, cv2.COLOR_RGB2BGR))
 
 ---
 
-## 5. Returned Result Data Structure
+## Returned Result Data Structure
 
-Returns a [`DepthPredictionResult`](../structures/overview.md#2-depthpredictionresult) dataclass:
+Returns a [`DepthPredictionResult`](../core-and-utils/structures/depth_prediction_result.md) dataclass:
 
 | Attribute | Type | Shape | Description |
 | :--- | :--- | :--- | :--- |

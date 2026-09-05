@@ -1,10 +1,10 @@
-# EfficientLoFTR Technical Reference
+﻿# EfficientLoFTR Technical Reference
 
 `spatialhub.models.efficient_loftr` provides an ONNX Runtime adapter for **EfficientLoFTR**, a semi-dense local feature matching model using sparse transformers.
 
 ---
 
-## 1. Supported Model Variants
+## Supported Model Variants
 
 The `EfficientLoFTRAdapter` accepts two model precision variants via `model_type`:
 
@@ -15,7 +15,7 @@ The `EfficientLoFTRAdapter` accepts two model precision variants via `model_type
 
 ---
 
-## 2. Overview & Mathematical Preprocessing
+## Overview & Mathematical Preprocessing
 
 EfficientLoFTR matches coarse-to-fine keypoints across image pairs without requiring PyTorch during inference. Preprocessing scales inputs dynamically to spatial dimensions divisible by 32, pads image pairs to matching spatial shapes, and projects keypoints back to original coordinate spaces.
 
@@ -53,7 +53,7 @@ $$
 
 ---
 
-## 3. ONNX Export Guide
+## ONNX Export Guide
 
 The export environment for EfficientLoFTR sits beside its `pyproject.toml` file at `src/spatialhub/models/efficient_loftr`.
 
@@ -76,7 +76,7 @@ uv run python export_onnx.py \
 
 ---
 
-## 4. SpatialHub Adapter API & Usage
+## SpatialHub Adapter API & Usage
 
 ```python
 from spatialhub import EfficientLoFTR
@@ -96,9 +96,9 @@ result.visualize(top_k=50, save_path="matches.png")
 
 ---
 
-## 5. Returned Result Data Structure
+## Returned Result Data Structure
 
-Returns a [`MatchResult`](../structures/overview.md#1-matchresult) dataclass:
+Returns a [`MatchResult`](../core-and-utils/structures/match_result.md) dataclass:
 
 | Attribute | Type | Shape | Description |
 | :--- | :--- | :--- | :--- |

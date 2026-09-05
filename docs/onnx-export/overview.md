@@ -1,4 +1,4 @@
-# Reproducible ONNX Export Guide
+﻿# ONNX Export Workflow
 
 Each model architecture in SpatialHub resides in an isolated submodule directory under `src/spatialhub/models/<model_name>/` containing its own `pyproject.toml` environment configuration. This design allows users to modify PyTorch source code, re-train models, or re-export custom ONNX graphs without polluting the lightweight runtime environment of `spatialhub`.
 
@@ -37,9 +37,9 @@ src/spatialhub/models/
 
 ---
 
-## General ONNX Export Workflow
+## General Export Procedure
 
-### Step 1: Navigate to the Target Submodule Directory
+### Navigate to Target Submodule Directory
 Each model's export scripts and source code sit in its submodule folder beside its `pyproject.toml` file.
 
 ```bash
@@ -48,17 +48,17 @@ cd src/spatialhub/models/<model_name>/
 cd src/spatialhub/models/<model_name>/<SubmoduleName>/
 ```
 
-### Step 2: Synchronize Virtual Environment
+### Synchronize Virtual Environment
 Use `uv` (or `pip`) to install the PyTorch export dependencies specified in that submodule's `pyproject.toml`:
 
 ```bash
 uv sync
 ```
 
-### Step 3: Modify PyTorch Source Code (Optional)
+### Modify PyTorch Source Code (Optional)
 Modify PyTorch model layers, loss functions, attention operators, or forward pass wrappers inside the submodule's `src/` directory if custom behavior or alternative dynamic axes are required.
 
-### Step 4: Execute Export Script
+### Execute Export Script
 Run the submodule's `export_onnx.py` script. The export script loads PyTorch weights, traces the forward graph, applies dynamic axis rules, serializes the `.onnx` binary file, and performs ONNX checker validation.
 
 ```bash

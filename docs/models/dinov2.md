@@ -1,10 +1,10 @@
-# DINOv2 Technical Reference
+﻿# DINOv2 Technical Reference
 
 `spatialhub.models.dinov2` provides an ONNX Runtime adapter for **DINOv2**, extracting global L2-normalized CLS token feature embeddings from images.
 
 ---
 
-## 1. Supported Model Variants
+## Supported Model Variants
 
 `DINOv2Adapter` supports 4 Vision Transformer backbone variants via `model_variant`:
 
@@ -17,7 +17,7 @@
 
 ---
 
-## 2. Overview & Mathematical Preprocessing
+## Overview & Mathematical Preprocessing
 
 DINOv2 accepts RGB image inputs, crops/resizes them to a fixed spatial resolution of $224 \times 224$, normalizes channels using ImageNet mean and standard deviation, and outputs feature vector embeddings.
 
@@ -41,7 +41,7 @@ $$
 
 ---
 
-## 3. ONNX Export Guide
+## ONNX Export Guide
 
 The export environment for DINOv2 sits beside its `pyproject.toml` file at `src/spatialhub/models/dinov2/DINOv2`.
 
@@ -63,7 +63,7 @@ uv run python export_onnx.py \
 
 ---
 
-## 4. SpatialHub Adapter API & Usage
+## SpatialHub Adapter API & Usage
 
 ```python
 from spatialhub import DINOV2
@@ -83,9 +83,9 @@ print("Is L2 normalized:", result.l2_normalized) # True
 
 ---
 
-## 5. Returned Result Data Structure
+## Returned Result Data Structure
 
-Returns a [`FeatureExtractionResult`](../structures/overview.md#3-featureextractionresult) dataclass:
+Returns a [`FeatureExtractionResult`](../core-and-utils/structures/feature_extraction_result.md) dataclass:
 
 | Attribute | Type | Shape | Description |
 | :--- | :--- | :--- | :--- |

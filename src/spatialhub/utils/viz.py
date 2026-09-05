@@ -1,8 +1,9 @@
-import cv2
-import numpy as np
+from __future__ import annotations
+
 from pathlib import Path
 
-from typing import Union
+import cv2
+import numpy as np
 
 from .image import load_image
 
@@ -99,7 +100,7 @@ def visualize_matches(img0_input: str | Path | np.ndarray,
 
     return vis
 
-def visualize_masks(image, boxes, masks, scores, save_path: Union[str, Path, None] = None, alpha: float = 0.4) -> np.ndarray:
+def visualize_masks(image: np.ndarray, boxes: np.ndarray, masks: np.ndarray, scores: np.ndarray, save_path: str | Path | None = None, alpha: float = 0.4) -> np.ndarray:
     num_dets = len(boxes)
     if num_dets == 0:
         return image.copy()
@@ -143,3 +144,87 @@ def visualize_masks(image, boxes, masks, scores, save_path: Union[str, Path, Non
         cv2.imwrite(str(save_path), cv2.cvtColor(vis_img, cv2.COLOR_RGB2BGR))
 
     return vis_img
+
+def draw_projected_3d_box(
+    image: np.ndarray,
+    pose: np.ndarray,
+    intrinsics: np.ndarray,
+    bbox_corners_3d: np.ndarray,
+    color: tuple[int, int, int] = (0, 255, 0),
+    thickness: int = 2,
+) -> np.ndarray:
+    """
+    Projects 3D bounding box corners into 2D pixel coordinates and draws the wireframe.
+    
+    Args:
+        image: RGB image of shape (H, W, 3) in uint8.
+        pose: 4x4 object-to-camera transformation matrix.
+        intrinsics: 3x3 camera intrinsic matrix.
+        bbox_corners_3d: 3D box corners of shape (8, 3) in object coordinate space.
+    """
+    img = image.copy()
+    
+    # Transform 3D corners to camera space: (8, 3)
+    corners_cam = (pose[:3, :3] @ bbox_corners_3d.T + pose[:3, 3:4]).T
+    
+    # Clip points behind camera
+    if np.any(corners_cam[:, 2] <= 0):
+        return img
+        
+    # Project to pixel space
+    pts_2d = (intrinsics @ corners_cam.T).T
+    pts_2d = (pts_2d[:, :2] / pts_2d[:, 2:3]).astype(int)
+
+    # 12 bounding box edges
+    edges = [
+        (0, 1), (1, 2), (2, 3), (3, 0),  # Bottom face
+        (4, 5), (5, 6), (6, 7), (7, 4),  # Top face
+        (0, 4), (1, 5), (2, 6), (3, 7)   # Vertical pillars
+    ]
+    
+    for start_idx, end_idx in edges:
+        p1 = tuple(pts_2d[start_idx])
+        p2 = tuple(pts_2d[end_idx])
+        cv2.line(img, p1, p2, color, thickness, cv2.LINE_AA)
+        
+    return img
+
+def draw_3d_axis(
+    image: np.ndarray,
+    pose: np.ndarray,
+    intrinsics: np.ndarray,
+    to_origin: np.ndarray | None = None,
+    axis_length: float = 0.05,
+    thickness: int = 2,
+) -> np.ndarray:
+    """Draws 3D XYZ coordinate axes at the object's origin (X: Red, Y: Green, Z: Blue)."""
+    img = image.copy()
+    
+    # Canonical axis endpoints (origin, +X, +Y, +Z)
+    axes_3d = np.array([
+        [0.0, 0.0, 0.0],
+        [axis_length, 0.0, 0.0],  # X
+        [0.0, axis_length, 0.0],  # Y
+        [0.0, 0.0, axis_length],  # Z
+    ], dtype=np.float32)
+
+    # Apply inverse of to_origin transform if provided, otherwise assume native mesh origin
+    pose = pose @ np.linalg.inv(to_origin) if to_origin is not None else pose
+    
+    # Transform to camera space
+    axes_cam = (pose[:3, :3] @ axes_3d.T + pose[:3, 3:4]).T
+    if np.any(axes_cam[:, 2] <= 0):
+        return img
+        
+    # Project to 2D
+    pts_2d = (intrinsics @ axes_cam.T).T
+    pts_2d = (pts_2d[:, :2] / pts_2d[:, 2:3]).astype(int)
+    
+    origin = tuple(pts_2d[0])
+    colors = [(0, 0, 255), (0, 255, 0), (255, 0, 0)]  # R, G, B in BGR/RGB
+    
+    for i in range(3):
+        cv2.line(img, origin, tuple(pts_2d[i + 1]), colors[i], thickness, cv2.LINE_AA)
+        
+    return img
+

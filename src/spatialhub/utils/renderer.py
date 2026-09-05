@@ -1,5 +1,5 @@
 """
-Utilities for rendering 3D meshes with Trimesh and Pyrender.
+Utilities for rendering 3D CAD mesh templates and scene projections.
 """
 
 from __future__ import annotations
@@ -10,9 +10,10 @@ import os
 import cv2
 import sys
 from pathlib import Path
-from typing import Union, Optional, Tuple, Dict, Any, List
+from typing import Any
 
 import numpy as np
+from .mesh import load_mesh
 
 # Configure headless EGL platform for Linux before OpenGL is loaded
 if sys.platform != "win32":
@@ -64,25 +65,6 @@ def _check_dependencies():
             "Rendering functionality requires optional rendering dependencies. "
             "Install them with: uv sync --extra render (or pip install 'spatialhub[render]')"
         )
-
-def to_single_mesh(scene_or_mesh: Any) -> trimesh.Trimesh:
-    """Convert a Trimesh scene or mesh into a single mesh."""
-
-    _check_dependencies()
-
-    if isinstance(scene_or_mesh, trimesh.Scene):
-        if len(scene_or_mesh.geometry) == 0:
-            raise ValueError("The loaded trimesh Scene is empty.")
-        # Concatenate geometries
-        mesh = scene_or_mesh.dump(concatenate=True)
-        if isinstance(mesh, list):
-            mesh = trimesh.util.concatenate(mesh)
-        return mesh
-
-    if isinstance(scene_or_mesh, trimesh.Trimesh):
-        return scene_or_mesh
-
-    raise TypeError(f"Expected trimesh.Trimesh or trimesh.Scene, got {type(scene_or_mesh)}")
 
 def look_at(cam_location: np.ndarray, target_point: np.ndarray) -> np.ndarray:
     """Calculates camera-to-world 4x4 transform pointing camera at target_point from cam_location."""
@@ -192,11 +174,11 @@ class TemplateRenderer:
     def __init__(
         self,
         model_path: str,
-        model_unit: Union[str, float] = "m",
-        ambient_light: Optional[Tuple[float, float, float, float]] = (1.0, 1.0, 1.0, 1.0),
-        light_color: Tuple[float, float, float] = (1.0, 1.0, 1.0),
+        model_unit: str | float = "m",
+        ambient_light: tuple[float, float, float, float] | None = (1.0, 1.0, 1.0, 1.0),
+        light_color: tuple[float, float, float] = (1.0, 1.0, 1.0),
         light_intensity: float = 1.0,
-        bg_color: Tuple[float, float, float, float] = (0.0, 0.0, 0.0, 0.0)
+        bg_color: tuple[float, float, float, float] = (0.0, 0.0, 0.0, 0.0)
     ):
         """
         Initialize the renderer and its lighting settings.
@@ -217,50 +199,16 @@ class TemplateRenderer:
         self.light_intensity = light_intensity
         self.bg_color = np.array(bg_color, dtype=np.float32)
 
-    def load_mesh(self, mesh_input: str | Path | trimesh.Trimesh, model_unit: str | float = "m",) -> trimesh.Trimesh:
-        """
-        Load a mesh, convert it to meters, and center it at the origin.
-        """
-
-        _check_dependencies()
-        
-        # Load mesh if string or Path
-        if isinstance(mesh_input, (str, Path)):
-            loaded = trimesh.load_mesh(str(mesh_input))
-            mesh = to_single_mesh(loaded)
-        else:
-            mesh = to_single_mesh(mesh_input).copy()
-
-        # Handle unit conversion scale factor
-        if isinstance(model_unit, (int, float)):
-            scale_factor = float(model_unit)
-        elif isinstance(model_unit, str):
-            unit_map = {"m": 1.0, "cm": 0.01, "mm": 0.001}
-            scale_factor = unit_map.get(model_unit.lower().strip(), 1.0)
-        else:
-            raise TypeError("mesh_unit must be a string or a numeric scale factor.")
-
-        if scale_factor != 1.0:
-            mesh.apply_scale(scale_factor)
-            logger.info(f"Scaled CAD mesh by factor {scale_factor} to convert to meters.")
-
-        # Center the mesh bounding box at (0, 0, 0)
-        bbox_center = mesh.bounding_box.centroid
-        mesh.apply_translation(-bbox_center)
-        logger.info(f"Centered mesh at origin (offset applied: {-bbox_center}).")
-
-        return mesh
-
     def render_templates(self, 
                          width: int,
                          height: int,
-                         intrinsics: np.ndarray | List[float],
-                         poses: str | Path | np.ndarray = None,
+                         intrinsics: np.ndarray | list[float],
+                         poses: str | Path | np.ndarray | None = None,
                          pose_unit: str | float = "mm",
-                         pose_type: str = None,
+                         pose_type: str | None = None,
                          num_viewpoints: int = 42,
                          radius: float = 0.4,
-                         ) -> List[Dict[str, np.ndarray]]:
+                         ) -> list[dict[str, np.ndarray]]:
         """
         Render RGB and depth templates of the CAD model from multiple viewpoints.
 
@@ -301,7 +249,7 @@ class TemplateRenderer:
             raise ValueError("Intrinsics must be a 3x3 camera matrix or a sequence of [fx, fy, cx, cy]")
 
         # Load model
-        mesh = self.load_mesh(self.model_path, self.model_unit)
+        mesh = load_mesh(self.model_path, self.model_unit, center=True)
 
         # Get view attributes
         view_poses, pose_type = self._get_view_attribute(poses, pose_unit, pose_type, radius, num_viewpoints)
@@ -362,7 +310,7 @@ class TemplateRenderer:
 
         return templates
 
-    def save(self, results: List[Dict[str, np.ndarray]], output_dir: Union[str, Path], save_scene=True, save_depth=False) -> Tuple[List[Path], List[Path]]:
+    def save(self, results: list[dict[str, np.ndarray]], output_dir: str | Path, save_scene: bool = True, save_depth: bool = False) -> tuple[list[Path], list[Path]]:
         """
         Save rendered RGBA images and/or depth maps to disk.
 

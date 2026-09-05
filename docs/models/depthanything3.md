@@ -1,4 +1,4 @@
-﻿# Depth Anything 3 Technical Reference
+# Depth Anything 3 Technical Reference
 
 `spatialhub.models.depth_anything_3` provides an ONNX Runtime adapter for **Depth Anything 3 (DA3)**, supporting monocular relative and metric depth estimation, multi-view camera pose alignment, and nested dual-model stitching.
 
@@ -8,7 +8,7 @@
 
 `DepthAnything3Adapter` supports 4 categories of model presets via `model_name`:
 
-### ðŸŒŸ DA3 Main Series (Monocular & Multi-View Geometry)
+### DA3 Main Series (Monocular & Multi-View Geometry)
 Flagship foundation models trained with a unified depth-ray representation for monocular depth, multi-view depth, and camera pose estimation:
 
 | Preset Name (`model_name`) | ONNX File | Model Architecture | Description |
@@ -18,21 +18,21 @@ Flagship foundation models trained with a unified depth-ray representation for m
 | `"da3_large"` | `da3_large.onnx` | DINO Large Backbone | High-accuracy foundation model for 3D reconstruction. |
 | `"da3_giant"` | `da3_giant.onnx` | DINO Giant Backbone | Flagship model with maximum visual geometry resolution. |
 
-### ðŸ“ DA3 Metric Series (Real-World Physical Scale)
+### DA3 Metric Series (Real-World Physical Scale)
 Specialized models fine-tuned for physical scale estimation (depth output measured in meters):
 
 | Preset Name (`model_name`) | ONNX File | Description |
 | :--- | :--- | :--- |
 | `"da3_metric_large"` | `da3_mono_large.onnx` | Predicts monocular depth in physical metric scale (meters). |
 
-### ðŸ” DA3 Monocular Series (High-Precision Relative Depth)
+### DA3 Monocular Series (High-Precision Relative Depth)
 Dedicated models for high-quality relative monocular depth without disparity distortion:
 
 | Preset Name (`model_name`) | ONNX File | Description |
 | :--- | :--- | :--- |
 | `"da3_mono_large"` | `da3_mono_large.onnx` | High-precision relative monocular depth estimation. |
 
-### ðŸ”— DA3 Nested Dual-Model Series (Detail + Metric Scale)
+### DA3 Nested Dual-Model Series (Detail + Metric Scale)
 Combines high-resolution geometric detail of any-view Giant with physical metric scale of Metric Large via least-squares scale-and-shift alignment (`align_nested_depth_np`):
 
 ```python

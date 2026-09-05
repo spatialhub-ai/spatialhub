@@ -8,7 +8,7 @@
 
 `DepthAnything3Adapter` supports 4 categories of model presets via `model_name`:
 
-### 🌟 DA3 Main Series (Monocular & Multi-View Geometry)
+### DA3 Main Series (Monocular & Multi-View Geometry)
 Flagship foundation models trained with a unified depth-ray representation for monocular depth, multi-view depth, and camera pose estimation:
 
 | Preset Name (`model_name`) | ONNX File | Model Architecture | Description |
@@ -18,21 +18,21 @@ Flagship foundation models trained with a unified depth-ray representation for m
 | `"da3_large"` | `da3_large.onnx` | DINO Large Backbone | High-accuracy foundation model for 3D reconstruction. |
 | `"da3_giant"` | `da3_giant.onnx` | DINO Giant Backbone | Flagship model with maximum visual geometry resolution. |
 
-### 📐 DA3 Metric Series (Real-World Physical Scale)
+### DA3 Metric Series (Real-World Physical Scale)
 Specialized models fine-tuned for physical scale estimation (depth output measured in meters):
 
 | Preset Name (`model_name`) | ONNX File | Description |
 | :--- | :--- | :--- |
 | `"da3_metric_large"` | `da3_mono_large.onnx` | Predicts monocular depth in physical metric scale (meters). |
 
-### 🔍 DA3 Monocular Series (High-Precision Relative Depth)
+### DA3 Monocular Series (High-Precision Relative Depth)
 Dedicated models for high-quality relative monocular depth without disparity distortion:
 
 | Preset Name (`model_name`) | ONNX File | Description |
 | :--- | :--- | :--- |
 | `"da3_mono_large"` | `da3_mono_large.onnx` | High-precision relative monocular depth estimation. |
 
-### 🔗 DA3 Nested Dual-Model Series (Detail + Metric Scale)
+### DA3 Nested Dual-Model Series (Detail + Metric Scale)
 Combines high-resolution geometric detail of any-view Giant with physical metric scale of Metric Large via least-squares scale-and-shift alignment (`align_nested_depth_np`):
 
 ```python
@@ -110,7 +110,7 @@ cv2.imwrite("depth_view1.png", cv2.cvtColor(colorized_depth, cv2.COLOR_RGB2BGR))
 
 ## 5. Returned Result Data Structure
 
-Returns a [`DepthPredictionResult`](../../docs/structures/overview.md#2-depthpredictionresult) dataclass:
+Returns a [`DepthPredictionResult`](../../../../docs/core-and-utils/structures/depth_prediction_result.md) dataclass:
 
 | Attribute | Type | Shape | Description |
 | :--- | :--- | :--- | :--- |

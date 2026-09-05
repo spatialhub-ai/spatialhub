@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "spatialhub"
-version = "0.1.4"
-description = "A lightweight, PyTorch-free spatial computing and feature matching library."
+version = "0.1.5"
+description = "High-performance, zero-PyTorch spatial AI and perception library with unified ONNX Runtime inference."
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "Apache-2.0" }
@@ -20,7 +20,8 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/spatialhub-ai/spatialhub"
+Homepage = "https://spatialhub-ai.github.io/spatialhub/"
+Documentation = "https://spatialhub-ai.github.io/spatialhub/"
 Repository = "https://github.com/spatialhub-ai/spatialhub.git"
 
 [project.optional-dependencies]
@@ -34,6 +35,66 @@ render = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/spatialhub"]
+exclude = [
+  "**/demo_data",
+  "**/demo_data/**",
+  "**/debug",
+  "**/debug/**",
+  "**/data",
+  "**/data/**",
+  "**/weights",
+  "**/weights/**",
+  "**/media/**",
+  "**/logs",
+  "**/logs/**",
+  "**/out",
+  "**/outputs/**",
+  "**/out/**",
+  "*.ckpt",
+  "*.onnx",
+  "*.onnx.data",
+  "*.pt",
+  "*.pth",
+  "*.bin",
+  "*.jpg",
+  "*.jpeg",
+  "*.png",
+  "*.mp4",
+  "*.gif",
+  "*.zip",
+  "*.tar",
+  "*.tar.gz"
+]
+
+[tool.hatch.build.targets.sdist]
+exclude = [
+  "**/demo_data",
+  "**/demo_data/**",
+  "**/debug",
+  "**/debug/**",
+  "**/data",
+  "**/data/**",
+  "**/weights",
+  "**/weights/**",
+  "**/logs",
+  "**/logs/**",
+  "**/out",
+  "**/out/**",
+  "*.ckpt",
+  "*.onnx",
+  "*.onnx.data",
+  "*.pt",
+  "*.pth",
+  "*.bin",
+  "*.jpg",
+  "*.jpeg",
+  "*.png",
+  "*.mp4",
+  "*.gif",
+  "*.zip",
+  "*.tar",
+  "*.tar.gz"
+]
 
 [tool.uv.workspace]
 exclude = [
@@ -48,22 +109,6 @@ exclude = [
 
 [tool.setuptools.package-data]
 "spatialhub.models.cnos" = ["assets/*.npy"]
-
-[tool.hatch.build]
-exclude = [
-  "**/data/",
-  "**/weights/",
-  "*.ckpt",
-  "*.onnx",
-  "*.onnx.data",
-  "*.pt",
-  "*.pth",
-  "*.bin",
-  "*.jpg",
-  "*.png",
-  "*.mp4",
-  "*.gif"
-]
 
 [dependency-groups]
 dev = [

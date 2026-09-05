@@ -4,3 +4,6 @@
 [submodule "src/spatialhub/models/cnos/CNOS"]
 	path = src/spatialhub/models/cnos/CNOS
 	url = https://github.com/spatialhub-ai/CNOS.git
+[submodule "src/spatialhub/models/foundationpose/FoundationPose"]
+	path = src/spatialhub/models/foundationpose/FoundationPose
+	url = https://github.com/spatialhub-ai/FoundationPose.git

@@ -5,7 +5,7 @@
 	path = upstream/cnos
 	url = https://github.com/spatialhub-ai/CNOS.git
 [submodule "src/spatialhub/models/foundationpose/FoundationPose"]
-	path = src/spatialhub/models/foundationpose/FoundationPose
+	path = upstream/foundationpose
 	url = https://github.com/spatialhub-ai/FoundationPose.git
 [submodule "upstream/efficient_loftr"]
 	path = upstream/efficient_loftr

@@ -99,7 +99,7 @@ exclude = [
 [tool.uv.workspace]
 exclude = [
     "third_party/Efficient_LoFTR",
-    "src/spatialhub/models/depth_anything_3/DepthAnything3",
+    "third_party/depth_anything_3",
     "src/spatialhub/models/cnos/CNOS",
     "src/spatialhub/models/dinov2/DINOv2",
     "src/spatialhub/models/fastsam/FastSAM",

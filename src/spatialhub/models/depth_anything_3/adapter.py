@@ -7,8 +7,8 @@ import onnxruntime as ort
 from spatialhub.core.runtime import create_ort_session, resolve_model_path
 from spatialhub.structures import DepthPredictionResult
 
-from .DepthAnything3 import (
-    InputProcessor,
+from .input_processor import InputProcessor
+from .utils import (
     align_nested_depth_np,
     align_poses_umeyama,
     normalize_extrinsics,

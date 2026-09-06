@@ -7,3 +7,6 @@
 [submodule "src/spatialhub/models/foundationpose/FoundationPose"]
 	path = src/spatialhub/models/foundationpose/FoundationPose
 	url = https://github.com/spatialhub-ai/FoundationPose.git
+[submodule "third_party/efficient_loftr"]
+	path = third_party/efficient_loftr
+	url = https://github.com/spatialhub-ai/EfficientLoFTR.git

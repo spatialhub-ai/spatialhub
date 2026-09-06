@@ -1,4 +1,4 @@
-﻿# CNOS (CAD-based Novel Object Segmentation) Technical Reference
+# CNOS (CAD-based Novel Object Segmentation) Technical Reference
 
 `spatialhub.models.cnos` provides an ONNX Runtime adapter for **CNOS**, executing CAD mesh template rendering, DINOv2 feature extraction, FastSAM/SAM proposal segmenting, and cosine similarity matching for zero-shot object detection.
 
@@ -55,26 +55,17 @@ $$
 
 ## ONNX Export Guide
 
-The export environments for CNOS submodules reside beside their `pyproject.toml` file at `src/spatialhub/models/cnos/CNOS`.
-
-### Environment Setup
+CNOS is an orchestration pipeline combining **DINOv2** for template feature extraction with **FastSAM** or **SAM** for mask proposal generation. To export the required ONNX models, use the centralized export utilities in `tools/export/`:
 
 ```bash
-cd src/spatialhub/models/cnos/CNOS
-uv sync
-```
+# Export DINOv2 descriptor model
+uv run tools/export/export_dinov2.py --model-name dinov2_vitl14 --output-folder ./weights
 
-### Running Sub-Module Export Scripts
+# Export FastSAM segmentor model (recommended for real-time)
+uv run tools/export/export_fastsam.py --checkpoint FastSAM-x.pt --output-folder ./weights --imgsz 640
 
-```bash
-# Export DINOv2 descriptor sub-model
-uv run python export_dinov2.py --model-name dinov2_vitl14 --output-folder ./pretrained
-
-# Export FastSAM segmentor sub-model
-uv run python export_fastsam.py --checkpoint FastSAM-x.pt --output-folder ./pretrained
-
-# Export SAM segmentor sub-model
-uv run python export_sam.py --model-type vit_h --out-encoder ./pretrained/sam_image_encoder.onnx --out-decoder ./pretrained/sam_mask_decoder.onnx
+# (Optional) Export SAM segmentor model (for high precision)
+uv run tools/export/export_sam.py --model-type vit_h --out-encoder ./weights/sam_image_encoder.onnx --out-decoder ./weights/sam_mask_decoder.onnx
 ```
 
 ---

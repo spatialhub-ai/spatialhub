@@ -1,4 +1,4 @@
-﻿# FastSAM Technical Reference
+# FastSAM Technical Reference
 
 `spatialhub.models.fastsam` provides an ONNX Runtime adapter for **FastSAM (YOLOv8-Seg)**, performing real-time instance segmentation and mask proposal generation.
 
@@ -43,21 +43,12 @@ $$
 
 ## ONNX Export Guide
 
-The export environment for FastSAM sits beside its `pyproject.toml` file at `src/spatialhub/models/fastsam/FastSAM`.
-
-### Environment Setup
+Export FastSAM models to ONNX format using the centralized export utility:
 
 ```bash
-cd src/spatialhub/models/fastsam/FastSAM
-uv sync
-```
-
-### Running Export Script
-
-```bash
-uv run python export_onnx.py \
+uv run tools/export/export_fastsam.py \
     --checkpoint FastSAM-x.pt \
-    --output-folder ./onnx_model \
+    --output-folder ./weights \
     --imgsz 640 \
     --opset 17 \
     --dynamic

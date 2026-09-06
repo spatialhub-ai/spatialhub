@@ -1,4 +1,4 @@
-﻿# Segment Anything Model (SAM) Technical Reference
+# Segment Anything Model (SAM) Technical Reference
 
 `spatialhub.models.sam` provides an ONNX Runtime adapter for **Segment Anything Model (SAM)**, running Automatic Mask Generation (AMG) via decoupled Image Encoder and Mask Decoder ONNX sessions.
 
@@ -46,22 +46,13 @@ $$
 
 ## ONNX Export Guide
 
-The export environment for SAM sits beside its `pyproject.toml` file at `src/spatialhub/models/sam/SAM`.
-
-### Environment Setup
+Export Segment Anything (SAM) image encoder and mask decoder models to ONNX format using the centralized export utility:
 
 ```bash
-cd src/spatialhub/models/sam/SAM
-uv sync
-```
-
-### Running Export Script
-
-```bash
-uv run python export_onnx.py \
+uv run tools/export/export_sam.py \
     --model-type vit_h \
-    --out-encoder ./onnx_model/sam_image_encoder.onnx \
-    --out-decoder ./onnx_model/sam_mask_decoder.onnx \
+    --out-encoder ./weights/sam_image_encoder.onnx \
+    --out-decoder ./weights/sam_mask_decoder.onnx \
     --opset 17
 ```
 

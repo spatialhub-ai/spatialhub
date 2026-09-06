@@ -55,19 +55,10 @@ $$
 
 ## 3. ONNX Export Guide
 
-The export environment for EfficientLoFTR sits beside its `pyproject.toml` file at `src/spatialhub/models/efficient_loftr`.
-
-### Environment Setup
+Export EfficientLoFTR PyTorch checkpoints to ONNX format using the centralized export utility:
 
 ```bash
-cd src/spatialhub/models/efficient_loftr
-uv sync
-```
-
-### Running Export Script
-
-```bash
-uv run python export_onnx.py \
+uv run tools/export/export_efficient_loftr.py \
     --checkpoint weights/eloftr_outdoor.ckpt \
     --output-path weights/eloftr_outdoor.onnx \
     --opset 17 \

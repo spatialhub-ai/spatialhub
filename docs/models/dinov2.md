@@ -1,4 +1,4 @@
-﻿# DINOv2 Technical Reference
+# DINOv2 Technical Reference
 
 `spatialhub.models.dinov2` provides an ONNX Runtime adapter for **DINOv2**, extracting global L2-normalized CLS token feature embeddings from images.
 
@@ -43,21 +43,12 @@ $$
 
 ## ONNX Export Guide
 
-The export environment for DINOv2 sits beside its `pyproject.toml` file at `src/spatialhub/models/dinov2/DINOv2`.
-
-### Environment Setup
+Export DINOv2 backbone models to ONNX format using the centralized export utility:
 
 ```bash
-cd src/spatialhub/models/dinov2/DINOv2
-uv sync
-```
-
-### Running Export Script
-
-```bash
-uv run python export_onnx.py \
+uv run tools/export/export_dinov2.py \
     --model-name dinov2_vitl14 \
-    --output-folder ./onnx_model \
+    --output-folder ./weights \
     --opset 17
 ```
 

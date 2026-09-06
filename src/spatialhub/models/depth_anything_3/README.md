@@ -62,19 +62,10 @@ $$
 
 ## 3. ONNX Export Guide
 
-The export environment for Depth Anything 3 resides beside its `pyproject.toml` file at `src/spatialhub/models/depth_anything_3/DepthAnything3`.
-
-### Environment Setup
+Export Depth Anything 3 backbone models to ONNX format using the centralized export utility:
 
 ```bash
-cd src/spatialhub/models/depth_anything_3/DepthAnything3
-uv sync
-```
-
-### Running Export Script
-
-```bash
-uv run python export_onnx.py \
+uv run tools/export/export_depth_anything_3.py \
     --model-name depth-anything/DA3-BASE \
     --onnx-path weights/da3_base.onnx \
     --device cpu \

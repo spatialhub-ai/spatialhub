@@ -94,12 +94,10 @@ seg_res.visualize_mask(save_path="fastsam_masks.png")
 
 ## Reproducible ONNX Export Workflow
 
-Each model directory under `src/spatialhub/models/<model>/` contains an isolated environment configuration and `export_onnx.py` script to re-export custom ONNX graphs:
+Standalone ONNX export utilities are located under `tools/export/` to export models using PyTorch source repositories under `upstream/`:
 
 ```bash
-cd src/spatialhub/models/efficient_loftr
-uv sync
-uv run python export_onnx.py --checkpoint weights/model.ckpt --output-path weights/model.onnx
+uv run tools/export/export_efficient_loftr.py --checkpoint weights/model.ckpt --output-path weights/model.onnx
 ```
 
 See the [Reproducible ONNX Export Guide](https://spatialhub-ai.github.io/spatialhub/onnx-export/overview/) for complete documentation.

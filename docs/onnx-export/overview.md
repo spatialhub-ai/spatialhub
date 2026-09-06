@@ -1,79 +1,66 @@
-﻿# ONNX Export Workflow
+# ONNX Export Workflow
 
-Each model architecture in SpatialHub resides in an isolated submodule directory under `src/spatialhub/models/<model_name>/` containing its own `pyproject.toml` environment configuration. This design allows users to modify PyTorch source code, re-train models, or re-export custom ONNX graphs without polluting the lightweight runtime environment of `spatialhub`.
+SpatialHub separates lightweight ONNX Runtime execution (`src/spatialhub/models/`) from standalone PyTorch export utilities (`tools/export/`) and upstream model research repositories (`upstream/`). This structure allows users to inspect or modify PyTorch architectures and export custom ONNX graphs without adding heavy deep learning dependencies to the runtime package.
 
 ---
 
-## Submodule Architecture Overview
+## Directory Architecture Overview
 
 ```text
-src/spatialhub/models/
-├── efficient_loftr/
-│   ├── pyproject.toml            # Export environment config
-│   ├── export_onnx.py            # ONNX export script
-│   └── src/                      # PyTorch source files
-├── depth_anything_3/DepthAnything3/
-│   ├── pyproject.toml            # Export environment config
-│   ├── export_onnx.py            # ONNX export script
-│   └── src/                      # PyTorch source files
-├── dinov2/DINOv2/
-│   ├── pyproject.toml            # Export environment config
-│   ├── export_onnx.py            # ONNX export script
-│   └── src/                      # PyTorch source files
-├── fastsam/FastSAM/
-│   ├── pyproject.toml            # Export environment config
-│   ├── export_onnx.py            # ONNX export script
-│   └── src/                      # PyTorch source files
-├── sam/SAM/
-│   ├── pyproject.toml            # Export environment config
-│   ├── export_onnx.py            # ONNX export script
-│   └── src/                      # PyTorch source files
-└── cnos/CNOS/
-    ├── pyproject.toml            # Export environment config
-    ├── export_dinov2.py          # DINOv2 sub-module ONNX export script
-    ├── export_fastsam.py         # FastSAM sub-module ONNX export script
-    └── export_sam.py             # SAM sub-module ONNX export script
+spatialhub/
+├── tools/export/                       # Standalone ONNX export utilities
+│   ├── export_depth_anything_3.py
+│   ├── export_efficient_loftr.py
+│   ├── export_dinov2.py
+│   ├── export_fastsam.py
+│   ├── export_sam.py
+│   └── export_foundationpose.py
+├── upstream/                           # Upstream PyTorch research submodules
+│   ├── depth_anything_3/
+│   ├── efficient_loftr/
+│   ├── cnos/
+│   └── foundationpose/
+└── src/spatialhub/models/              # Lightweight ONNX Runtime inference packages
+    ├── depth_anything_3/
+    ├── efficient_loftr/
+    ├── dinov2/
+    ├── fastsam/
+    ├── sam/
+    ├── cnos/
+    └── foundationpose/
 ```
 
 ---
 
 ## General Export Procedure
 
-### Navigate to Target Submodule Directory
-Each model's export scripts and source code sit in its submodule folder beside its `pyproject.toml` file.
+### Execute Export Script via `uv`
+
+Each export script in `tools/export/` contains inline dependency metadata (PEP 723). Run the target script directly with `uv run`, which automatically resolves isolated PyTorch dependencies and executes the export:
 
 ```bash
-cd src/spatialhub/models/<model_name>/
-# Or for nested submodules:
-cd src/spatialhub/models/<model_name>/<SubmoduleName>/
+uv run tools/export/export_<model>.py [options]
 ```
 
-### Synchronize Virtual Environment
-Use `uv` (or `pip`) to install the PyTorch export dependencies specified in that submodule's `pyproject.toml`:
+### Script Execution Flow
 
-```bash
-uv sync
-```
-
-### Modify PyTorch Source Code (Optional)
-Modify PyTorch model layers, loss functions, attention operators, or forward pass wrappers inside the submodule's `src/` directory if custom behavior or alternative dynamic axes are required.
-
-### Execute Export Script
-Run the submodule's `export_onnx.py` script. The export script loads PyTorch weights, traces the forward graph, applies dynamic axis rules, serializes the `.onnx` binary file, and performs ONNX checker validation.
-
-```bash
-uv run python export_onnx.py --checkpoint <path_to_ckpt> --output-path <destination_onnx>
-```
+1. The script initializes the model architecture from `upstream/` or standard hubs.
+2. Checkpoint weights are loaded into evaluation mode.
+3. The forward graph is traced using `torch.onnx.export` with specified dynamic axes.
+4. ONNX graph verification is performed via `onnx.checker.check_model`.
+5. The exported `.onnx` file is written to the destination directory.
 
 ---
 
 ## Model Export Commands Summary
 
-| Model | Submodule Path | Export Command |
+| Model | Source | Export Command |
 | :--- | :--- | :--- |
-| **EfficientLoFTR** | `src/spatialhub/models/efficient_loftr` | `uv run python export_onnx.py --checkpoint weights/eloftr_outdoor.ckpt --output-path weights/eloftr_outdoor.onnx` |
-| **Depth Anything 3** | `src/spatialhub/models/depth_anything_3/DepthAnything3` | `uv run python export_onnx.py --model-name depth-anything/DA3-BASE --onnx-path weights/da3_base.onnx` |
-| **DINOv2** | `src/spatialhub/models/dinov2/DINOv2` | `uv run python export_onnx.py --model-name dinov2_vitl14 --output-folder ./onnx_model` |
-| **FastSAM** | `src/spatialhub/models/fastsam/FastSAM` | `uv run python export_onnx.py --checkpoint FastSAM-x.pt --output-folder ./onnx_model` |
-| **SAM** | `src/spatialhub/models/sam/SAM` | `uv run python export_onnx.py --model-type vit_h --out-encoder sam_image_encoder.onnx --out-decoder sam_mask_decoder.onnx` |
-| **CNOS** | `src/spatialhub/models/cnos/CNOS` | `uv run python export_dinov2.py --model-name dinov2_vitl14 --output-folder ./pretrained` |
+| **EfficientLoFTR** | `upstream/efficient_loftr` | `uv run tools/export/export_efficient_loftr.py --checkpoint weights/eloftr_outdoor.ckpt --output-path weights/eloftr_outdoor.onnx` |
+| **Depth Anything 3** | `upstream/depth_anything_3` | `uv run tools/export/export_depth_anything_3.py --model-name depth-anything/DA3-BASE --onnx-path weights/da3_base.onnx` |
+| **DINOv2** | PyTorch Hub | `uv run tools/export/export_dinov2.py --model-name dinov2_vitl14 --output-folder ./weights` |
+| **FastSAM** | Ultralytics | `uv run tools/export/export_fastsam.py --checkpoint FastSAM-x.pt --output-folder ./weights --imgsz 640` |
+| **SAM** | Segment Anything | `uv run tools/export/export_sam.py --model-type vit_h --out-encoder ./weights/sam_image_encoder.onnx --out-decoder ./weights/sam_mask_decoder.onnx` |
+| **CNOS** | Upstream / Hubs | `uv run tools/export/export_dinov2.py` & `uv run tools/export/export_fastsam.py` |
+| **FoundationPose** | `upstream/foundationpose` | `uv run tools/export/export_foundationpose.py --weights-dir ./upstream/foundationpose/weights --output-folder ./weights` |
+

@@ -1,12 +1,12 @@
-[submodule "src/spatialhub/models/depth_anything_3/DepthAnything3"]
+[submodule "upstream/depth_anything_3"]
 	path = upstream/depth_anything_3
 	url = https://github.com/spatialhub-ai/DepthAnything3.git
-[submodule "src/spatialhub/models/cnos/CNOS"]
+[submodule "upstream/cnos"]
 	path = upstream/cnos
 	url = https://github.com/spatialhub-ai/CNOS.git
 [submodule "src/spatialhub/models/foundationpose/FoundationPose"]
 	path = src/spatialhub/models/foundationpose/FoundationPose
 	url = https://github.com/spatialhub-ai/FoundationPose.git
-[submodule "third_party/efficient_loftr"]
+[submodule "upstream/efficient_loftr"]
 	path = upstream/efficient_loftr
 	url = https://github.com/spatialhub-ai/Efficient_loftr.git

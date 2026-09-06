@@ -101,7 +101,7 @@ exclude = [
     "upstream/efficient_loftr",
     "upstream/depth_anything_3",
     "upstream/cnos",
-    "src/spatialhub/models/foundationpose/FoundationPose",
+    "upstream/foundationpose",
 ]
 
 [tool.setuptools.package-data]

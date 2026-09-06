@@ -100,7 +100,7 @@ exclude = [
 exclude = [
     "upstream/efficient_loftr",
     "upstream/depth_anything_3",
-    "src/spatialhub/models/cnos/CNOS",
+    "upstream/cnos",
     "src/spatialhub/models/foundationpose/FoundationPose",
 ]
 

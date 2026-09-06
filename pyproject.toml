@@ -98,12 +98,9 @@ exclude = [
 
 [tool.uv.workspace]
 exclude = [
-    "upstream/Efficient_LoFTR",
+    "upstream/efficient_loftr",
     "upstream/depth_anything_3",
     "src/spatialhub/models/cnos/CNOS",
-    "src/spatialhub/models/dinov2/DINOv2",
-    "src/spatialhub/models/fastsam/FastSAM",
-    "src/spatialhub/models/sam/SAM",
     "src/spatialhub/models/foundationpose/FoundationPose",
 ]
 

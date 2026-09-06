@@ -2,7 +2,7 @@
 	path = upstream/depth_anything_3
 	url = https://github.com/spatialhub-ai/DepthAnything3.git
 [submodule "src/spatialhub/models/cnos/CNOS"]
-	path = src/spatialhub/models/cnos/CNOS
+	path = upstream/cnos
 	url = https://github.com/spatialhub-ai/CNOS.git
 [submodule "src/spatialhub/models/foundationpose/FoundationPose"]
 	path = src/spatialhub/models/foundationpose/FoundationPose

@@ -1,4 +1,4 @@
-﻿# FoundationPose Technical Reference
+# FoundationPose Technical Reference
 
 `spatialhub.models.foundationpose` provides an ONNX Runtime adapter for **FoundationPose**, a model-based 6D object pose estimation and tracking pipeline for novel and known objects using RGB-D observations.
 
@@ -38,7 +38,16 @@ $$\text{score}^* = \arg\max_i S_i$$
 - **Batched Rendering (`Renderer`):** Renders $N$ candidate viewpoints into multi-target G-Buffer attachments (RGBA + XYZ coordinates) in a single instanced draw call.
 - **Depth Filtering (`DepthFilter`):** Applies GPU-accelerated morphological erosion and bilateral smoothing shader passes over observed depth maps to mitigate sensor noise and edge artifacts.
 
----
+## ONNX Export Guide
+
+Export FoundationPose **RefineNet** and **ScoreNet** PyTorch models to ONNX format using the centralized export utility:
+
+```bash
+uv run tools/export/export_foundationpose.py \
+    --weights-dir ./upstream/foundationpose/weights \
+    --output-folder ./weights \
+    --opset 18
+```
 
 ## SpatialHub Adapter API & Usage
 

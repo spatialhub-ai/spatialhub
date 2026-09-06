@@ -1,3 +1,22 @@
+# /// script
+# requires-python = ">=3.10"
+# dependencies = [
+#     "torch==2.6.0",
+#     "torchvision",
+#     "onnx>=1.22.0",
+#     "onnxscript",
+#     "onnxruntime",
+#     "kornia>=0.7.0",
+#     "einops>=0.7.0",
+#     "loguru>=0.7.0",
+#     "yacs>=0.1.8",
+#     "pytorch-lightning>=2.0.0",
+#     "opencv-python",
+#     "joblib",
+#     "numpy",
+# ]
+# ///
+
 """ONNX export utility for EfficientLoFTR."""
 
 from __future__ import annotations

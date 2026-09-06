@@ -1,3 +1,28 @@
+# /// script
+# requires-python = ">=3.10"
+# dependencies = [
+#     "torch==2.10.0",
+#     "torchvision==0.25.0",
+#     "onnx>=1.22.0",
+#     "onnxscript>=0.7.1",
+#     "onnxruntime>=1.20.1",
+#     "einops>=0.8.0",
+#     "huggingface-hub>=0.20.0",
+#     "safetensors>=0.4.0",
+#     "omegaconf>=2.3.0",
+#     "moviepy==1.0.3",
+#     "plyfile>=1.1.4",
+#     "pycolmap>=4.1.0",
+#     "opencv-python",
+#     "numpy",
+#     "addict",
+#     "trimesh",
+#     "typer",
+#     "matplotlib",
+#     "evo>=1.36.5",
+# ]
+# ///
+
 import argparse
 import logging
 from pathlib import Path

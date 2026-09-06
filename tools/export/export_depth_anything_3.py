@@ -11,7 +11,7 @@ sys.modules["xformers"] = None
 sys.modules["xformers.ops"] = None
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DA3_DIR = PROJECT_ROOT / "third_party" / "depth_anything_3/src"
+DA3_DIR = PROJECT_ROOT / "upstream" / "depth_anything_3" / "src"
 if str(DA3_DIR) not in sys.path:
     # insert at index 0 so it takes precedence
     sys.path.insert(0, str(DA3_DIR))

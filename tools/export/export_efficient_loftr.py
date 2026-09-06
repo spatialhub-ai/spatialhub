@@ -12,7 +12,7 @@ import onnx
 import torch
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-EFFICIENT_LOFTR_DIR = PROJECT_ROOT / "third_party" / "efficient_loftr"
+EFFICIENT_LOFTR_DIR = PROJECT_ROOT / "upstream" / "efficient_loftr"
 if str(EFFICIENT_LOFTR_DIR) not in sys.path:
     # insert at index 0 so it takes precedence
     sys.path.insert(0, str(EFFICIENT_LOFTR_DIR))

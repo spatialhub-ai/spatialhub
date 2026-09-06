@@ -46,22 +46,13 @@ $$
 
 ## 3. ONNX Export Guide
 
-The export environment for SAM sits beside its `pyproject.toml` file at `src/spatialhub/models/sam/SAM`.
-
-### Environment Setup
+Export Segment Anything (SAM) image encoder and mask decoder directly to ONNX format using the centralized export utility:
 
 ```bash
-cd src/spatialhub/models/sam/SAM
-uv sync
-```
-
-### Running Export Script
-
-```bash
-uv run python export_onnx.py \
+uv run tools/export/export_sam.py \
     --model-type vit_h \
-    --out-encoder ./onnx_model/sam_image_encoder.onnx \
-    --out-decoder ./onnx_model/sam_mask_decoder.onnx \
+    --out-encoder ./weights/sam_image_encoder.onnx \
+    --out-decoder ./weights/sam_mask_decoder.onnx \
     --opset 17
 ```
 

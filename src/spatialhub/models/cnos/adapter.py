@@ -14,9 +14,9 @@ from spatialhub.utils import (
     square_crop_and_resize,
 )
 
-from ..dinov2 import DINOv2Adapter as DINOV2
-from ..fastsam import FastSAMAdapter as FastSAM
-from ..sam import SAMAdapter as SAM
+from spatialhub.models.dinov2 import DINOv2Adapter as DINOV2
+from spatialhub.models.fastsam import FastSAMAdapter as FastSAM
+from spatialhub.models.sam import SAMAdapter as SAM
 
 logger = logging.getLogger(__name__)
 

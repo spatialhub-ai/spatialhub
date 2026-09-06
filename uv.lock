@@ -1417,11 +1417,13 @@ source = { editable = "." }
 dependencies = [
     { name = "huggingface-hub" },
     { name = "numpy" },
-    { name = "onnxruntime" },
     { name = "opencv-python-headless" },
 ]
 
 [package.optional-dependencies]
+cpu = [
+    { name = "onnxruntime" },
+]
 gpu = [
     { name = "onnxruntime-gpu" },
 ]
@@ -1450,14 +1452,14 @@ requires-dist = [
     { name = "huggingface-hub", specifier = ">=1.22.0" },
     { name = "moderngl", marker = "extra == 'render'", specifier = ">=5.12.0" },
     { name = "numpy", specifier = ">=2.5.1" },
-    { name = "onnxruntime", specifier = ">=1.27.0" },
+    { name = "onnxruntime", marker = "extra == 'cpu'", specifier = ">=1.27.0" },
     { name = "onnxruntime-gpu", marker = "extra == 'gpu'", specifier = ">=1.19.2" },
     { name = "opencv-python-headless", specifier = ">=5.0.0.93" },
     { name = "pyopengl", marker = "extra == 'render'", specifier = ">=3.1.0" },
     { name = "pyrender", marker = "extra == 'render'", specifier = ">=0.1.45" },
     { name = "trimesh", marker = "extra == 'render'", specifier = ">=5.0.0" },
 ]
-provides-extras = ["gpu", "render"]
+provides-extras = ["cpu", "gpu", "render"]
 
 [package.metadata.requires-dev]
 dev = [

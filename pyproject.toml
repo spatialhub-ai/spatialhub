@@ -15,7 +15,6 @@ authors = [
 dependencies = [
     "huggingface-hub>=1.22.0",
     "numpy>=2.5.1",
-    "onnxruntime>=1.27.0",
     "opencv-python-headless>=5.0.0.93",
 ]
 
@@ -25,6 +24,7 @@ Documentation = "https://spatialhub-ai.github.io/spatialhub/"
 Repository = "https://github.com/spatialhub-ai/spatialhub.git"
 
 [project.optional-dependencies]
+cpu = ["onnxruntime>=1.27.0"]
 gpu = ["onnxruntime-gpu>=1.19.2"]
 render = [
     "pyrender>=0.1.45", 
@@ -98,7 +98,7 @@ exclude = [
 
 [tool.uv.workspace]
 exclude = [
-    "src/spatialhub/models/efficient_loftr",
+    "third_party/Efficient_LoFTR",
     "src/spatialhub/models/depth_anything_3/DepthAnything3",
     "src/spatialhub/models/cnos/CNOS",
     "src/spatialhub/models/dinov2/DINOv2",

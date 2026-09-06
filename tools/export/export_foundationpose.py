@@ -2,11 +2,18 @@
 # requires-python = ">=3.10"
 # dependencies = [
 #     "torch>=2.0.0",
-#     "onnx>=1.19.0",
+#     "torchvision==0.21.0",
+#     "onnx>=1.22.0",
 #     "onnxruntime>=1.20.1",
 #     "omegaconf>=2.3.0",
 #     "numpy>=1.26.0",
 #     "roma>=1.6.1",
+#     "trimesh",
+#     "imageio",
+#     "joblib",
+#     "scipy",
+#     "moderngl>=5.12.0",
+#     "onnxscript"
 # ]
 # ///
 

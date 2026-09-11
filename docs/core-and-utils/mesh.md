@@ -1,9 +1,18 @@
-﻿# 3D Mesh Processing
+# 3D Mesh Processing
 
-`spatialhub.utils.mesh` provides functions for reading, scaling, centering, and analyzing 3D CAD meshes (`.ply`, `.obj`, `.stl`, `.off`) using `trimesh`.
+`spatialhub.utils.mesh` provides functions for reading, scaling, centering, and analyzing 3D CAD meshes (`.ply`, `.obj`, `.stl`, `.off`) using `trimesh`, as well as spherical viewpoint pose generation utilities.
 
 ```python
-from spatialhub.utils import load_mesh, read_mesh, scale_mesh, center_mesh, compute_mesh_diameter
+from spatialhub.utils import (
+    load_mesh,
+    read_mesh,
+    scale_mesh,
+    center_mesh,
+    compute_mesh_diameter,
+    sample_sphere_poses,
+    look_at,
+    inverse_transform,
+)
 ```
 
 > [!NOTE]
@@ -119,6 +128,76 @@ diameter = compute_mesh_diameter(mesh)  # e.g. 0.142 meters
 
 ---
 
+## `sample_sphere_poses`
+
+Generates evenly distributed camera or object poses around a sphere using either Fibonacci spiral or subdivided icosphere distribution.
+
+```python
+poses = sample_sphere_poses(
+    num_viewpoints=42,
+    radius=0.4,
+    sampling_method="fibonacci",
+    pose_type="object_pose",
+)
+```
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `num_viewpoints` | `int` | `42` | Target number of viewpoints. |
+| `radius` | `float` | `1.0` | Distance from model origin in meters. |
+| `sampling_method` | `str` | `"fibonacci"` | Sampling distribution: `"fibonacci"` or `"icosphere"`. |
+| `subdivisions` | `int \| None` | `None` | Optional fixed icosphere subdivision level. |
+| `pose_type` | `str` | `"object_pose"` | `"object_pose"` (w2c) or `"camera_pose"` (c2w). |
+
+### Return Value
+* **`np.ndarray`**: Array of shape `(N, 4, 4)` containing 4x4 transformation matrices in float32.
+
+---
+
+## `look_at`
+
+Computes a 4x4 camera-to-world transformation matrix pointing from `cam_location` towards `target_point` in OpenCV camera coordinates (+X right, +Y down, +Z forward).
+
+```python
+c2w = look_at(cam_location=np.array([0.0, 0.0, 1.0]), target_point=np.array([0.0, 0.0, 0.0]))
+```
+
+---
+
+## `inverse_transform`
+
+Computes the analytical inverse of 4x4 rigid homogeneous transformation matrices (single `(4, 4)` or batched `(B, 4, 4)`).
+
+```python
+w2c = inverse_transform(c2w)
+```
+
+---
+
 ## `to_single_mesh`
 
 Helper function that flattens multi-geometry `trimesh.Scene` structures into a single `trimesh.Trimesh`.
+
+---
+
+## `prepare_mesh_arrays`
+
+Extracts contiguous vertex, normal, index, UV, and texture buffer arrays from a CAD mesh into a `MeshArrays` data container.
+
+```python
+mesh_arrays = prepare_mesh_arrays(mesh, max_tex_size=2048, flip_uv=True)
+```
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `mesh` | `trimesh.Trimesh` | required | Input CAD mesh. |
+| `max_tex_size` | `int \| None` | `None` | Optional maximum texture dimension limit in pixels. |
+| `flip_uv` | `bool` | `True` | Invert vertical UV coordinates ($1 - V$) for OpenGL shader convention. |
+
+### Return Value
+* **`MeshArrays`**: Container dataclass holding contiguous NumPy arrays (`pos`, `faces`, `vnormals`, `tex`, `uv`, `vertex_color`).
+

@@ -22,7 +22,7 @@ No special Python extras are needed — `moderngl` and `numpy` are base dependen
 | :--- | :--- | :--- |
 | [`create_moderngl_context`](context.md) | `context.py` | Creates and returns a ModernGL context. Context lifetime is the caller's responsibility. |
 | [`FullscreenShader`](fullscreen.md) | `fullscreen.py` | Executes fullscreen fragment shader passes with ping-pong texture buffering. |
-| [`BatchedAtlasRenderer`](renderer.md) | `renderer.md` | Renders N instances into an atlas grid FBO with multiple color attachments. |
+| [`BatchedAtlasRenderer`](atlas_renderer.md) | `atlas_renderer.py` | Renders N instances into an atlas grid FBO with multiple color attachments. |
 
 ---
 
@@ -49,4 +49,5 @@ renderer.release_fbo()
 
 - [Context](context.md) — creating the ModernGL context
 - [Fullscreen Shader](fullscreen.md) — multi-pass fragment shader execution
-- [Batched Atlas Renderer](renderer.md) — instanced mesh rendering into an atlas grid
+- [Batched Atlas Renderer](atlas_renderer.md) — instanced mesh rendering into an atlas grid
+

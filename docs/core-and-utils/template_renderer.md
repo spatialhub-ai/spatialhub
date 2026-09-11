@@ -1,6 +1,6 @@
 ﻿# 3D Template Renderer
 
-`spatialhub.utils.renderer.TemplateRenderer` renders 2D RGBA templates and metric depth maps from 3D CAD meshes (`.ply`, `.obj`, `.stl`, `.off`) using `trimesh` and offscreen `pyrender` (OpenGL/EGL).
+`spatialhub.utils.template_renderer.TemplateRenderer` renders 2D RGBA templates and metric depth maps from 3D CAD meshes (`.ply`, `.obj`, `.stl`, `.off`) using `trimesh` and ModernGL batched offscreen atlas rendering.
 
 > [!NOTE]
 > Rendering features require optional dependencies.
@@ -22,6 +22,10 @@ TemplateRenderer(
     light_color: tuple[float, float, float] = (1.0, 1.0, 1.0),
     light_intensity: float = 1.0,
     bg_color: tuple[float, float, float, float] = (0.0, 0.0, 0.0, 0.0),
+    ctx: moderngl.Context | None = None,
+    vertex_shader: str | None = None,
+    fragment_shader: str | None = None,
+    gbuffer_layout: list[tuple[int, str]] | None = None,
 )
 ```
 
@@ -32,9 +36,13 @@ TemplateRenderer(
 | `model_path` | `str \| Path \| trimesh.Trimesh` | required | Target CAD mesh file path or pre-loaded `trimesh.Trimesh`. |
 | `model_unit` | `str \| float` | `"m"` | Coordinate unit of raw CAD vertices (`"m"`, `"cm"`, `"mm"`, or float multiplier). |
 | `ambient_light` | `tuple[float, float, float, float] \| None` | `(1.0, 1.0, 1.0, 1.0)` | Ambient scene lighting RGBA. |
-| `light_color` | `tuple[float, float, float]` | `(1.0, 1.0, 1.0)` | Spot light RGB color. |
-| `light_intensity` | `float` | `1.0` | Spot light intensity multiplier. |
+| `light_color` | `tuple[float, float, float]` | `(1.0, 1.0, 1.0)` | Directional light RGB color. |
+| `light_intensity` | `float` | `1.0` | Light intensity multiplier. |
 | `bg_color` | `tuple[float, float, float, float]` | `(0.0, 0.0, 0.0, 0.0)` | Background clear color. |
+| `ctx` | `moderngl.Context \| None` | `None` | Optional execution context. If `None`, creates a standalone context. |
+| `vertex_shader` | `str \| None` | `None` | Custom vertex shader GLSL string override. |
+| `fragment_shader` | `str \| None` | `None` | Custom fragment shader GLSL string override. |
+| `gbuffer_layout` | `list[tuple[int, str]] \| None` | `None` | Custom G-Buffer layout specifications. |
 
 ---
 
@@ -85,6 +93,8 @@ templates = renderer.render_templates(
 | `pose_type` | `"object_pose" \| "camera_pose" \| None` | `None` | Reference frame interpretation. Defaults to `"object_pose"`. |
 | `num_viewpoints` | `int` | `42` | Number of viewpoints on Fibonacci sphere when `poses=None`. |
 | `radius` | `float` | `0.4` | Viewpoint distance from model centroid in meters. |
+| `znear` | `float` | `0.001` | Near clipping distance in meters. |
+| `zfar` | `float` | `100.0` | Far clipping distance in meters. |
 
 ### Return Value
 * **`list[dict[str, np.ndarray]]`**: List of dictionaries with `"rgba"` (`(H, W, 4)` uint8) and `"depth"` (`(H, W)` float32 meters).

@@ -94,9 +94,10 @@ nav:
       - Rendering:
           - ModernGL Overview: core-and-utils/moderngl/index.md
           - Context & Headless Setup: core-and-utils/moderngl/context.md
-          - Batched Atlas Renderer: core-and-utils/moderngl/renderer.md
+          - Batched Atlas Renderer: core-and-utils/moderngl/atlas_renderer.md
           - Fullscreen Shader: core-and-utils/moderngl/fullscreen.md
           - 3D Template Renderer: core-and-utils/template_renderer.md
+
 
 extra_javascript:
   - javascripts/mathjax.js

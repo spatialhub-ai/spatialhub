@@ -8,9 +8,11 @@ combined high-level composite pipeline (`load_mesh`) and auxiliary tools (`to_si
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import cv2
 import numpy as np
 
 logger = logging.getLogger(__name__)
@@ -21,6 +23,38 @@ try:
     import trimesh
 except ImportError:
     _trimesh_installed = False
+
+
+@dataclass
+class MeshArrays:
+    """
+    Data container holding vertex position, normal, index, and texture render buffers.
+
+    Attributes:
+        pos: Vertex coordinate array of shape (V, 3) in float32.
+        faces: Triangle element index array of shape (F, 3) in int32.
+        vnormals: Vertex unit normal array of shape (V, 3) in float32.
+        tex: Optional normalized RGB texture map array of shape (1, H, W, 3) in float32.
+        uv: Optional normalized UV coordinate array of shape (V, 2) in float32.
+        vertex_color: Optional normalized vertex color array of shape (V, 3) in float32.
+    """
+
+    pos: np.ndarray
+    faces: np.ndarray
+    vnormals: np.ndarray
+    tex: np.ndarray | None = None
+    uv: np.ndarray | None = None
+    vertex_color: np.ndarray | None = None
+
+    def as_dict(self) -> dict[str, np.ndarray]:
+        """
+        Convert container attributes to a dictionary, omitting None values.
+
+        Returns:
+            Dictionary mapping buffer names to non-null arrays.
+        """
+        return {k: v for k, v in self.__dict__.items() if v is not None}
+
 
 
 def _check_trimesh():
@@ -226,5 +260,225 @@ def compute_oriented_bounding_box(mesh: trimesh.Trimesh) -> tuple[np.ndarray, np
     corners_in_mesh = (inv_to_origin[:3, :3] @ corners_canonical.T + inv_to_origin[:3, 3:4]).T.astype(np.float32)
 
     return corners_in_mesh, extents, to_origin
+
+
+def look_at(cam_location: np.ndarray, target_point: np.ndarray | None = None) -> np.ndarray:
+    """
+    Calculate camera-to-world 4x4 transform pointing camera at target_point from cam_location.
+
+    Uses OpenCV camera coordinate convention (+X right, +Y down, +Z forward into scene).
+
+    Args:
+        cam_location: 3D camera location coordinate array of shape (3,).
+        target_point: 3D look-at target point coordinate array of shape (3,). Defaults to [0.0, 0.0, 0.0].
+
+    Returns:
+        4x4 homogeneous transformation matrix in float32.
+    """
+    if target_point is None:
+        target_point = np.array([0.0, 0.0, 0.0], dtype=np.float32)
+    cam_location = np.asarray(cam_location, dtype=np.float32)
+    target_point = np.asarray(target_point, dtype=np.float32)
+
+    forward = target_point - cam_location
+    forward_norm = np.linalg.norm(forward)
+    if forward_norm < 1e-6:
+        forward = np.array([0.0, 0.0, 1.0], dtype=np.float32)
+    else:
+        forward = forward / forward_norm
+
+    tmp = np.array([0.0, 0.0, -1.0], dtype=np.float32)
+    # Check if the forward vector is nearly parallel to standard up/down direction
+    if np.abs(np.dot(forward, tmp)) > 0.999:
+        tmp = np.array([0.0, -1.0, 0.0], dtype=np.float32)
+
+    right = np.cross(tmp, forward)
+    right_norm = np.linalg.norm(right)
+    if right_norm < 1e-6:
+        right = np.array([1.0, 0.0, 0.0], dtype=np.float32)
+    else:
+        right = right / right_norm
+
+    up = np.cross(forward, right)
+    up_norm = np.linalg.norm(up)
+    if up_norm < 1e-6:
+        up = np.array([0.0, 1.0, 0.0], dtype=np.float32)
+    else:
+        up = up / up_norm
+
+    mat = np.stack((right, up, forward, cam_location), axis=-1)
+    hom_vec = np.array([[0.0, 0.0, 0.0, 1.0]], dtype=np.float32)
+    mat = np.concatenate((mat, hom_vec), axis=-2)
+    return mat.astype(np.float32)
+
+
+def inverse_transform(trans: np.ndarray) -> np.ndarray:
+    """
+    Compute the inverse of a 4x4 rigid homogeneous transformation.
+
+    Args:
+        trans: 4x4 homogeneous transformation matrix of shape (4, 4) or (B, 4, 4).
+
+    Returns:
+        Inverted 4x4 transformation matrix matching input shape in float32.
+    """
+    trans = np.asarray(trans, dtype=np.float32)
+    if trans.ndim == 2:
+        rot = trans[:3, :3]
+        t = trans[:3, 3]
+        rot_inv = rot.T
+        t_inv = -rot_inv @ t
+
+        output = np.eye(4, dtype=np.float32)
+        output[:3, :3] = rot_inv
+        output[:3, 3] = t_inv
+        return output
+    elif trans.ndim == 3:
+        rot = trans[:, :3, :3]
+        t = trans[:, :3, 3:]
+        rot_inv = rot.transpose(0, 2, 1)
+        t_inv = -rot_inv @ t
+
+        output = np.tile(np.eye(4, dtype=np.float32)[None], (len(trans), 1, 1))
+        output[:, :3, :3] = rot_inv
+        output[:, :3, 3:] = t_inv
+        return output
+    else:
+        raise ValueError(f"Expected transformation matrix of shape (4, 4) or (B, 4, 4), got {trans.shape}")
+
+
+def sample_sphere_poses(
+    num_viewpoints: int = 42,
+    radius: float = 1.0,
+    sampling_method: str = "fibonacci",
+    subdivisions: int | None = None,
+    pose_type: str = "object_pose",
+) -> np.ndarray:
+    """
+    Generate evenly distributed camera or object poses around a sphere.
+
+    Supports both Fibonacci spiral sphere sampling and subdivided icosphere sampling.
+
+    Args:
+        num_viewpoints: Target count of viewpoints to generate (default: 42).
+        radius: Sphere radius / distance from model centroid in meters (default: 1.0).
+        sampling_method: Spherical distribution method: ``"fibonacci"`` or ``"icosphere"``.
+        subdivisions: Optional fixed icosphere subdivision level (only used if ``sampling_method="icosphere"``).
+        pose_type: Coordinate frame interpretation:
+            - ``"object_pose"``: Object-to-camera / world-to-camera transform (w2c).
+            - ``"camera_pose"``: Camera-to-world / camera-in-object transform (c2w).
+
+    Returns:
+        NumPy array of shape (N, 4, 4) containing homogeneous transformation matrices in float32.
+    """
+    if sampling_method == "fibonacci":
+        if num_viewpoints <= 1:
+            raise ValueError("num_viewpoints must be greater than 1.")
+
+        points = []
+        phi = np.pi * (3.0 - np.sqrt(5.0))  # Golden angle in radians
+
+        for i in range(num_viewpoints):
+            y = 1.0 - (i / float(num_viewpoints - 1)) * 2.0  # y goes from 1 to -1
+            r_at_y = np.sqrt(max(0.0, 1.0 - y * y))
+            theta = phi * i
+            x = np.cos(theta) * r_at_y
+            z = np.sin(theta) * r_at_y
+            points.append([x, y, z])
+
+        points = np.array(points, dtype=np.float32) * float(radius)
+
+    elif sampling_method == "icosphere":
+        _check_trimesh()
+        if subdivisions is not None:
+            mesh = trimesh.creation.icosphere(subdivisions=subdivisions, radius=float(radius))
+        else:
+            subdivision = 1
+            while True:
+                mesh = trimesh.creation.icosphere(subdivisions=subdivision, radius=float(radius))
+                if mesh.vertices.shape[0] >= num_viewpoints:
+                    break
+                subdivision += 1
+        points = mesh.vertices.astype(np.float32)
+
+    else:
+        raise ValueError(f"Unsupported sampling_method: '{sampling_method}'. Must be 'fibonacci' or 'icosphere'.")
+
+    poses = []
+    target = np.array([0.0, 0.0, 0.0], dtype=np.float32)
+    for pt in points:
+        c2w = look_at(pt, target)
+        if pose_type == "object_pose":
+            w2c = inverse_transform(c2w)
+            poses.append(w2c)
+        elif pose_type == "camera_pose":
+            poses.append(c2w)
+        else:
+            raise ValueError(f"Unsupported pose_type: '{pose_type}'. Must be 'object_pose' or 'camera_pose'.")
+
+    return np.array(poses, dtype=np.float32)
+
+
+def prepare_mesh_arrays(
+    mesh: trimesh.Trimesh,
+    max_tex_size: int | None = None,
+    flip_uv: bool = True,
+) -> MeshArrays:
+    """
+    Extract contiguous vertex, normal, UV, and texture buffer arrays from a CAD mesh.
+
+    Args:
+        mesh: Input trimesh.Trimesh instance.
+        max_tex_size: Optional maximum texture dimension limit in pixels.
+        flip_uv: Whether to invert vertical UV coordinates (1 - V) for OpenGL convention (default: True).
+
+    Returns:
+        MeshArrays container containing formatted float32 and int32 NumPy arrays.
+    """
+    _check_trimesh()
+
+    pos = np.ascontiguousarray(mesh.vertices, dtype=np.float32)
+    faces = np.ascontiguousarray(mesh.faces, dtype=np.int32)
+    vnormals = np.ascontiguousarray(mesh.vertex_normals, dtype=np.float32)
+
+    tex: np.ndarray | None = None
+    uv: np.ndarray | None = None
+    vertex_color: np.ndarray | None = None
+
+    if isinstance(mesh.visual, trimesh.visual.texture.TextureVisuals) and mesh.visual.material.image is not None:
+        img = np.array(mesh.visual.material.image.convert("RGB"), dtype=np.float32)
+        img = img[..., :3]
+
+        if max_tex_size is not None:
+            max_size = max(img.shape[0], img.shape[1])
+            if max_size > max_tex_size:
+                scale = float(max_tex_size) / float(max_size)
+                img = cv2.resize(img, fx=scale, fy=scale, dsize=None)
+
+        tex = np.ascontiguousarray(img[np.newaxis, ...] / 255.0, dtype=np.float32)
+
+        raw_uv = np.array(mesh.visual.uv, dtype=np.float32).copy()
+        if flip_uv:
+            raw_uv[:, 1] = 1.0 - raw_uv[:, 1]
+        uv = np.ascontiguousarray(raw_uv, dtype=np.float32)
+    else:
+        raw_colors = getattr(mesh.visual, "vertex_colors", None)
+        if raw_colors is None or len(raw_colors) == 0:
+            logger.debug("Mesh lacks vertex colors; defaulting to neutral gray (128, 128, 128).")
+            raw_colors = np.full((len(mesh.vertices), 3), 128, dtype=np.uint8)
+
+        vertex_color = np.ascontiguousarray(
+            raw_colors[..., :3].astype(np.float32) / 255.0,
+            dtype=np.float32,
+        )
+
+    return MeshArrays(
+        pos=pos,
+        faces=faces,
+        vnormals=vnormals,
+        tex=tex,
+        uv=uv,
+        vertex_color=vertex_color,
+    )
 
 

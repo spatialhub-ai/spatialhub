@@ -1,4 +1,4 @@
-"""
+﻿"""
 Batched atlas mesh renderer and offscreen framebuffer manager.
 """
 

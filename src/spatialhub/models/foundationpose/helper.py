@@ -10,6 +10,8 @@ from dataclasses import dataclass
 import cv2
 import numpy as np
 
+from spatialhub.utils.mesh import sample_sphere_poses
+
 logger = logging.getLogger(__name__)
 
 # Delayed import for optional rendering dependency
@@ -19,42 +21,14 @@ try:
 except ImportError:
     _trimesh_installed = False
 
+from spatialhub.utils.mesh import MeshArrays, prepare_mesh_arrays
+
 random_seed = 0
 np.random.seed(random_seed)
 
 
-@dataclass
-class MeshArrays:
-    """
-    Data container holding vertex position, normal, index, and texture render buffers.
-
-    Attributes:
-        pos: Vertex coordinate array of shape (V, 3) in float32.
-        faces: Triangle element index array of shape (F, 3) in int32.
-        vnormals: Vertex unit normal array of shape (V, 3) in float32.
-        tex: Optional normalized RGB texture map array of shape (1, H, W, 3) in float32.
-        uv: Optional normalized UV coordinate array of shape (V, 2) in float32.
-        vertex_color: Optional normalized vertex color array of shape (V, 3) in float32.
-    """
-
-    pos: np.ndarray
-    faces: np.ndarray
-    vnormals: np.ndarray
-    tex: np.ndarray | None = None
-    uv: np.ndarray | None = None
-    vertex_color: np.ndarray | None = None
-
-    def as_dict(self) -> dict[str, np.ndarray]:
-        """
-        Convert container attributes to a dictionary, omitting None values.
-
-        Returns:
-            Dictionary mapping buffer names to non-null arrays.
-        """
-        return {k: v for k, v in self.__dict__.items() if v is not None}
-
-
 def _check_trimesh() -> None:
+
     """
     Verify that trimesh is installed prior to executing mesh generation functions.
 
@@ -66,56 +40,6 @@ def _check_trimesh() -> None:
             "FoundationPose helper functions require optional rendering dependencies ('trimesh'). "
             "Install them with: uv sync --extra render (or pip install 'spatialhub[render]')"
         )
-
-
-def sample_views_icosphere(n_views: int = 40, subdivisions: int | None = None, radius: float = 1.0) -> np.ndarray:
-    """
-    Generate spherical camera viewpoint poses distributed over an icosphere.
-
-    Args:
-        n_views: Minimum target count of camera viewpoints (default: 40).
-        subdivisions: Optional fixed icosphere subdivision level.
-        radius: Sphere radius in meters (default: 1.0).
-
-    Returns:
-        Array of shape (V, 4, 4) containing 4x4 transformation matrices in float32.
-    """
-    _check_trimesh()
-    if subdivisions is not None:
-        mesh = trimesh.creation.icosphere(subdivisions=subdivisions, radius=radius)
-    else:
-        subdivision = 1
-        while True:
-            mesh = trimesh.creation.icosphere(subdivisions=subdivision, radius=radius)
-            if mesh.vertices.shape[0] >= n_views:
-                break
-            subdivision += 1
-
-    cam_in_obs = np.tile(np.eye(4, dtype=np.float32)[None], (len(mesh.vertices), 1, 1))
-    cam_in_obs[:, :3, 3] = mesh.vertices
-
-    up = np.array([0.0, 0.0, 1.0], dtype=np.float32)
-    z_axis = -cam_in_obs[:, :3, 3]
-    z_norm = np.linalg.norm(z_axis, axis=-1, keepdims=True)
-    z_norm[z_norm < 1e-6] = 1.0
-    z_axis /= z_norm
-
-    x_axis = np.cross(up.reshape(1, 3), z_axis)
-    invalid = (x_axis == 0).all(axis=-1)
-    x_axis[invalid] = [1.0, 0.0, 0.0]
-    x_norm = np.linalg.norm(x_axis, axis=-1, keepdims=True)
-    x_norm[x_norm < 1e-6] = 1.0
-    x_axis /= x_norm
-
-    y_axis = np.cross(z_axis, x_axis)
-    y_norm = np.linalg.norm(y_axis, axis=-1, keepdims=True)
-    y_norm[y_norm < 1e-6] = 1.0
-    y_axis /= y_norm
-
-    cam_in_obs[:, :3, 0] = x_axis
-    cam_in_obs[:, :3, 1] = y_axis
-    cam_in_obs[:, :3, 2] = z_axis
-    return cam_in_obs
 
 
 def cluster_poses(
@@ -196,7 +120,7 @@ def make_rotation_grid(
     Returns:
         Candidate pose array of shape (K, 4, 4) in float32.
     """
-    cam_in_obs = sample_views_icosphere(n_views=min_n_views)
+    cam_in_obs = sample_sphere_poses(num_viewpoints=min_n_views, radius=1.0, sampling_method="icosphere", subdivisions=None, pose_type="camera_pose")
     rot_grid = []
 
     for cam_in_ob in cam_in_obs:
@@ -522,46 +446,5 @@ def prepare_mesh_for_rendering(
     Returns:
         MeshArrays container containing formatted float32 and int32 arrays.
     """
-    pos = np.ascontiguousarray(mesh.vertices, dtype=np.float32)
-    faces = np.ascontiguousarray(mesh.faces, dtype=np.int32)
-    vnormals = np.ascontiguousarray(mesh.vertex_normals, dtype=np.float32)
+    return prepare_mesh_arrays(mesh=mesh, max_tex_size=max_tex_size, flip_uv=flip_uv)
 
-    tex: np.ndarray | None = None
-    uv: np.ndarray | None = None
-    vertex_color: np.ndarray | None = None
-
-    if isinstance(mesh.visual, trimesh.visual.texture.TextureVisuals) and mesh.visual.material.image is not None:
-        img = np.array(mesh.visual.material.image.convert("RGB"), dtype=np.float32)
-        img = img[..., :3]
-
-        if max_tex_size is not None:
-            max_size = max(img.shape[0], img.shape[1])
-            if max_size > max_tex_size:
-                scale = float(max_tex_size) / float(max_size)
-                img = cv2.resize(img, fx=scale, fy=scale, dsize=None)
-
-        tex = np.ascontiguousarray(img[np.newaxis, ...] / 255.0, dtype=np.float32)
-
-        raw_uv = np.array(mesh.visual.uv, dtype=np.float32).copy()
-        if flip_uv:
-            raw_uv[:, 1] = 1.0 - raw_uv[:, 1]
-        uv = np.ascontiguousarray(raw_uv, dtype=np.float32)
-    else:
-        raw_colors = getattr(mesh.visual, "vertex_colors", None)
-        if raw_colors is None or len(raw_colors) == 0:
-            logger.debug("Mesh lacks vertex colors; defaulting to neutral gray (128, 128, 128).")
-            raw_colors = np.full((len(mesh.vertices), 3), 128, dtype=np.uint8)
-
-        vertex_color = np.ascontiguousarray(
-            raw_colors[..., :3].astype(np.float32) / 255.0,
-            dtype=np.float32,
-        )
-
-    return MeshArrays(
-        pos=pos,
-        faces=faces,
-        vnormals=vnormals,
-        tex=tex,
-        uv=uv,
-        vertex_color=vertex_color,
-    )

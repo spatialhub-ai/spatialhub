@@ -9,9 +9,10 @@ from spatialhub.utils import (
     scale_mesh,
     center_mesh,
     compute_mesh_diameter,
+    compute_obb,
     sample_sphere_poses,
     look_at,
-    inverse_transform,
+    invert_transform,
 )
 ```
 
@@ -128,6 +129,22 @@ diameter = compute_mesh_diameter(mesh)  # e.g. 0.142 meters
 
 ---
 
+## `compute_obb`
+
+Computes oriented bounding box (OBB) corners, dimensions, and transformation matrix.
+
+```python
+corners, extents, to_origin = compute_obb(mesh)
+```
+
+### Parameters
+* **`mesh`** (`trimesh.Trimesh`): Input mesh in meters.
+
+### Return Value
+* **`tuple[np.ndarray, np.ndarray, np.ndarray]`**: `(corners_in_mesh, extents, to_origin)`.
+
+---
+
 ## `sample_sphere_poses`
 
 Generates evenly distributed camera or object poses around a sphere using either Fibonacci spiral or subdivided icosphere distribution.
@@ -166,12 +183,12 @@ c2w = look_at(cam_location=np.array([0.0, 0.0, 1.0]), target_point=np.array([0.0
 
 ---
 
-## `inverse_transform`
+## `invert_transform`
 
 Computes the analytical inverse of 4x4 rigid homogeneous transformation matrices (single `(4, 4)` or batched `(B, 4, 4)`).
 
 ```python
-w2c = inverse_transform(c2w)
+w2c = invert_transform(c2w)
 ```
 
 ---
@@ -200,4 +217,3 @@ mesh_arrays = prepare_mesh_arrays(mesh, max_tex_size=2048, flip_uv=True)
 
 ### Return Value
 * **`MeshArrays`**: Container dataclass holding contiguous NumPy arrays (`pos`, `faces`, `vnormals`, `tex`, `uv`, `vertex_color`).
-

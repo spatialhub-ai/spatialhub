@@ -1,4 +1,4 @@
-﻿# Image Preprocessing
+# Image Preprocessing
 
 `spatialhub.utils.image` provides image I/O and preprocessing operations used across model adapters.
 
@@ -96,6 +96,9 @@ square = square_crop_and_resize(img_rgba, bbox, target_size=224)  # (224, 224, C
 ### Return Value
 * **`np.ndarray`**: Padded and resized square array.
 
+### Error Handling
+* **`ValueError`**: Raised if `bbox` has invalid coordinate bounds (`x_min < 0`, `y_min < 0`, `x_min >= x_max`, `y_min >= y_max`, or coordinates exceeding image dimensions), or if `target_size <= 0`.
+
 ---
 
 ## `non_max_suppression`
@@ -113,7 +116,11 @@ filtered_boxes = boxes[keep_indices]
 | :--- | :--- | :--- |
 | `boxes` | `np.ndarray (N, 4)` float32 | Bounding boxes in `[x1, y1, x2, y2]` format. |
 | `scores` | `np.ndarray (N,)` float32 | Confidence scores. |
-| `iou_threshold` | `float` | Overlap suppression threshold. |
+| `iou_threshold` | `float` | Overlap suppression threshold ($0.0 \dots 1.0$). |
 
 ### Return Value
 * **`list[int]`**: Kept box indices sorted by descending confidence score.
+
+### Error Handling
+* **`ValueError`**: Raised if box/score dimensions mismatch, box coordinates are inverted/negative, or `iou_threshold` is outside $[0.0, 1.0]$.
+

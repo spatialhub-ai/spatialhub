@@ -1,4 +1,4 @@
-﻿# Visualization Utilities
+# Visualization Utilities
 
 `spatialhub.utils.viz` provides drawing and annotation functions for keypoint correspondences, segmentation masks, projected 3D bounding boxes, and coordinate frame axes.
 
@@ -6,7 +6,7 @@
 from spatialhub.utils import (
     visualize_matches,
     visualize_masks,
-    draw_projected_3d_box,
+    draw_3d_box,
     draw_3d_axis,
 )
 ```
@@ -23,7 +23,7 @@ Instead, the return contracts in [`spatialhub.structures`](structures/overview.m
 | :--- | :--- |
 | [`MatchResult.visualize()`](structures/match_result.md) | `visualize_matches` |
 | [`SegmentationResult.visualize_mask()`](structures/segmentation_result.md) | `visualize_masks` |
-| [`PoseEstimationResult.visualize()`](structures/pose_estimation_result.md) | `draw_projected_3d_box` and `draw_3d_axis` |
+| [`PoseEstimationResult.visualize()`](structures/pose_estimation_result.md) | `draw_3d_box` and `draw_3d_axis` |
 
 ---
 
@@ -78,12 +78,12 @@ vis = visualize_masks(image, boxes, masks, scores, save_path="out.png")
 
 ---
 
-## `draw_projected_3d_box`
+## `draw_3d_box`
 
 Transforms canonical 3D bounding box corners into camera coordinates using `pose`, projects them to pixel space with `intrinsics`, and draws wireframe box edges.
 
 ```python
-vis = draw_projected_3d_box(image, pose, K, bbox_corners_3d)
+vis = draw_3d_box(image, pose, K, bbox_corners_3d)
 ```
 
 ### Parameters

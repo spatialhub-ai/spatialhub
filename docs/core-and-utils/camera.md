@@ -1,14 +1,14 @@
-﻿# Camera Geometry
+# Camera Geometry
 
 `spatialhub.utils.camera` provides functions for camera intrinsic scaling, 2D-to-3D depth reprojection, OpenGL projection matrices, and OpenCV/OpenGL coordinate space conversions.
 
 ```python
 from spatialhub.utils import (
-    scale_camera_intrinsics,
+    scale_intrinsics,
     reproject_depth_to_3d,
     reproject_depth_to_3d_batch,
-    create_perspective_projection_matrix,
-    convert_opencv_to_opengl_pose,
+    create_projection_matrix,
+    opencv_to_opengl_pose,
 )
 ```
 
@@ -29,12 +29,12 @@ $$
 
 ---
 
-## `scale_camera_intrinsics`
+## `scale_intrinsics`
 
 Scales camera focal lengths $(f_x, f_y)$ and principal points $(c_x, c_y)$ proportionally when image dimensions change.
 
 ```python
-K_scaled = scale_camera_intrinsics(K, orig_size=(640, 480), new_size=(320, 240))
+K_scaled = scale_intrinsics(K, orig_size=(640, 480), new_size=(320, 240))
 ```
 
 ### Parameters
@@ -92,12 +92,12 @@ xyz_maps = reproject_depth_to_3d_batch(depths, Ks)  # (B, H, W, 3)
 
 ---
 
-## `create_perspective_projection_matrix`
+## `create_projection_matrix`
 
 Converts a 3x3 OpenCV camera intrinsic matrix $K$ into a 4x4 OpenGL clip-space perspective projection matrix.
 
 ```python
-proj = create_perspective_projection_matrix(K, height=480, width=640, znear=0.001, zfar=100.0)
+proj = create_projection_matrix(K, height=480, width=640, znear=0.001, zfar=100.0)
 ```
 
 ### Parameters
@@ -116,13 +116,13 @@ proj = create_perspective_projection_matrix(K, height=480, width=640, znear=0.00
 
 ---
 
-## `convert_opencv_to_opengl_pose`
+## `opencv_to_opengl_pose`
 
 Transforms 4x4 rigid camera poses between OpenCV (+Z forward) and OpenGL (-Z forward) camera coordinate spaces using $T_{gl \leftarrow cv}$.
 
 ```python
-pose_gl = convert_opencv_to_opengl_pose(pose_cv)          # (4, 4)
-poses_gl = convert_opencv_to_opengl_pose(poses_cv_batch)  # (B, 4, 4)
+pose_gl = opencv_to_opengl_pose(pose_cv)          # (4, 4)
+poses_gl = opencv_to_opengl_pose(poses_cv_batch)  # (B, 4, 4)
 ```
 
 ### Parameters

@@ -69,9 +69,7 @@ class SAMAdapter:
             providers:
                 Execution providers.
         """
-        variant = str(model_variant or "sam_vit_h")
-        if not variant.startswith("sam_") and not variant.endswith(".onnx"):
-            variant = f"sam_{variant}"
+        variant = str(model_variant or "vit_h")
 
         enc_filename = f"{variant}_encoder.onnx" if not (encoder_onnx_path and str(encoder_onnx_path).endswith(".onnx")) else Path(encoder_onnx_path).name
         dec_filename = f"{variant}_decoder.onnx" if not (decoder_onnx_path and str(decoder_onnx_path).endswith(".onnx")) else Path(decoder_onnx_path).name

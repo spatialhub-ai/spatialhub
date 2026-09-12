@@ -28,6 +28,7 @@ cpu = ["onnxruntime>=1.27.0"]
 gpu = ["onnxruntime-gpu>=1.19.2"]
 render = [
     "trimesh>=5.0.0", 
+    "scipy>=1.13.0",
     "moderngl>=5.12.0"
 ]
 

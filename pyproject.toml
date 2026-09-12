@@ -35,65 +35,26 @@ render = [
 [tool.hatch.build.targets.wheel]
 packages = ["src/spatialhub"]
 exclude = [
-  "**/demo_data",
-  "**/demo_data/**",
+  "**/.cache",
   "**/debug",
-  "**/debug/**",
-  "**/data",
-  "**/data/**",
-  "**/weights",
-  "**/weights/**",
-  "**/media/**",
-  "**/logs",
-  "**/logs/**",
-  "**/out",
-  "**/outputs/**",
-  "**/out/**",
-  "*.ckpt",
   "*.onnx",
   "*.onnx.data",
-  "*.pt",
-  "*.pth",
-  "*.bin",
-  "*.jpg",
-  "*.jpeg",
-  "*.png",
-  "*.mp4",
-  "*.gif",
-  "*.zip",
-  "*.tar",
-  "*.tar.gz"
 ]
 
 [tool.hatch.build.targets.sdist]
 exclude = [
-  "**/demo_data",
-  "**/demo_data/**",
+  "/.github",
+  "/upstream",
+  "/tools",
+  "/benchmark",
+  "/site",
+  "/dist",
+  "**/.cache",
   "**/debug",
-  "**/debug/**",
-  "**/data",
-  "**/data/**",
-  "**/weights",
-  "**/weights/**",
-  "**/logs",
-  "**/logs/**",
-  "**/out",
-  "**/out/**",
-  "*.ckpt",
   "*.onnx",
   "*.onnx.data",
-  "*.pt",
-  "*.pth",
-  "*.bin",
-  "*.jpg",
-  "*.jpeg",
-  "*.png",
-  "*.mp4",
-  "*.gif",
-  "*.zip",
-  "*.tar",
-  "*.tar.gz"
 ]
+
 
 [tool.uv.workspace]
 exclude = [
@@ -102,9 +63,6 @@ exclude = [
     "upstream/cnos",
     "upstream/foundationpose",
 ]
-
-[tool.setuptools.package-data]
-"spatialhub.models.cnos" = ["assets/*.npy"]
 
 [dependency-groups]
 dev = [

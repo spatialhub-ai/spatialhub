@@ -29,11 +29,13 @@ def load_image(image_input: str | Path | np.ndarray, color_mode: Literal["RGB", 
         ValueError:
             If the image has an unsupported format or channel layout.
     """
-    if color_mode not in {"RGB", "RGBA", "GRAY"}:
+    mode = color_mode.upper() if isinstance(color_mode, str) else color_mode
+    if mode not in {"RGB", "RGBA", "GRAY"}:
         raise ValueError(
             f"Unsupported color_mode '{color_mode}'. "
             "Expected 'RGB', 'RGBA', or 'GRAY'."
         )
+    color_mode = mode
 
     if isinstance(image_input, np.ndarray):
         image = image_input
@@ -133,47 +135,106 @@ def extract_foreground_bbox(image: np.ndarray) -> tuple[int, int, int, int]:
     y_max, x_max = nonzero_coords.max(axis=0)
     return int(x_min), int(y_min), int(x_max + 1), int(y_max + 1)
 
-def square_crop_and_resize(image: np.ndarray, bbox: tuple[int, int, int, int], target_size: int | None = None) -> np.ndarray:
+def square_crop_and_resize(
+    image: np.ndarray,
+    bbox: tuple[int, int, int, int] | list[int] | np.ndarray,
+    target_size: int | None = None,
+) -> np.ndarray:
     """
     Crops an image to the bounding box, pads it to a perfect square to maintain aspect ratio, and optionally resizes it.
 
     Args:
-        image: Array of shape (H, W, C).
-        bbox: Tuple of (x_min, y_min, x_max, y_max).
-        target_size: Optional integer to resize the final square to (H=W).
+        image: Array of shape (H, W, C) or (H, W).
+        bbox: Sequence of (x_min, y_min, x_max, y_max).
+        target_size: Optional positive integer to resize the final square to (H=W).
         
     Returns:
         Square image array of shape (target_size, target_size, C) or (max_side, max_side, C).
+
+    Raises:
+        ValueError: If bbox coordinates are invalid (e.g. min >= max, negative, or outside image bounds),
+                    or if target_size is <= 0.
     """
-    x_min, y_min, x_max, y_max = bbox
+    if len(bbox) != 4:
+        raise ValueError(f"Expected bbox with 4 elements (x_min, y_min, x_max, y_max), got {len(bbox)}")
+
+    x_min, y_min, x_max, y_max = map(int, bbox)
+    H, W = image.shape[:2]
+
+    if x_min < 0 or y_min < 0:
+        raise ValueError(f"Bounding box coordinates must be non-negative, got x_min={x_min}, y_min={y_min}")
+
+    if x_min >= x_max or y_min >= y_max:
+        raise ValueError(
+            f"Invalid bounding box dimensions: x_min ({x_min}) must be < x_max ({x_max}) "
+            f"and y_min ({y_min}) must be < y_max ({y_max})"
+        )
+
+    if x_max > W or y_max > H:
+        raise ValueError(
+            f"Bounding box [{x_min}, {y_min}, {x_max}, {y_max}] exceeds image bounds (width={W}, height={H})"
+        )
+
+    if target_size is not None and target_size <= 0:
+        raise ValueError(f"target_size must be a positive integer, got {target_size}")
+
     crop = image[y_min:y_max, x_min:x_max]
-    
     h, w = crop.shape[:2]
     max_side = max(h, w)
 
-    # Create square canvas filled with zeros (black)
-    square_crop = np.zeros((max_side, max_side, crop.shape[2]), dtype=crop.dtype)
-    y_offset = (max_side - h) // 2
-    x_offset = (max_side - w) // 2
-    square_crop[y_offset : y_offset + h, x_offset : x_offset + w] = crop
+    # Handle 2D or 3D images
+    if crop.ndim == 2:
+        square_crop = np.zeros((max_side, max_side), dtype=crop.dtype)
+        y_offset = (max_side - h) // 2
+        x_offset = (max_side - w) // 2
+        square_crop[y_offset : y_offset + h, x_offset : x_offset + w] = crop
+    else:
+        square_crop = np.zeros((max_side, max_side, crop.shape[2]), dtype=crop.dtype)
+        y_offset = (max_side - h) // 2
+        x_offset = (max_side - w) // 2
+        square_crop[y_offset : y_offset + h, x_offset : x_offset + w] = crop
 
-    # Resize to network resolution if requested
+    # Resize to target resolution if requested
     if target_size is not None and max_side != target_size:
         square_crop = cv2.resize(square_crop, (target_size, target_size), interpolation=cv2.INTER_LINEAR)
 
     return square_crop
 
-def non_max_suppression(boxes: np.ndarray, scores: np.ndarray, iou_threshold: float) -> list[int]:
+
+def non_max_suppression(
+    boxes: np.ndarray,
+    scores: np.ndarray,
+    iou_threshold: float,
+) -> list[int]:
     """Non-Maximum Suppression (NMS) for bounding box filtering.
     
     Args:
         boxes: Array of shape (N, 4) in [x1, y1, x2, y2] format.
         scores: Array of shape (N,) containing confidence scores.
-        iou_threshold: Float threshold for overlapping area.
+        iou_threshold: Float threshold for overlapping area (0.0 <= iou_threshold <= 1.0).
         
     Returns:
         List of indices corresponding to the boxes to keep.
+
+    Raises:
+        ValueError: If boxes and scores shapes mismatch, if box coordinates are invalid (x1 >= x2, y1 >= y2, or negative),
+                    or if iou_threshold is outside [0.0, 1.0].
     """
+    boxes = np.asarray(boxes, dtype=np.float32)
+    scores = np.asarray(scores, dtype=np.float32)
+
+    if boxes.ndim != 2 or (len(boxes) > 0 and boxes.shape[1] != 4) or (len(boxes) == 0 and boxes.ndim != 2):
+        if len(boxes) == 0 and boxes.shape == (0,):
+            boxes = boxes.reshape(0, 4)
+        else:
+            raise ValueError(f"Expected boxes of shape (N, 4), got {boxes.shape}")
+
+    if scores.ndim != 1 or len(boxes) != len(scores):
+        raise ValueError(f"Mismatch between boxes shape {boxes.shape} and scores shape {scores.shape}")
+
+    if not (0.0 <= iou_threshold <= 1.0):
+        raise ValueError(f"iou_threshold must be between 0.0 and 1.0, got {iou_threshold}")
+
     if len(boxes) == 0:
         return []
 
@@ -181,14 +242,20 @@ def non_max_suppression(boxes: np.ndarray, scores: np.ndarray, iou_threshold: fl
     y1 = boxes[:, 1]
     x2 = boxes[:, 2]
     y2 = boxes[:, 3]
+
+    if np.any(x1 < 0) or np.any(y1 < 0):
+        raise ValueError("Bounding box coordinates must be non-negative")
+    if np.any(x1 >= x2) or np.any(y1 >= y2):
+        raise ValueError("Invalid bounding boxes: all boxes must satisfy x1 < x2 and y1 < y2")
+
     areas = (x2 - x1) * (y2 - y1)
     
     # Sort by descending score
     order = scores.argsort()[::-1]
 
-    keep = []
+    keep: list[int] = []
     while order.size > 0:
-        i = order[0]
+        i = int(order[0])
         keep.append(i)
         
         # Calculate intersection with remaining boxes
@@ -209,3 +276,4 @@ def non_max_suppression(boxes: np.ndarray, scores: np.ndarray, iou_threshold: fl
         order = order[inds + 1]
 
     return keep
+

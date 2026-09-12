@@ -11,7 +11,7 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 
-def scale_camera_intrinsics(
+def scale_intrinsics(
     K: np.ndarray,
     orig_size: tuple[int, int],
     new_size: tuple[int, int],
@@ -166,7 +166,7 @@ def reproject_depth_to_3d_batch(
     return xyz_maps
 
 
-def create_perspective_projection_matrix(
+def create_projection_matrix(
     K: np.ndarray,
     height: int,
     width: int,
@@ -229,7 +229,7 @@ def create_perspective_projection_matrix(
     return proj
 
 
-def convert_opencv_to_opengl_pose(pose_cv: np.ndarray) -> np.ndarray:
+def opencv_to_opengl_pose(pose_cv: np.ndarray) -> np.ndarray:
     """
     Convert a 4x4 rigid homogeneous camera pose transform between OpenCV and OpenGL camera frames using.
 

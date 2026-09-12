@@ -8,7 +8,7 @@ import moderngl
 import numpy as np
 
 from spatialhub.utils import BatchedAtlasRenderer
-from spatialhub.utils.camera import convert_opencv_to_opengl_pose, create_perspective_projection_matrix
+from spatialhub.utils.camera import create_projection_matrix, opencv_to_opengl_pose
 
 from .helper import MeshArrays
 
@@ -223,9 +223,9 @@ class Renderer:
             self.prog["light_color"].value = tuple(light_color) if light_color is not None else (1.0, 1.0, 1.0)
 
         # Transform camera poses to rendering coordinate convention
-        ob_in_glcams = convert_opencv_to_opengl_pose(ob_in_cams)
+        ob_in_glcams = opencv_to_opengl_pose(ob_in_cams)
 
-        projection_mat = create_perspective_projection_matrix(K, height=H, width=W, znear=0.001, zfar=100)
+        projection_mat = create_projection_matrix(K, height=H, width=W, znear=0.001, zfar=100)
         mtx = projection_mat @ ob_in_glcams
 
         if bbox2d is not None:

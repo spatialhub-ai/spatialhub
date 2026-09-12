@@ -7,36 +7,17 @@ import numpy as np
 
 from .image import load_image
 
-def _load_and_format_for_viz(img_input: str | Path | np.ndarray) -> np.ndarray:
-    """
-    Loads paths and converts Grayscale/RGBA into standard BGR for colorful OpenCV drawing.
-    """
-
-    if isinstance(img_input, str) or isinstance(img_input, Path):
-        img = load_image(img_input)
-    else:
-        img = img_input
-
-    # Normalize to 3-channel BGR for drawing colored circles and lines
-    if len(img.shape) == 2:
-        # It's grayscale, convert to BGR
-        img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
-    elif len(img.shape) == 3:
-        if img.shape[2] == 4:
-            # It's RGBA (png), convert to BGR
-            img = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
-        # If it's already 3 channels, we safely assume it's BGR/RGB and do nothing.
-        
-    return img
-
-def visualize_matches(img0_input: str | Path | np.ndarray, 
-                      img1_input: str | Path | np.ndarray, 
-                      mkpts0: np.ndarray, 
-                      mkpts1: np.ndarray, 
-                      mconf: np.ndarray = None, 
-                      conf_thresh: float = 0.5, 
-                      max_side: int = 800,
-                      top_k: int | None = None, save_path: str | Path | None = None):
+def visualize_matches(
+    img0_input: str | Path | np.ndarray,
+    img1_input: str | Path | np.ndarray,
+    mkpts0: np.ndarray,
+    mkpts1: np.ndarray,
+    mconf: np.ndarray | None = None,
+    conf_thresh: float = 0.5,
+    max_side: int = 800,
+    top_k: int | None = None,
+    save_path: str | Path | None = None,
+) -> np.ndarray:
     """
     Draws side-by-side matches between two images.
     """
@@ -47,9 +28,30 @@ def visualize_matches(img0_input: str | Path | np.ndarray,
         mkpts1 = mkpts1[idx]
         mconf = mconf[idx]
 
-    # Sanitize inputs to BGR arrays
-    img0 = _load_and_format_for_viz(img0_input)
-    img1 = _load_and_format_for_viz(img1_input)
+    # Sanitize inputs to 3-channel BGR arrays for OpenCV visualization and saving
+    if isinstance(img0_input, (str, Path)):
+        img0 = load_image(img0_input, color_mode="RGB")
+        img0 = cv2.cvtColor(img0, cv2.COLOR_RGB2BGR)
+        if img0 is None:
+            raise FileNotFoundError(f"Could not read image: {img0_input}")
+    else:
+        img0 = img0_input.copy()
+        if img0.ndim == 2:
+            img0 = cv2.cvtColor(img0, cv2.COLOR_GRAY2BGR)
+        elif img0.ndim == 3 and img0.shape[2] == 4:
+            img0 = cv2.cvtColor(img0, cv2.COLOR_RGBA2BGR)
+
+    if isinstance(img1_input, (str, Path)):
+        img1 = load_image(img1_input, color_mode="RGB")
+        img1 = cv2.cvtColor(img1, cv2.COLOR_RGB2BGR)
+        if img1 is None:
+            raise FileNotFoundError(f"Could not read image: {img1_input}")
+    else:
+        img1 = img1_input.copy()
+        if img1.ndim == 2:
+            img1 = cv2.cvtColor(img1, cv2.COLOR_GRAY2BGR)
+        elif img1.ndim == 3 and img1.shape[2] == 4:
+            img1 = cv2.cvtColor(img1, cv2.COLOR_RGBA2BGR)
 
     # Scale images so largest dimension <= max_side
     h0, w0 = img0.shape[:2]
@@ -145,7 +147,7 @@ def visualize_masks(image: np.ndarray, boxes: np.ndarray, masks: np.ndarray, sco
 
     return vis_img
 
-def draw_projected_3d_box(
+def draw_3d_box(
     image: np.ndarray,
     pose: np.ndarray,
     intrinsics: np.ndarray,

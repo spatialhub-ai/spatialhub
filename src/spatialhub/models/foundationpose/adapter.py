@@ -13,7 +13,7 @@ import numpy as np
 
 from spatialhub.core.runtime import create_ort_session, resolve_model_path
 from spatialhub.structures import PoseEstimationResult
-from spatialhub.utils import compute_mesh_diameter, compute_oriented_bounding_box, load_image, load_mesh, reproject_depth_to_3d
+from spatialhub.utils import compute_mesh_diameter, compute_obb, load_image, load_mesh, reproject_depth_to_3d
 from spatialhub.utils import create_moderngl_context
 
 from .filter import DepthFilter
@@ -459,7 +459,7 @@ class FoundationPoseAdapter:
         self.mesh = load_mesh(mesh_input=mesh_file_path, model_unit=model_unit, center=True)
         self.model_name = model_name if model_name is not None else Path(mesh_file_path).stem
 
-        self.mesh_bounds, self.mesh_extents, self.to_origin = compute_oriented_bounding_box(self.mesh)
+        self.mesh_bounds, self.mesh_extents, self.to_origin = compute_obb(self.mesh)
         self.mesh_diameter = compute_mesh_diameter(self.mesh)
         self.K = np.asarray(camera_intrinsic, dtype=np.float32)
 

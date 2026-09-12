@@ -12,8 +12,8 @@ import cv2
 import moderngl
 import numpy as np
 
-from .camera import convert_opencv_to_opengl_pose, create_perspective_projection_matrix
-from .mesh import inverse_transform, load_mesh, prepare_mesh_arrays, sample_sphere_poses
+from .camera import create_projection_matrix, opencv_to_opengl_pose
+from .mesh import invert_transform, load_mesh, prepare_mesh_arrays, sample_sphere_poses
 from .moderngl.atlas_renderer import BatchedAtlasRenderer
 from .moderngl.context import create_moderngl_context
 
@@ -277,11 +277,11 @@ class TemplateRenderer:
         if resolved_pose_type == "object_pose":
             ob_in_cams = view_poses
         else:
-            ob_in_cams = inverse_transform(view_poses)
+            ob_in_cams = invert_transform(view_poses)
 
         # Transform to OpenGL coordinate frame and compute MVP clip matrices
-        ob_in_glcams = convert_opencv_to_opengl_pose(ob_in_cams)
-        proj_mat = create_perspective_projection_matrix(K, height=height, width=width, znear=znear, zfar=zfar)
+        ob_in_glcams = opencv_to_opengl_pose(ob_in_cams)
+        proj_mat = create_projection_matrix(K, height=height, width=width, znear=znear, zfar=zfar)
         clip_matrices = proj_mat @ ob_in_glcams
 
         # Set program uniforms

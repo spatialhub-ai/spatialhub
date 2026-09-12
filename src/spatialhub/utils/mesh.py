@@ -86,7 +86,7 @@ def to_single_mesh(scene_or_mesh: Any) -> trimesh.Trimesh:
         if len(scene_or_mesh.geometry) == 0:
             raise ValueError("The loaded trimesh Scene is empty.")
         # Concatenate geometries
-        mesh = scene_or_mesh.dump(concatenate=True)
+        mesh = scene_or_mesh.to_geometry()
         if isinstance(mesh, list):
             mesh = trimesh.util.concatenate(mesh)
         return mesh
@@ -230,7 +230,7 @@ def load_mesh(
     return mesh
 
 
-def compute_oriented_bounding_box(mesh: trimesh.Trimesh) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def compute_obb(mesh: trimesh.Trimesh) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Computes the oriented bounding box (OBB) corners, dimensions, and transformation matrix.
 
@@ -312,7 +312,7 @@ def look_at(cam_location: np.ndarray, target_point: np.ndarray | None = None) ->
     return mat.astype(np.float32)
 
 
-def inverse_transform(trans: np.ndarray) -> np.ndarray:
+def invert_transform(trans: np.ndarray) -> np.ndarray:
     """
     Compute the inverse of a 4x4 rigid homogeneous transformation.
 
@@ -323,7 +323,7 @@ def inverse_transform(trans: np.ndarray) -> np.ndarray:
         Inverted 4x4 transformation matrix matching input shape in float32.
     """
     trans = np.asarray(trans, dtype=np.float32)
-    if trans.ndim == 2:
+    if trans.ndim == 2 and trans.shape == (4, 4):
         rot = trans[:3, :3]
         t = trans[:3, 3]
         rot_inv = rot.T
@@ -333,7 +333,7 @@ def inverse_transform(trans: np.ndarray) -> np.ndarray:
         output[:3, :3] = rot_inv
         output[:3, 3] = t_inv
         return output
-    elif trans.ndim == 3:
+    elif trans.ndim == 3 and trans.shape[1:] == (4, 4):
         rot = trans[:, :3, :3]
         t = trans[:, :3, 3:]
         rot_inv = rot.transpose(0, 2, 1)
@@ -409,7 +409,7 @@ def sample_sphere_poses(
     for pt in points:
         c2w = look_at(pt, target)
         if pose_type == "object_pose":
-            w2c = inverse_transform(c2w)
+            w2c = invert_transform(c2w)
             poses.append(w2c)
         elif pose_type == "camera_pose":
             poses.append(c2w)

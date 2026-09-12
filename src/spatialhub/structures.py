@@ -7,7 +7,7 @@ from typing import Literal
 import cv2
 import numpy as np
 
-from spatialhub.utils import draw_3d_axis, draw_projected_3d_box, visualize_masks, visualize_matches
+from spatialhub.utils import draw_3d_axis, draw_3d_box, visualize_masks, visualize_matches
 
 
 @dataclass
@@ -21,12 +21,12 @@ class MatchResult:
     keypoints_b: np.ndarray
     confidence: np.ndarray
 
-    def visualize(self, conf_thresh: float = 0.5, max_side: int = 800, top_k: int | None = None, save_path: str | Path | None = None):
+    def visualize(self, conf_thresh: float = 0.5, max_side: int = 800, top_k: int | None = None, save_path: str | Path | None = None) -> np.ndarray:
         """
         Visualizes the top-k matches between two images using the provided keypoints and confidence scores.
         Only matches with confidence above the specified threshold will be displayed.
         """
-        visualize_matches(
+        return visualize_matches(
             self.image_a, 
             self.image_b, 
             self.keypoints_a, 
@@ -35,7 +35,7 @@ class MatchResult:
             conf_thresh, 
             max_side,
             top_k,
-            save_path
+            save_path,
         )
 
 @dataclass
@@ -63,7 +63,11 @@ class FeatureExtractionResult:
     """
     Result produced by feature extraction models.
 
-    Supports both global image embeddings and dense per-pixel or per-patch feature representations.
+    Attributes:
+        images: Original input image array or batched images.
+        features: Feature map tensor of shape (N, H, W, D) or (N, D).
+        embedding_type: Representation type ('global' or 'dense').
+        l2_normalized: Whether embeddings are L2-normalized.
     """
 
     images: np.ndarray
@@ -74,8 +78,17 @@ class FeatureExtractionResult:
 @dataclass
 class SegmentationResult:
     """
-    Result produced by instance segmentation / object detection / or zero-shot mask proposal models
+    Result produced by instance segmentation or zero-shot mask proposal models (e.g. FastSAM, SAM, CNOS).
+
+    Attributes:
+        image: Original RGB input image of shape (H, W, 3).
+        boxes: Bounding boxes of shape (N, 4) in [x1, y1, x2, y2] format.
+        masks: Binary masks of shape (N, H, W) as boolean array.
+        scores: Confidence scores of shape (N,) as float array.
+        class_ids: Optional class identifier indices of shape (N,).
+        class_names: Optional class label names of length N.
     """
+
     image: np.ndarray
     boxes: np.ndarray
     masks: np.ndarray
@@ -83,12 +96,9 @@ class SegmentationResult:
     class_ids: np.ndarray | None = None
     class_names: list[str] | None = None
 
-    def visualize_mask(self, save_path: str | Path | None = None):
-        """
-        Visualize Mask
-        """
-
-        visualize_masks(self.image, self.boxes, self.masks, self.scores, save_path=save_path)
+    def visualize_mask(self, save_path: str | Path | None = None) -> np.ndarray:
+        """Visualizes the instance segmentation masks overlay on the input image."""
+        return visualize_masks(self.image, self.boxes, self.masks, self.scores, save_path=save_path)
 
 @dataclass
 class PoseEstimationResult:
@@ -158,7 +168,7 @@ class PoseEstimationResult:
                     if self.bbox_3d.ndim == 3 and len(self.bbox_3d) == len(self.poses)
                     else self.bbox_3d
                 )
-                vis_img = draw_projected_3d_box(
+                vis_img = draw_3d_box(
                     image=vis_img,
                     pose=pose,
                     intrinsics=self.intrinsics,

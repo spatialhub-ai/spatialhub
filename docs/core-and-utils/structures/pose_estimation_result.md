@@ -1,4 +1,4 @@
-﻿# PoseEstimationResult
+# PoseEstimationResult
 
 `spatialhub.structures.PoseEstimationResult` encapsulates estimated 6D object poses ($SE(3)$ transformation matrices) and confidence scores produced by 6D pose estimators and trackers such as [`FoundationPoseAdapter`](../../models/foundationpose.md).
 
@@ -35,7 +35,7 @@ from spatialhub.structures import PoseEstimationResult
 
 ### `visualize`
 
-Projects the 3D bounding box wireframe and Cartesian XYZ coordinate axes onto the input image. Calls [`draw_projected_3d_box`](../viz.md#draw_projected_3d_box) and [`draw_3d_axis`](../viz.md#draw_3d_axis) internally.
+Projects the 3D bounding box wireframe and Cartesian XYZ coordinate axes onto the input image. Calls [`draw_3d_box`](../viz.md#draw_3d_box) and [`draw_3d_axis`](../viz.md#draw_3d_axis) internally.
 
 ```python
 vis = result.visualize(draw_bbox=True, draw_axes=True, axis_length=0.05, save_path="pose.png")

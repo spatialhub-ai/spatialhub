@@ -1,5 +1,8 @@
-import numpy as np
+import logging
 import cv2
+import numpy as np
+
+logger = logging.getLogger(__name__)
 
 # 11 Anchor RGB color points for Matplotlib's 'Spectral' colormap
 _SPECTRAL_ANCHORS = np.array([
@@ -92,7 +95,7 @@ def process_mono_sky_estimation_np(depth: np.ndarray, depth_conf: np.ndarray | N
         Process mono sky estimation in NumPy.
         """
         if sky is None:
-            print("No sky estimation found in outputs. Skipping sky processing.")
+            logger.debug("No sky estimation found in outputs. Skipping sky processing.")
             return depth, depth_conf
 
         # non_sky_mask is True where sky prediction is below threshold
@@ -139,7 +142,7 @@ def align_nested_depth_np(
         focal = focal.reshape(-1, 1, 1) if focal.ndim > 0 else focal
         metric_depth = metric_depth * (focal / 300.0)
     else:
-        print("WARNING: Intrinsics missing. Nested alignment will use unscaled metric depth.")
+        logger.warning("Intrinsics missing. Nested alignment will use unscaled metric depth.")
 
     # Compute Sky Mask
     non_sky_mask = metric_sky < 0.3

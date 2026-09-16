@@ -125,9 +125,7 @@ class InputProcessor:
     def __init__(self):
         pass
 
-    # -----------------------------
     # Public API
-    # -----------------------------
     def __call__(
         self,
         image: list[np.ndarray | str],
@@ -177,9 +175,7 @@ class InputProcessor:
         )
         return (batch_tensor, out_exts, out_ixts)
 
-    # -----------------------------
     # __call__ helpers
-    # -----------------------------
     def _resolve_sequential(self, sequential: bool | None, num_workers: int) -> bool:
         return (num_workers <= 1) if sequential is None else sequential
 
@@ -275,9 +271,7 @@ class InputProcessor:
     def _stack_batch(self, processed_images: list[np.ndarray]) -> np.ndarray:
         return np.stack(processed_images)
 
-    # -----------------------------
     # Per-item worker
-    # -----------------------------
     def _process_one(
         self,
         img: np.ndarray | str,
@@ -318,9 +312,7 @@ class InputProcessor:
         # Return: (img_tensor, (H, W), intrinsic, extrinsic)
         return img_tensor, (H, W), intrinsic, extrinsic
 
-    # -----------------------------
     # Intrinsics transforms
-    # -----------------------------
     def _resize_ixt(
         self,
         intrinsic: np.ndarray | None,
@@ -354,9 +346,7 @@ class InputProcessor:
         K[1, 2] -= crop_h
         return K
 
-    # -----------------------------
     # I/O & normalization
-    # -----------------------------
     def _load_image(self, img: np.ndarray | str) -> np.ndarray:
         """Load an RGB image from a path or validate an in-memory NumPy array."""
 
@@ -402,9 +392,7 @@ class InputProcessor:
 
         return (img_np - mean) / std
 
-    # -----------------------------
     # Boundary resizing
-    # -----------------------------
     def _resize_image(self, img: np.ndarray, target_size: int, method: str) -> np.ndarray:
         if method in ("upper_bound_resize", "upper_bound_crop"):
             return self._resize_longest_side(img, target_size)
@@ -435,9 +423,7 @@ class InputProcessor:
         interpolation = cv2.INTER_CUBIC if scale > 1.0 else cv2.INTER_AREA
         return cv2.resize(img, (new_w, new_h), interpolation=interpolation)
 
-    # -----------------------------
     # Make divisible by PATCH_SIZE
-    # -----------------------------
     def _make_divisible_by_crop(self, img: np.ndarray, patch: int) -> np.ndarray:
         """
         Floor each dimension to the nearest multiple of PATCH_SIZE via center crop.

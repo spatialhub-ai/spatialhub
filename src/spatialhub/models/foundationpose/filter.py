@@ -9,9 +9,7 @@ import numpy as np
 
 from spatialhub.utils import FullscreenShader
 
-# ---------------------------------------------------------
 # Shader Definitions
-# ---------------------------------------------------------
 QUAD_VS = """
     #version 330
     in vec2 in_position;

@@ -182,3 +182,14 @@ class EfficientLoFTRAdapter:
 
         return tensor, scale
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+    
+    def close(self) -> None:
+        """Release underlying runtime inference session and memory resources."""
+        if getattr(self, "session", None) is not None:
+            self.session = None
+

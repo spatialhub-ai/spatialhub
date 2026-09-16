@@ -1,5 +1,6 @@
 import logging
 from pathlib import Path
+from typing import Any
 
 from huggingface_hub import hf_hub_download
 import onnxruntime as ort
@@ -59,9 +60,14 @@ def resolve_model_path(
         ) from exc
 
 
+def _extract_provider_name(provider: str | tuple[str, dict[str, Any]]) -> str:
+    """Extract string identifier from provider specification."""
+    return provider[0] if isinstance(provider, tuple) else provider
+
+
 def create_ort_session(
                     model_path: str | Path,
-                    providers: list[str] | str | None = None,
+                    providers: list[str | tuple[str, dict[str, Any]]] | str | None = None,
                     session_options: ort.SessionOptions | None = None,
                     log_severity_level: int | None = None,
                 ) -> ort.InferenceSession:
@@ -86,7 +92,7 @@ def create_ort_session(
     # Normalize providers
     if providers is None:
         execution_providers = ["CPUExecutionProvider"]
-    elif isinstance(providers, str):
+    elif isinstance(providers, (str, tuple)):
         execution_providers = [providers]
     else:
         execution_providers = list(providers)
@@ -105,10 +111,10 @@ def create_ort_session(
 
     # Validate active execution provider
     active_provider = session.get_providers()[0]
-    requested_provider = execution_providers[0]
+    requested_names = [_extract_provider_name(p) for p in execution_providers]
 
-    if active_provider != requested_provider:
-        logger.warning("Requested provider '%s', but ONNX Runtime fell back to '%s'.", requested_provider, active_provider,)
+    if active_provider not in requested_names:
+        logger.warning("Requested providers %s, but ONNX Runtime fell back to '%s'.", requested_names, active_provider)
     else:
         logger.debug("ONNX session initialized on provider: %s", active_provider)
 

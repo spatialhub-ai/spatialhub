@@ -32,11 +32,6 @@ def gl_ctx() -> moderngl.Context:
         pytest.skip(f"ModernGL context creation failed: {err}")
 
 
-# ============================================================================
-# 1. Context Tests
-# ============================================================================
-
-
 class TestModernGLContext:
     """Tests for create_moderngl_context."""
 
@@ -55,11 +50,6 @@ class TestModernGLContext:
         with patch("moderngl.create_context", side_effect=RuntimeError("GL context init error")):
             with pytest.raises(RuntimeError, match="GL context init error"):
                 create_moderngl_context()
-
-
-# ============================================================================
-# 2. BatchedAtlasRenderer Tests
-# ============================================================================
 
 
 class TestBatchedAtlasRenderer:
@@ -266,10 +256,6 @@ class TestBatchedAtlasRenderer:
         # Calling again should not raise errors
         renderer.release_fbo()
 
-
-# ============================================================================
-# 3. FullscreenShader Tests
-# ============================================================================
 
 class TestFullscreenShader:
     """Tests for FullscreenShader quad setup, texture upload/download, and ping-pong swapping."""

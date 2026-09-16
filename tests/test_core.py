@@ -11,11 +11,6 @@ import pytest
 from spatialhub.core.runtime import create_ort_session, resolve_model_path
 
 
-# ============================================================================
-# 1. Tests for resolve_model_path
-# ============================================================================
-
-
 class TestResolveModelPath:
     """Test suite covering local resolution, HF hub downloads, sidecars, and fallbacks."""
 
@@ -134,11 +129,6 @@ class TestResolveModelPath:
                 resolve_model_path(repo_id="broken/repo", filename="fail.onnx")
 
 
-# ============================================================================
-# 2. Tests for create_ort_session
-# ============================================================================
-
-
 class TestCreateOrtSession:
     """Test suite covering ONNX runtime session initialization, provider normalization, and fallback logging."""
 
@@ -223,7 +213,7 @@ class TestCreateOrtSession:
 
         with caplog.at_level(logging.WARNING), patch("onnxruntime.InferenceSession", return_value=mock_session):
             create_ort_session(fake_model, providers="CUDAExecutionProvider")
-            assert "Requested provider 'CUDAExecutionProvider', but ONNX Runtime fell back to 'CPUExecutionProvider'" in caplog.text
+            assert "Requested providers ['CUDAExecutionProvider'], but ONNX Runtime fell back to 'CPUExecutionProvider'" in caplog.text
 
     def test_create_ort_session_matching_provider_debug(self, tmp_path: Path, caplog: pytest.LogCaptureFixture):
         fake_model = tmp_path / "test.onnx"

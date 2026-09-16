@@ -16,8 +16,8 @@ from spatialhub.structures import SegmentationResult
 | `boxes` | `np.ndarray` | `(N, 4)` float32 | Bounding boxes in `[x1, y1, x2, y2]` pixel coordinate format. |
 | `masks` | `np.ndarray` | `(N, H, W)` bool | Binary spatial masks, one per candidate detection. |
 | `scores` | `np.ndarray` | `(N,)` float32 | Detection or match confidence scores. |
-| `class_ids` | `np.ndarray \| None` | `(N,)` int | Numeric class indices. `None` for class-agnostic proposals. |
-| `class_names` | `list[str] \| None` | Length `N` | String class or CAD object labels. |
+| `class_ids` | `np.ndarray | None` | `(N,)` int | Numeric class indices. `None` for class-agnostic proposals. |
+| `class_names` | `list[str] | None` | Length `N` | String class or CAD object labels. |
 
 ---
 
@@ -35,7 +35,7 @@ vis = result.visualize_mask(save_path="segmentation_overlay.png", alpha=0.4)
 
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `save_path` | `str \| Path \| None` | `None` | Optional disk path to write the annotated image. |
+| `save_path` | `str | Path | None` | `None` | Optional disk path to write the annotated image. |
 | `alpha` | `float` | `0.4` | Mask blend transparency ($0.0 \dots 1.0$). |
 
 #### Return Value

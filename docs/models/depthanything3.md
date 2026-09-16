@@ -55,7 +55,7 @@ Monocular depth estimates near the sky boundary undergo unconstrained dispersion
 Multi-view poses $(R, t, s)$ are aligned to reference ground truth trajectories using Umeyama rigid similarity transformations minimizing squared point distance:
 
 $$
-\min_{R, t, s} \sum_{i=1}^N \| s R p_i + t - q_i \|^2
+\min_{R, t, s} \sum_{i=1}^N | s R p_i + t - q_i |^2
 $$
 
 ---
@@ -107,7 +107,7 @@ Returns a [`DepthPredictionResult`](../core-and-utils/structures/depth_predictio
 | :--- | :--- | :--- | :--- |
 | `image` | `np.ndarray` | `(N, H, W, 3)` uint8 | Input RGB image batch. |
 | `depth` | `np.ndarray` | `(N, H, W)` float32 | Predicted depth maps (in meters or relative scale). |
-| `conf` | `np.ndarray \| None` | `(N, H, W)` float32 | Prediction confidence maps `[0.0, 1.0]`. |
-| `intrinsics` | `np.ndarray \| None` | `(N, 3, 3)` float32 | Extracted or passed camera intrinsics. |
-| `extrinsics` | `np.ndarray \| None` | `(N, 4, 4)` float32 | Estimated multi-view camera extrinsic matrices. |
+| `conf` | `np.ndarray | None` | `(N, H, W)` float32 | Prediction confidence maps `[0.0, 1.0]`. |
+| `intrinsics` | `np.ndarray | None` | `(N, 3, 3)` float32 | Extracted or passed camera intrinsics. |
+| `extrinsics` | `np.ndarray | None` | `(N, 4, 4)` float32 | Estimated multi-view camera extrinsic matrices. |
 | `depth_type` | `str` | N/A | Scale type (`"metric"` or `"relative"`). |

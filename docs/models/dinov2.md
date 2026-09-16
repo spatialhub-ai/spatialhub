@@ -36,7 +36,7 @@ Where $\mu = [0.485, 0.456, 0.406]$ and $\sigma = [0.229, 0.224, 0.225]$.
 Extracted CLS token feature vectors $v \in \mathbb{R}^D$ are normalized to unit L2 length:
 
 $$
-v_{norm} = \frac{v}{\|v\|_2} = \frac{v}{\sqrt{\sum_{i=1}^D v_i^2}}
+v_{norm} = \frac{v}{|v|_2} = \frac{v}{\sqrt{\sum_{i=1}^D v_i^2}}
 $$
 
 ---

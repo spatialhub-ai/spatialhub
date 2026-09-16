@@ -85,7 +85,9 @@ nav:
               - SegmentationResult: core-and-utils/structures/segmentation_result.md
               - PoseEstimationResult: core-and-utils/structures/pose_estimation_result.md
           - Runtime & Execution: core-and-utils/runtime.md
-          - ONNX Export Workflow: onnx-export/overview.md
+          - ONNX Export: core-and-utils/export.md
+          - Numerical Parity: core-and-utils/parity.md
+          - Performance Profiling: core-and-utils/profiling.md
       - Geometry & Vision:
           - Camera Geometry: core-and-utils/camera.md
           - 3D Mesh Processing: core-and-utils/mesh.md

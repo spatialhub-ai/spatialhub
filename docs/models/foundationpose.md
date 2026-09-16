@@ -119,7 +119,7 @@ Returns a [`PoseEstimationResult`](../core-and-utils/structures/pose_estimation_
 | `image` | `np.ndarray` | `(H, W, 3)` uint8 | Input RGB image array. |
 | `poses` | `np.ndarray` | `(N, 4, 4)` float32 | Estimated 4x4 object-to-camera transformation matrices. |
 | `intrinsics` | `np.ndarray` | `(3, 3)` float32 | Camera intrinsic matrix. |
-| `scores` | `np.ndarray \| None` | `(N,)` float32 | Confidence scores associated with candidate poses. |
-| `labels` | `list[str] \| None` | Length `N` | Object model identifiers. |
-| `bbox_3d` | `np.ndarray \| None` | `(N, 8, 3)` or `(8, 3)` float32 | 3D bounding box corners in canonical centered mesh space. |
-| `to_origin` | `np.ndarray \| None` | `(N, 4, 4)` or `(4, 4)` float32 | Centering transform matrix for coordinate axis positioning. |
+| `scores` | `np.ndarray | None` | `(N,)` float32 | Confidence scores associated with candidate poses. |
+| `labels` | `list[str] | None` | Length `N` | Object model identifiers. |
+| `bbox_3d` | `np.ndarray | None` | `(N, 8, 3)` or `(8, 3)` float32 | 3D bounding box corners in canonical centered mesh space. |
+| `to_origin` | `np.ndarray | None` | `(N, 4, 4)` or `(4, 4)` float32 | Centering transform matrix for coordinate axis positioning. |

@@ -232,30 +232,55 @@
 }
 
 [data-md-color-scheme="default"] .md-nav--secondary .md-nav__title {
-  color: #0f172a !important;
-  font-weight: 600 !important;
+  color: #475569 !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.08em !important;
+  margin: 0.3rem 0 0.4rem 0 !important;
 }
 
 [data-md-color-scheme="default"] .md-nav--secondary > .md-nav__list > .md-nav__item > .md-nav__link {
-  color: #475569 !important;
-  font-weight: 500;
+  color: #334155 !important;
+  font-size: 13.5px !important;
+  font-weight: 600 !important;
+  padding: 0.3rem 0.55rem !important;
+  border-radius: 4px !important;
+  margin: 0.12rem 0 !important;
+  transition: all 120ms ease-in-out !important;
 }
 
 [data-md-color-scheme="default"] .md-nav--secondary > .md-nav__list > .md-nav__item > .md-nav__link:hover {
   color: #0f172a !important;
+  background-color: #f1f5f9 !important;
 }
 
-[data-md-color-scheme="default"] .md-nav--secondary .md-nav__item .md-nav__item .md-nav__link {
+[data-md-color-scheme="default"] .md-nav--secondary .md-nav__item .md-nav__list {
+  margin-left: 0.45rem !important;
+  padding-left: 0.35rem !important;
+  border-left: 1.5px solid #e2e8f0 !important;
+}
+
+[data-md-color-scheme="default"] .md-nav--secondary .md-nav__item .md-nav__item > .md-nav__link {
   color: #64748b !important;
+  font-size: 12.5px !important;
+  font-weight: 400 !important;
+  padding: 0.2rem 0.5rem 0.2rem 0.55rem !important;
+  border-radius: 0 4px 4px 0 !important;
+  margin: 0.06rem 0 !important;
+  transition: all 120ms ease-in-out !important;
 }
 
-[data-md-color-scheme="default"] .md-nav--secondary .md-nav__item .md-nav__item .md-nav__link:hover {
+[data-md-color-scheme="default"] .md-nav--secondary .md-nav__item .md-nav__item > .md-nav__link:hover {
   color: #0f172a !important;
+  background-color: #f8fafc !important;
 }
 
 [data-md-color-scheme="default"] .md-nav--secondary .md-nav__link--active {
-  color: #2563eb !important;
-  font-weight: 600 !important;
+  color: #1d4ed8 !important;
+  font-weight: 700 !important;
+  background-color: #eff6ff !important;
+  box-shadow: inset 3px 0 0 0 #2563eb !important;
 }
 
 /* Links inside Content & Tables in Light Mode */
@@ -346,25 +371,56 @@
   border-left: 1px solid rgba(51, 65, 85, 0.5);
 }
 
-[data-md-color-scheme="slate"] .md-nav--secondary > .md-nav__list > .md-nav__item > .md-nav__link {
+[data-md-color-scheme="slate"] .md-nav--secondary .md-nav__title {
   color: #94a3b8 !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.08em !important;
+  margin: 0.3rem 0 0.4rem 0 !important;
+}
+
+[data-md-color-scheme="slate"] .md-nav--secondary > .md-nav__list > .md-nav__item > .md-nav__link {
+  color: #cbd5e1 !important;
+  font-size: 13.5px !important;
+  font-weight: 600 !important;
+  padding: 0.3rem 0.55rem !important;
+  border-radius: 4px !important;
+  margin: 0.12rem 0 !important;
+  transition: all 120ms ease-in-out !important;
 }
 
 [data-md-color-scheme="slate"] .md-nav--secondary > .md-nav__list > .md-nav__item > .md-nav__link:hover {
+  color: #ffffff !important;
+  background-color: rgba(51, 65, 85, 0.45) !important;
+}
+
+[data-md-color-scheme="slate"] .md-nav--secondary .md-nav__item .md-nav__list {
+  margin-left: 0.45rem !important;
+  padding-left: 0.35rem !important;
+  border-left: 1.5px solid rgba(51, 65, 85, 0.5) !important;
+}
+
+[data-md-color-scheme="slate"] .md-nav--secondary .md-nav__item .md-nav__item > .md-nav__link {
+  color: #94a3b8 !important;
+  font-size: 12.5px !important;
+  font-weight: 400 !important;
+  padding: 0.2rem 0.5rem 0.2rem 0.55rem !important;
+  border-radius: 0 4px 4px 0 !important;
+  margin: 0.06rem 0 !important;
+  transition: all 120ms ease-in-out !important;
+}
+
+[data-md-color-scheme="slate"] .md-nav--secondary .md-nav__item .md-nav__item > .md-nav__link:hover {
   color: #f1f5f9 !important;
-}
-
-[data-md-color-scheme="slate"] .md-nav--secondary .md-nav__item .md-nav__item .md-nav__link {
-  color: #64748b !important;
-}
-
-[data-md-color-scheme="slate"] .md-nav--secondary .md-nav__item .md-nav__item .md-nav__link:hover {
-  color: #cbd5e1 !important;
+  background-color: rgba(51, 65, 85, 0.3) !important;
 }
 
 [data-md-color-scheme="slate"] .md-nav--secondary .md-nav__link--active {
-  color: #60a5fa !important;
-  font-weight: 600 !important;
+  color: #93c5fd !important;
+  font-weight: 700 !important;
+  background-color: rgba(30, 58, 138, 0.35) !important;
+  box-shadow: inset 3px 0 0 0 #60a5fa !important;
 }
 
 /* -------------------------------------------------------------------------

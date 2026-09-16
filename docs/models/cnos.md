@@ -132,5 +132,5 @@ Returns a [`SegmentationResult`](../core-and-utils/structures/segmentation_resul
 | `boxes` | `np.ndarray` | `(N, 4)` float32 | Matched bounding box coordinates `[x1, y1, x2, y2]`. |
 | `masks` | `np.ndarray` | `(N, H, W)` bool | Matched binary segment masks. |
 | `scores` | `np.ndarray` | `(N,)` float32 | Top-$k$ aggregated cosine similarity matching scores. |
-| `class_ids` | `np.ndarray \| None` | `(N,)` int | Numerical class index array. |
-| `class_names` | `list[str] \| None` | Length `N` | CAD object name strings. |
+| `class_ids` | `np.ndarray | None` | `(N,)` int | Numerical class index array. |
+| `class_names` | `list[str] | None` | Length `N` | CAD object name strings. |

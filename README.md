@@ -13,7 +13,7 @@ A high-performance, zero-PyTorch spatial AI and perception library providing uni
 
 - **Zero-PyTorch Inference:** Core runtime paths execute exclusively on **ONNX Runtime** with pure NumPy and OpenCV vector operations.
 - **Unified Return Contracts:** Standardized dataclass outputs across all model families ([`MatchResult`](./docs/core-and-utils/structures/match_result.md), [`DepthPredictionResult`](./docs/core-and-utils/structures/depth_prediction_result.md), [`FeatureExtractionResult`](./docs/core-and-utils/structures/feature_extraction_result.md), [`SegmentationResult`](./docs/core-and-utils/structures/segmentation_result.md), [`PoseEstimationResult`](./docs/core-and-utils/structures/pose_estimation_result.md)).
-- **Automatic Weight Management:** Downloads, verifies, and caches pretrained `.onnx` weight binaries seamlessly from Hugging Face Hub.
+- **Automatic Weight Management:** Downloads, verifies, and caches pretrained `.onnx` weight binaries from Hugging Face Hub.
 - **Hardware Acceleration:** Native support for CPU, CUDA, and TensorRT execution providers with runtime fallback verification.
 - **ModernGL GPU Rendering:** Built-in headless offscreen G-buffer and batched atlas renderer for CAD model template matching and 6D pose estimation.
 

@@ -15,10 +15,10 @@ from spatialhub.structures import PoseEstimationResult
 | `image` | `np.ndarray` | `(H, W, 3)` uint8 | Input RGB image array. |
 | `poses` | `np.ndarray` | `(N, 4, 4)` float32 | Estimated 4x4 object-to-camera transformation matrices $[R \mid t]$. |
 | `intrinsics` | `np.ndarray` | `(3, 3)` float32 | Camera intrinsic matrix $K$. |
-| `scores` | `np.ndarray \| None` | `(N,)` float32 | Pose confidence scores. |
-| `labels` | `list[str] \| None` | Length `N` | Object class or model name identifiers. |
-| `bbox_3d` | `np.ndarray \| None` | `(N, 8, 3)` or `(8, 3)` float32 | 3D bounding box corners in canonical centered CAD space. |
-| `to_origin` | `np.ndarray \| None` | `(N, 4, 4)` or `(4, 4)` float32 | Centering transform from raw CAD origin to centered frame. |
+| `scores` | `np.ndarray | None` | `(N,)` float32 | Pose confidence scores. |
+| `labels` | `list[str] | None` | Length `N` | Object class or model name identifiers. |
+| `bbox_3d` | `np.ndarray | None` | `(N, 8, 3)` or `(8, 3)` float32 | 3D bounding box corners in canonical centered CAD space. |
+| `to_origin` | `np.ndarray | None` | `(N, 4, 4)` or `(4, 4)` float32 | Centering transform from raw CAD origin to centered frame. |
 
 ---
 
@@ -27,7 +27,7 @@ from spatialhub.structures import PoseEstimationResult
 | Property | Returns | Description |
 | :--- | :--- | :--- |
 | `best_pose` | `np.ndarray (4, 4)` | The pose with the highest confidence score. If `scores` is `None`, returns `poses[0]`. |
-| `best_score` | `float \| None` | The highest confidence value, or `None` if no scores are available. |
+| `best_score` | `float | None` | The highest confidence value, or `None` if no scores are available. |
 
 ---
 
@@ -49,7 +49,7 @@ vis = result.visualize(draw_bbox=True, draw_axes=True, axis_length=0.05, save_pa
 | `draw_axes` | `bool` | `True` | Draw XYZ coordinate axes. Requires `to_origin`. |
 | `axis_length` | `float` | `0.05` | Axis length in meters. |
 | `box_color` | `tuple[int, int, int]` | `(0, 255, 0)` | RGB color for the bounding box wireframe. |
-| `save_path` | `str \| Path \| None` | `None` | Optional disk path to write the annotated image. |
+| `save_path` | `str | Path | None` | `None` | Optional disk path to write the annotated image. |
 
 #### Return Value
 * **`np.ndarray`**: Annotated uint8 RGB image array of shape `(H, W, 3)`.

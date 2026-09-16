@@ -33,16 +33,16 @@ TemplateRenderer(
 
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `model_path` | `str \| Path \| trimesh.Trimesh` | required | Target CAD mesh file path or pre-loaded `trimesh.Trimesh`. |
-| `model_unit` | `str \| float` | `"m"` | Coordinate unit of raw CAD vertices (`"m"`, `"cm"`, `"mm"`, or float multiplier). |
-| `ambient_light` | `tuple[float, float, float, float] \| None` | `(1.0, 1.0, 1.0, 1.0)` | Ambient scene lighting RGBA. |
+| `model_path` | `str | Path | trimesh.Trimesh` | required | Target CAD mesh file path or pre-loaded `trimesh.Trimesh`. |
+| `model_unit` | `str | float` | `"m"` | Coordinate unit of raw CAD vertices (`"m"`, `"cm"`, `"mm"`, or float multiplier). |
+| `ambient_light` | `tuple[float, float, float, float] | None` | `(1.0, 1.0, 1.0, 1.0)` | Ambient scene lighting RGBA. |
 | `light_color` | `tuple[float, float, float]` | `(1.0, 1.0, 1.0)` | Directional light RGB color. |
 | `light_intensity` | `float` | `1.0` | Light intensity multiplier. |
 | `bg_color` | `tuple[float, float, float, float]` | `(0.0, 0.0, 0.0, 0.0)` | Background clear color. |
-| `ctx` | `moderngl.Context \| None` | `None` | Optional execution context. If `None`, creates a standalone context. |
-| `vertex_shader` | `str \| None` | `None` | Custom vertex shader GLSL string override. |
-| `fragment_shader` | `str \| None` | `None` | Custom fragment shader GLSL string override. |
-| `gbuffer_layout` | `list[tuple[int, str]] \| None` | `None` | Custom G-Buffer layout specifications. |
+| `ctx` | `moderngl.Context | None` | `None` | Optional execution context. If `None`, creates a standalone context. |
+| `vertex_shader` | `str | None` | `None` | Custom vertex shader GLSL string override. |
+| `fragment_shader` | `str | None` | `None` | Custom fragment shader GLSL string override. |
+| `gbuffer_layout` | `list[tuple[int, str]] | None` | `None` | Custom G-Buffer layout specifications. |
 
 ---
 
@@ -87,10 +87,10 @@ templates = renderer.render_templates(
 | :--- | :--- | :--- | :--- |
 | `width` | `int` | required | Rendered output width in pixels. |
 | `height` | `int` | required | Rendered output height in pixels. |
-| `intrinsics` | `np.ndarray \| list[float]` | required | 3x3 matrix or 4-element `[fx, fy, cx, cy]`. |
-| `poses` | `np.ndarray \| str \| Path \| None` | `None` | `(N, 4, 4)` array or path to `.npy`. If `None`, generates $N$ viewpoints on a Fibonacci sphere. |
-| `pose_unit` | `str \| float` | `"mm"` | Unit of translation vector in `poses`. |
-| `pose_type` | `"object_pose" \| "camera_pose" \| None` | `None` | Reference frame interpretation. Defaults to `"object_pose"`. |
+| `intrinsics` | `np.ndarray | list[float]` | required | 3x3 matrix or 4-element `[fx, fy, cx, cy]`. |
+| `poses` | `np.ndarray | str | Path | None` | `None` | `(N, 4, 4)` array or path to `.npy`. If `None`, generates $N$ viewpoints on a Fibonacci sphere. |
+| `pose_unit` | `str | float` | `"mm"` | Unit of translation vector in `poses`. |
+| `pose_type` | `"object_pose" | "camera_pose" | None` | `None` | Reference frame interpretation. Defaults to `"object_pose"`. |
 | `num_viewpoints` | `int` | `42` | Number of viewpoints on Fibonacci sphere when `poses=None`. |
 | `radius` | `float` | `0.4` | Viewpoint distance from model centroid in meters. |
 | `znear` | `float` | `0.001` | Near clipping distance in meters. |

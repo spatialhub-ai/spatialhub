@@ -66,7 +66,7 @@ xyz_map = reproject_depth_to_3d(depth, K)  # (H, W, 3)
 | :--- | :--- | :--- | :--- |
 | `depth` | `np.ndarray (H, W)` | required | Depth map in meters. |
 | `K` | `np.ndarray (3, 3)` | required | Camera intrinsic matrix. |
-| `uvs` | `np.ndarray (N, 2) \| None` | `None` | Optional pixel coordinates. If `None`, evaluates all pixels. |
+| `uvs` | `np.ndarray (N, 2) | None` | `None` | Optional pixel coordinates. If `None`, evaluates all pixels. |
 | `z_min` | `float` | `0.001` | Minimum valid depth in meters. |
 | `z_max` | `float` | `inf` | Maximum valid depth in meters. |
 

@@ -1,4 +1,4 @@
-﻿# Core Runtime Reference
+# Core Runtime Reference
 
 `spatialhub.core.runtime` provides model weight resolution and ONNX Runtime session instantiation.
 
@@ -28,10 +28,10 @@ resolved_path: Path = resolve_model_path(
 
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `model_path` | `str \| Path \| None` | `None` | Explicit local ONNX weight file path. |
-| `repo_id` | `str \| None` | `None` | Remote Hugging Face repository ID. |
-| `filename` | `str \| None` | `None` | Target ONNX filename in the repository. |
-| `download_sidecar_data` | `bool` | `False` | Flag to fetch companion `.data` files for models >2GB. |
+| `model_path` | `str | Path | None` | `None` | Explicit local ONNX weight file path. |
+| `repo_id` | `str | None` | `None` | Remote Hugging Face repository ID. |
+| `filename` | `str | None` | `None` | Target ONNX filename in the repository. |
+| `download_sidecar_data` | `bool` | `False` | Flag to fetch companion `.data` files for models >2GB with external weights. |
 
 ### Return Value
 * **`Path`**: Absolute local path to resolved `.onnx` weight file.
@@ -44,17 +44,30 @@ resolved_path: Path = resolve_model_path(
 
 ## `create_ort_session`
 
-Initializes and validates an ONNX Runtime `InferenceSession` from disk with execution provider fallback detection.
+Initializes and validates an ONNX Runtime `InferenceSession` from disk with execution provider option normalization and fallback detection.
 
 ```python
 import onnxruntime as ort
 from spatialhub.core.runtime import create_ort_session
 
-session: ort.InferenceSession = create_ort_session(
+# Simple string provider list
+session = create_ort_session(
     model_path="weights/model.onnx",
     providers=["CUDAExecutionProvider", "CPUExecutionProvider"],
-    session_options=None,
     log_severity_level=3,
+)
+
+# Provider with configuration dictionary
+cuda_provider = (
+    "CUDAExecutionProvider",
+    {
+        "device_id": 0,
+        "arena_extend_strategy": "kSameAsRequested",
+    }
+)
+session = create_ort_session(
+    model_path="weights/model.onnx",
+    providers=[cuda_provider, "CPUExecutionProvider"],
 )
 ```
 
@@ -62,14 +75,14 @@ session: ort.InferenceSession = create_ort_session(
 
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `model_path` | `str \| Path` | required | Local ONNX model binary path. |
-| `providers` | `list[str] \| str \| None` | `None` | Target execution provider list (defaults to `["CPUExecutionProvider"]`). |
-| `session_options` | `ort.SessionOptions \| None` | `None` | Custom ONNX session configuration options. |
-| `log_severity_level` | `int \| None` | `None` | ONNX Runtime internal logging level (`3` = Error only). |
+| `model_path` | `str | Path` | *Required* | Path to the local ONNX model binary. |
+| `providers` | `list[str | tuple[str, dict]] | str | tuple | None` | `None` | Target execution provider list or tuple with provider options (defaults to `["CPUExecutionProvider"]`). |
+| `session_options` | `ort.SessionOptions | None` | `None` | Custom ONNX session configuration options. |
+| `log_severity_level` | `int | None` | `None` | ONNX Runtime internal logging level (`3` = Error only). |
 
 ### Provider Verification
-Verifies active execution providers against requested targets and logs a warning if ONNX Runtime fell back to CPU:
+Verifies the active execution provider against requested provider names and logs a warning if ONNX Runtime fell back to CPU:
 
 ```text
-WARNING: Requested provider 'CUDAExecutionProvider', but ONNX Runtime fell back to 'CPUExecutionProvider'.
+WARNING: Requested providers ['CUDAExecutionProvider'], but ONNX Runtime fell back to 'CPUExecutionProvider'.
 ```

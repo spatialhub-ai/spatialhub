@@ -28,8 +28,8 @@ img_rgba = load_image("frame.png", color_mode="RGBA") # (H, W, 4) uint8
 
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `image_input` | `str \| Path \| np.ndarray` | required | File path or in-memory array. |
-| `color_mode` | `"RGB" \| "RGBA" \| "GRAY"` | `"RGB"` | Target channel format. |
+| `image_input` | `str | Path | np.ndarray` | required | File path or in-memory array. |
+| `color_mode` | `"RGB" | "RGBA" | "GRAY"` | `"RGB"` | Target channel format. |
 
 ### Return Value
 * **`np.ndarray`**: Grayscale output has shape `(H, W)`; RGB/RGBA has shape `(H, W, C)`.
@@ -91,7 +91,7 @@ square = square_crop_and_resize(img_rgba, bbox, target_size=224)  # (224, 224, C
 | :--- | :--- | :--- | :--- |
 | `image` | `np.ndarray` | required | Source image array `(H, W, C)`. |
 | `bbox` | `tuple[int, int, int, int]` | required | Region to crop: `(x_min, y_min, x_max, y_max)`. |
-| `target_size` | `int \| None` | `None` | Square target dimension. If `None`, returns unresized square canvas. |
+| `target_size` | `int | None` | `None` | Square target dimension. If `None`, returns unresized square canvas. |
 
 ### Return Value
 * **`np.ndarray`**: Padded and resized square array.

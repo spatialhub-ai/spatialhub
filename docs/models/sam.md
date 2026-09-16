@@ -88,5 +88,5 @@ Returns a [`SegmentationResult`](../core-and-utils/structures/segmentation_resul
 | `boxes` | `np.ndarray` | `(N, 4)` float32 | Bounding box coordinates `[x1, y1, x2, y2]`. |
 | `masks` | `np.ndarray` | `(N, H, W)` bool | Binary spatial segment masks. |
 | `scores` | `np.ndarray` | `(N,)` float32 | Predicted IoU confidence scores `[0.0, 1.0]`. |
-| `class_ids` | `np.ndarray \| None` | `(N,)` int | Numerical class index array. |
-| `class_names` | `list[str] \| None` | Length `N` | Class label name list. |
+| `class_ids` | `np.ndarray | None` | `(N,)` int | Numerical class index array. |
+| `class_names` | `list[str] | None` | Length `N` | Class label name list. |

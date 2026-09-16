@@ -39,15 +39,15 @@ vis = visualize_matches(img0, img1, mkpts0, mkpts1, mconf=conf, top_k=100)
 
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `img0_input` | `str \| Path \| np.ndarray` | required | First image path or array. |
-| `img1_input` | `str \| Path \| np.ndarray` | required | Second image path or array. |
+| `img0_input` | `str | Path | np.ndarray` | required | First image path or array. |
+| `img1_input` | `str | Path | np.ndarray` | required | Second image path or array. |
 | `mkpts0` | `np.ndarray (N, 2)` | required | Keypoints in first image `[x, y]`. |
 | `mkpts1` | `np.ndarray (N, 2)` | required | Keypoints in second image `[x, y]`. |
-| `mconf` | `np.ndarray (N,) \| None` | `None` | Match confidence scores. |
+| `mconf` | `np.ndarray (N,) | None` | `None` | Match confidence scores. |
 | `conf_thresh` | `float` | `0.5` | Minimum confidence threshold to render. |
 | `max_side` | `int` | `800` | Maximum spatial dimension for output canvas. |
-| `top_k` | `int \| None` | `None` | Limit to top $k$ matches by confidence. |
-| `save_path` | `str \| Path \| None` | `None` | Path to save output image file. |
+| `top_k` | `int | None` | `None` | Limit to top $k$ matches by confidence. |
+| `save_path` | `str | Path | None` | `None` | Path to save output image file. |
 
 ### Return Value
 * **`np.ndarray`**: uint8 BGR canvas of shape `(H, W0 + W1, 3)`.
@@ -70,7 +70,7 @@ vis = visualize_masks(image, boxes, masks, scores, save_path="out.png")
 | `boxes` | `np.ndarray (N, 4)` | required | Bounding boxes in `[x1, y1, x2, y2]` format. |
 | `masks` | `np.ndarray (N, H, W)` bool | required | Binary masks per detection. |
 | `scores` | `np.ndarray (N,)` | required | Confidence scores. |
-| `save_path` | `str \| Path \| None` | `None` | Path to save output image file. |
+| `save_path` | `str | Path | None` | `None` | Path to save output image file. |
 | `alpha` | `float` | `0.4` | Transparency blend factor ($0.0 \dots 1.0$). |
 
 ### Return Value
@@ -117,7 +117,7 @@ vis = draw_3d_axis(image, pose, K, to_origin=mesh_offset_matrix)
 | `image` | `np.ndarray (H, W, 3)` uint8 | required | Base RGB image. |
 | `pose` | `np.ndarray (4, 4)` | required | 4x4 object-to-camera transform. |
 | `intrinsics` | `np.ndarray (3, 3)` | required | 3x3 camera intrinsic matrix. |
-| `to_origin` | `np.ndarray (4, 4) \| None` | `None` | Centering offset transform matrix. |
+| `to_origin` | `np.ndarray (4, 4) | None` | `None` | Centering offset transform matrix. |
 | `axis_length` | `float` | `0.05` | Length of axes in meters. |
 | `thickness` | `int` | `2` | Line thickness in pixels. |
 

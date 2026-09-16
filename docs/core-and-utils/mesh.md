@@ -63,7 +63,7 @@ mesh_m = scale_mesh(mesh_raw, model_unit="mm")
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
 | `mesh` | `trimesh.Trimesh` | required | Source mesh. |
-| `model_unit` | `str \| float` | `"m"` | Unit: `"m"` ($1.0$), `"cm"` ($0.01$), `"mm"` ($0.001$), or numeric scale factor. |
+| `model_unit` | `str | float` | `"m"` | Unit: `"m"` ($1.0$), `"cm"` ($0.01$), `"mm"` ($0.001$), or numeric scale factor. |
 
 ### Return Value
 * **`trimesh.Trimesh`**: Mesh with vertices in meters.
@@ -100,8 +100,8 @@ mesh = load_mesh("models/obj_000001.ply", model_unit="mm", center=True)
 
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `mesh_input` | `str \| Path \| trimesh.Trimesh \| trimesh.Scene` | required | Source geometry. |
-| `model_unit` | `str \| float` | `"m"` | Source coordinate unit system. |
+| `mesh_input` | `str | Path | trimesh.Trimesh | trimesh.Scene` | required | Source geometry. |
+| `model_unit` | `str | float` | `"m"` | Source coordinate unit system. |
 | `center` | `bool` | `True` | Whether to translate bounding box centroid to origin. |
 
 ### Return Value
@@ -165,7 +165,7 @@ poses = sample_sphere_poses(
 | `num_viewpoints` | `int` | `42` | Target number of viewpoints. |
 | `radius` | `float` | `1.0` | Distance from model origin in meters. |
 | `sampling_method` | `str` | `"fibonacci"` | Sampling distribution: `"fibonacci"` or `"icosphere"`. |
-| `subdivisions` | `int \| None` | `None` | Optional fixed icosphere subdivision level. |
+| `subdivisions` | `int | None` | `None` | Optional fixed icosphere subdivision level. |
 | `pose_type` | `str` | `"object_pose"` | `"object_pose"` (w2c) or `"camera_pose"` (c2w). |
 
 ### Return Value
@@ -212,7 +212,7 @@ mesh_arrays = prepare_mesh_arrays(mesh, max_tex_size=2048, flip_uv=True)
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
 | `mesh` | `trimesh.Trimesh` | required | Input CAD mesh. |
-| `max_tex_size` | `int \| None` | `None` | Optional maximum texture dimension limit in pixels. |
+| `max_tex_size` | `int | None` | `None` | Optional maximum texture dimension limit in pixels. |
 | `flip_uv` | `bool` | `True` | Invert vertical UV coordinates ($1 - V$) for OpenGL shader convention. |
 
 ### Return Value

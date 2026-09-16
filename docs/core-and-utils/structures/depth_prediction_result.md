@@ -14,9 +14,9 @@ from spatialhub.structures import DepthPredictionResult
 | :--- | :--- | :--- | :--- |
 | `image` | `np.ndarray` | `(N, H, W, 3)` or `(H, W, 3)` uint8 | Input RGB image array(s). |
 | `depth` | `np.ndarray` | `(N, H, W)` float32 | Predicted depth map array in meters or relative scale. |
-| `conf` | `np.ndarray \| None` | `(N, H, W)` float32 | Per-pixel prediction confidence, if provided by the model. |
-| `intrinsics` | `np.ndarray \| None` | `(N, 3, 3)` float32 | Estimated camera intrinsic matrices `[[fx, 0, cx], [0, fy, cy], [0, 0, 1]]`. |
-| `extrinsics` | `np.ndarray \| None` | `(N, 4, 4)` float32 | Estimated camera extrinsic transformation matrices `[R \| t]`. |
+| `conf` | `np.ndarray | None` | `(N, H, W)` float32 | Per-pixel prediction confidence, if provided by the model. |
+| `intrinsics` | `np.ndarray | None` | `(N, 3, 3)` float32 | Estimated camera intrinsic matrices `[[fx, 0, cx], [0, fy, cy], [0, 0, 1]]`. |
+| `extrinsics` | `np.ndarray | None` | `(N, 4, 4)` float32 | Estimated camera extrinsic transformation matrices `[R | t]`. |
 | `depth_type` | `str` | `"metric"` | Depth interpretation scale: `"metric"`, `"relative"`, `"inverse"`, or `"disparity"`. |
 
 ---

@@ -13,7 +13,12 @@ wheels/
 
 main.py
 self.md
-tests/
 
 # MKdocs build output
 site/
+
+faltu/
+
+.cache/
+.profile/
+onnx_weight/

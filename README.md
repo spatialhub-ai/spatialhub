@@ -5,14 +5,41 @@
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-A high-performance, zero-PyTorch spatial AI and perception library providing unified ONNX Runtime inference adapters for computer vision and 3D spatial computing models.
+A lightweight, PyTorch-free spatial AI and perception library providing unified ONNX Runtime inference adapters for computer vision and 3D spatial computing models.
+
+---
+
+## Motivation & Architecture
+
+Modern 3D spatial vision systems (such as 6D object pose estimation, Visual SLAM, and 3D reconstruction) are multi-stage pipelines composed of representation learning, geometric matching, depth prediction, proposal segmentation, and pose optimization.
+
+In practice, integrating research models into these pipelines presents key engineering challenges:
+* **Fragmented Interfaces:** Research models use varying coordinate conventions, custom dictionary formats, and disparate output tensor dimensions.
+* **Dependency Conflicts:** Combining multiple models often introduces conflicting PyTorch versions, CUDA compilation toolkits, and heavy deployment footprints.
+
+SpatialHub addresses this by establishing **standardized, modular return contracts** on top of a **zero-PyTorch ONNX Runtime engine**:
+
+```text
+1. Sensor & Asset Inputs                2. Perception Adapters (ONNX)       3. Standardized Contracts
+─────────────────────────────────      ─────────────────────────────       ─────────────────────────
+Single RGB Image                  ───►  DINOv2 (Feature Extraction)   ───►  FeatureExtractionResult
+Image Pair                        ───►  EfficientLoFTR (Matching)     ───►  MatchResult
+RGB Images + Intrinsics (K)       ───►  Depth Anything 3 (Depth)      ───►  DepthPredictionResult
+RGB Image + CAD Mesh (.ply)       ───►  FastSAM / SAM / CNOS (Masks)  ───►  SegmentationResult
+RGB-D + Intrinsics (K) + CAD Mesh ───►  FoundationPose (6D Pose)      ───►  PoseEstimationResult
+                                                                                        │
+                                                                                        ▼
+4. Downstream 3D Spatial Systems (Visual SLAM, 3D Reconstruction, Robotics Manipulation)
+```
+
+Downstream spatial algorithms operate directly on these standardized dataclasses, allowing individual models to be swapped in a plug-and-play manner without modifying downstream pipeline logic.
 
 ---
 
 ## Key Principles
 
+- **Modular Return Contracts:** Standardized dataclass outputs across all model families ([`MatchResult`](./docs/core-and-utils/structures/match_result.md), [`DepthPredictionResult`](./docs/core-and-utils/structures/depth_prediction_result.md), [`FeatureExtractionResult`](./docs/core-and-utils/structures/feature_extraction_result.md), [`SegmentationResult`](./docs/core-and-utils/structures/segmentation_result.md), [`PoseEstimationResult`](./docs/core-and-utils/structures/pose_estimation_result.md)).
 - **Zero-PyTorch Inference:** Core runtime paths execute exclusively on **ONNX Runtime** with pure NumPy and OpenCV vector operations.
-- **Unified Return Contracts:** Standardized dataclass outputs across all model families ([`MatchResult`](./docs/core-and-utils/structures/match_result.md), [`DepthPredictionResult`](./docs/core-and-utils/structures/depth_prediction_result.md), [`FeatureExtractionResult`](./docs/core-and-utils/structures/feature_extraction_result.md), [`SegmentationResult`](./docs/core-and-utils/structures/segmentation_result.md), [`PoseEstimationResult`](./docs/core-and-utils/structures/pose_estimation_result.md)).
 - **Automatic Weight Management:** Downloads, verifies, and caches pretrained `.onnx` weight binaries from Hugging Face Hub.
 - **Hardware Acceleration:** Native support for CPU, CUDA, and TensorRT execution providers with runtime fallback verification.
 - **ModernGL GPU Rendering:** Built-in headless offscreen G-buffer and batched atlas renderer for CAD model template matching and 6D pose estimation.

@@ -1,4 +1,4 @@
-﻿# Data Structures Overview
+# Data Structures Overview
 
 `spatialhub.structures` defines the standardized return contracts shared across all SpatialHub model adapters. Every adapter returns one of these dataclasses, providing consistent attribute names, array shapes, and helper methods across all perception tasks.
 
@@ -28,6 +28,7 @@ from spatialhub.structures import (
 
 ## Architectural Principles
 
+- **Plug-and-Play Pipeline Modularity:** Standardized return contracts decouple perception models from downstream spatial algorithms (such as Visual SLAM, 3D reconstruction, or pose optimization). Any model producing a `MatchResult` or `DepthPredictionResult` can be substituted into downstream geometric pipelines without modifying downstream code.
 - **Pure NumPy Array Contracts:** All coordinate arrays, spatial masks, depth maps, and feature vectors are returned as contiguous NumPy arrays (`float32`, `bool`, or `uint8`).
-- **Decoupled Visualization:** Each result dataclass provides a `.visualize()` or `.visualize_mask()` convenience method that delegates directly to the stateless drawing routines in [`spatialhub.utils.viz`](../viz.md).
-- **Batching and Shape Normalization:** Singular outputs (such as a single $(4, 4)$ pose matrix) are automatically expanded to standardized batch dimensions on instantiation.
+- **Decoupled Visualization:** Each result dataclass provides a `.visualize()` or `.visualize_mask()` convenience method that delegates directly to stateless visualization routines in [`spatialhub.utils.viz`](../viz.md).
+- **Batching & Dimension Normalization:** Single-sample predictions (such as a single $(4, 4)$ pose matrix) are automatically aligned to standardized batch dimensions on instantiation.

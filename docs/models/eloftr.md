@@ -19,7 +19,7 @@ The `EfficientLoFTRAdapter` accepts two model precision variants via `model_type
 
 EfficientLoFTR matches coarse-to-fine keypoints across image pairs without requiring PyTorch during inference.
 
-### 1. Maximum Dimension Scaling
+### Maximum Dimension Scaling
 
 Given an input image with native dimensions $(W_{\text{orig}}, H_{\text{orig}})$ and optional maximum dimension limit $D_{\max}$ (`max_dim`), dimensions are scaled preserving aspect ratio:
 
@@ -30,7 +30,7 @@ $$
 \end{cases}
 $$
 
-### 2. Multiple-of-32 Alignment & Normalization
+### Multiple-of-32 Alignment & Normalization
 
 Spatial dimensions are aligned to the nearest lower multiples of 32 required by sparse transformer downsampling, and pixel values are normalized to $[0, 1]$ float32 tensors of shape $(1, 1, H, W)$:
 
@@ -38,7 +38,7 @@ $$
 W = \max\left(32,\ \left\lfloor\frac{W_{\text{scaled}}}{32}\right\rfloor \times 32\right), \qquad H = \max\left(32,\ \left\lfloor\frac{H_{\text{scaled}}}{32}\right\rfloor \times 32\right)
 $$
 
-### 3. Bottom-Right Batch Padding
+### Bottom-Right Batch Padding
 
 For an image pair $(A, B)$ with individual aligned dimensions $(W_a, H_a)$ and $(W_b, H_b)$, both tensors are bottom-right zero-padded to shared maximum spatial dimensions $(W_{\text{pad}}, H_{\text{pad}})$:
 
@@ -46,7 +46,7 @@ $$
 W_{\text{pad}} = \max(W_a, W_b), \qquad H_{\text{pad}} = \max(H_a, H_b)
 $$
 
-### 4. Post-processing: Boundary Filtering & Coordinate Projection
+### Post-processing: Boundary Filtering & Coordinate Projection
 
 Matches $(P_0, P_1)$ detected inside bottom-right zero-padded regions are filtered out using boundary mask $V$:
 

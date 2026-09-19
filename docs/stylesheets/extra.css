@@ -226,7 +226,17 @@
   border-left: 1px solid #e2e8f0;
 }
 
-/* Right TOC in Light Mode */
+/* Secondary Table of Contents (Right Sidebar): Sub-headings collapsed by default */
+.md-nav--secondary .md-nav__item > .md-nav {
+  display: none;
+}
+
+.md-nav--secondary .md-nav__item:has(> .md-nav__link--active) > .md-nav,
+.md-nav--secondary .md-nav__item:has(.md-nav__link--active) > .md-nav,
+.md-nav--secondary .md-nav__item:hover > .md-nav {
+  display: block;
+}
+
 [data-md-color-scheme="default"] .md-nav--secondary {
   border-left: 1px solid #e2e8f0;
 }

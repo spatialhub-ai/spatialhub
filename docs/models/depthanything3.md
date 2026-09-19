@@ -435,96 +435,96 @@ Latencies, throughput, host process RAM deltas, and peak device VRAM footprint m
         <tr>
           <td rowspan="3" style="vertical-align: middle; text-align: center; font-weight: bold; border-right: 2px solid #ddd;"><code>da3_small</code></td>
           <td>1</td>
-          <td>13.96 +/- 0.82</td>
-          <td>39.20 +/- 1.98</td>
-          <td>0.01 +/- 0.01</td>
-          <td>58.33 +/- 1.83</td>
-          <td><strong>17.1</strong></td>
-          <td>+0.7 MB</td>
-          <td>0.0 MB</td>
+          <td>13.02 +/- 0.44</td>
+          <td>39.74 +/- 1.43</td>
+          <td>0.00 +/- 0.00</td>
+          <td>53.08 +/- 3.32</td>
+          <td><strong>18.8</strong></td>
+          <td>+1.9 MB</td>
+          <td>+478.0 MB</td>
         </tr>
         <tr>
           <td>2</td>
-          <td>51.95 +/- 10.96</td>
-          <td>77.99 +/- 4.08</td>
-          <td>0.85 +/- 0.15</td>
-          <td>116.03 +/- 5.00</td>
-          <td><strong>8.6</strong></td>
-          <td>+0.0 MB</td>
-          <td>0.0 MB</td>
+          <td>27.24 +/- 1.08</td>
+          <td>68.66 +/- 2.87</td>
+          <td>0.65 +/- 0.04</td>
+          <td>98.78 +/- 3.22</td>
+          <td><strong>10.1</strong></td>
+          <td>+3.8 MB</td>
+          <td>+1226.0 MB</td>
         </tr>
         <tr style="border-bottom: 2px solid #ccc;">
           <td>4</td>
-          <td>82.83 +/- 12.02</td>
-          <td>193.91 +/- 13.96</td>
-          <td>1.97 +/- 0.35</td>
-          <td>262.47 +/- 24.91</td>
-          <td><strong>3.8</strong></td>
-          <td>0.0 MB</td>
-          <td>0.0 MB</td>
+          <td>55.83 +/- 3.94</td>
+          <td>161.14 +/- 5.44</td>
+          <td>1.17 +/- 0.12</td>
+          <td>212.83 +/- 5.19</td>
+          <td><strong>4.7</strong></td>
+          <td>+7.8 MB</td>
+          <td>+3644.0 MB</td>
         </tr>
         <tr>
           <td rowspan="3" style="vertical-align: middle; text-align: center; font-weight: bold; border-right: 2px solid #ddd;"><code>da3_base</code></td>
           <td>1</td>
-          <td>13.82 +/- 0.67</td>
-          <td>76.25 +/- 5.51</td>
-          <td>0.01 +/- 0.01</td>
-          <td>103.08 +/- 9.25</td>
-          <td><strong>9.7</strong></td>
-          <td>+0.8 MB</td>
-          <td>0.0 MB</td>
+          <td>14.05 +/- 0.45</td>
+          <td>86.54 +/- 5.87</td>
+          <td>0.01 +/- 0.00</td>
+          <td>133.84 +/- 56.90</td>
+          <td><strong>7.5</strong></td>
+          <td>+2.7 MB</td>
+          <td>+932.0 MB</td>
         </tr>
         <tr>
           <td>2</td>
-          <td>72.23 +/- 11.20</td>
-          <td>169.50 +/- 11.35</td>
-          <td>0.58 +/- 0.05</td>
-          <td>187.15 +/- 4.59</td>
-          <td><strong>5.3</strong></td>
-          <td>+0.0 MB</td>
-          <td>0.0 MB</td>
+          <td>64.89 +/- 7.83</td>
+          <td>347.98 +/- 69.96</td>
+          <td>1.17 +/- 0.25</td>
+          <td>353.12 +/- 67.34</td>
+          <td><strong>2.8</strong></td>
+          <td>+3.8 MB</td>
+          <td>+2430.0 MB</td>
         </tr>
         <tr style="border-bottom: 2px solid #ccc;">
           <td>4</td>
-          <td>57.28 +/- 3.67</td>
-          <td>1365.62 +/- 165.21</td>
-          <td>1.47 +/- 0.46</td>
-          <td>1353.29 +/- 52.77</td>
-          <td><strong>0.7</strong></td>
-          <td>+0.0 MB</td>
-          <td>0.0 MB</td>
+          <td>121.48 +/- 12.98</td>
+          <td>1543.72 +/- 151.22</td>
+          <td>1.90 +/- 0.41</td>
+          <td>2221.34 +/- 131.51</td>
+          <td><strong>0.5</strong></td>
+          <td>+7.8 MB</td>
+          <td>+6485.0 MB</td>
         </tr>
         <tr>
           <td rowspan="2" style="vertical-align: middle; text-align: center; font-weight: bold; border-right: 2px solid #ddd;"><code>da3_large</code></td>
           <td>1</td>
-          <td>14.22 +/- 0.50</td>
-          <td>228.33 +/- 19.53</td>
-          <td>0.06 +/- 0.06</td>
-          <td>234.59 +/- 23.27</td>
-          <td><strong>4.3</strong></td>
-          <td>+0.0 MB</td>
-          <td>0.0 MB</td>
+          <td>15.41 +/- 0.43</td>
+          <td>329.05 +/- 39.97</td>
+          <td>0.00 +/- 0.00</td>
+          <td>387.64 +/- 40.25</td>
+          <td><strong>2.6</strong></td>
+          <td>+3.0 MB</td>
+          <td>+1724.0 MB</td>
         </tr>
         <tr style="border-bottom: 2px solid #ccc;">
           <td>2</td>
-          <td>44.06 +/- 3.62</td>
-          <td>726.08 +/- 48.28</td>
-          <td>1.84 +/- 0.91</td>
-          <td>962.20 +/- 75.71</td>
-          <td><strong>1.0</strong></td>
-          <td>+0.0 MB</td>
-          <td>0.0 MB</td>
+          <td>34.17 +/- 2.46</td>
+          <td>1561.09 +/- 170.85</td>
+          <td>1.83 +/- 0.18</td>
+          <td>1794.84 +/- 33.33</td>
+          <td><strong>0.6</strong></td>
+          <td>+3.1 MB</td>
+          <td>+3530.0 MB</td>
         </tr>
         <tr style="border-bottom: 2px solid #ccc;">
           <td style="vertical-align: middle; text-align: center; font-weight: bold; border-right: 2px solid #ddd;"><code>da3_giant</code></td>
           <td>1</td>
-          <td>41.60 +/- 5.47</td>
-          <td>754.94 +/- 61.63</td>
-          <td>0.01 +/- 0.00</td>
-          <td>1047.74 +/- 75.55</td>
-          <td><strong>1.0</strong></td>
+          <td>18.27 +/- 1.63</td>
+          <td>1037.12 +/- 110.10</td>
+          <td>0.00 +/- 0.00</td>
+          <td>1553.26 +/- 174.39</td>
+          <td><strong>0.6</strong></td>
           <td>+0.8 MB</td>
-          <td>0.0 MB</td>
+          <td>+1945.0 MB</td>
         </tr>
       </tbody>
     </table>
@@ -548,47 +548,47 @@ Latencies, throughput, host process RAM deltas, and peak device VRAM footprint m
         <tr>
           <td rowspan="3" style="vertical-align: middle; text-align: center; font-weight: bold; border-right: 2px solid #ddd;"><code>da3_small</code></td>
           <td>1</td>
-          <td>20.46 +/- 1.67</td>
-          <td>963.35 +/- 54.34</td>
+          <td>14.86 +/- 1.48</td>
+          <td>901.48 +/- 153.93</td>
           <td>0.01 +/- 0.00</td>
-          <td>938.11 +/- 55.05</td>
+          <td>937.77 +/- 119.60</td>
           <td><strong>1.1</strong></td>
-          <td>0.0 MB</td>
+          <td>+0.0 MB</td>
         </tr>
         <tr>
           <td>2</td>
-          <td>32.12 +/- 1.96</td>
-          <td>1751.34 +/- 103.10</td>
-          <td>0.94 +/- 0.10</td>
-          <td>1667.54 +/- 100.63</td>
-          <td><strong>0.6</strong></td>
-          <td>0.0 MB</td>
+          <td>37.16 +/- 4.48</td>
+          <td>2179.39 +/- 372.05</td>
+          <td>1.45 +/- 0.54</td>
+          <td>2220.46 +/- 130.41</td>
+          <td><strong>0.5</strong></td>
+          <td>+0.0 MB</td>
         </tr>
         <tr style="border-bottom: 2px solid #ccc;">
           <td>4</td>
-          <td>66.58 +/- 6.18</td>
-          <td>4071.60 +/- 231.29</td>
-          <td>1.97 +/- 0.29</td>
-          <td>3765.84 +/- 44.92</td>
-          <td><strong>0.3</strong></td>
-          <td>0.0 MB</td>
+          <td>111.65 +/- 10.09</td>
+          <td>5075.71 +/- 479.09</td>
+          <td>3.08 +/- 0.63</td>
+          <td>5061.65 +/- 329.81</td>
+          <td><strong>0.2</strong></td>
+          <td>+5.1 MB</td>
         </tr>
         <tr>
           <td rowspan="2" style="vertical-align: middle; text-align: center; font-weight: bold; border-right: 2px solid #ddd;"><code>da3_base</code></td>
           <td>1</td>
-          <td>15.52 +/- 0.95</td>
-          <td>2961.53 +/- 268.82</td>
-          <td>0.01 +/- 0.00</td>
-          <td>3194.21 +/- 203.55</td>
+          <td>15.67 +/- 1.01</td>
+          <td>2843.99 +/- 271.45</td>
+          <td>0.02 +/- 0.01</td>
+          <td>2950.36 +/- 209.83</td>
           <td><strong>0.3</strong></td>
-          <td>+0.2 MB</td>
+          <td>+0.3 MB</td>
         </tr>
         <tr style="border-bottom: 2px solid #ccc;">
           <td>2</td>
-          <td>57.91 +/- 6.61</td>
-          <td>5583.48 +/- 665.50</td>
-          <td>1.68 +/- 0.55</td>
-          <td>5054.75 +/- 203.03</td>
+          <td>70.62 +/- 7.38</td>
+          <td>5223.72 +/- 154.85</td>
+          <td>1.20 +/- 0.28</td>
+          <td>5422.77 +/- 531.76</td>
           <td><strong>0.2</strong></td>
           <td>+0.0 MB</td>
         </tr>
@@ -617,24 +617,24 @@ Latencies, throughput, host process RAM deltas, and peak device VRAM footprint m
         <tr>
           <td style="vertical-align: middle; text-align: center; font-weight: bold; border-right: 2px solid #ddd;"><code>da3mono_large</code></td>
           <td>1</td>
-          <td>19.64 +/- 1.65</td>
-          <td>334.38 +/- 82.16</td>
-          <td>0.76 +/- 0.37</td>
-          <td>436.41 +/- 66.33</td>
-          <td><strong>2.3</strong></td>
-          <td>+0.0 MB</td>
-          <td>0.0 MB</td>
+          <td>19.07 +/- 1.26</td>
+          <td>653.90 +/- 59.21</td>
+          <td>0.32 +/- 0.01</td>
+          <td>794.54 +/- 39.21</td>
+          <td><strong>1.3</strong></td>
+          <td>+2.7 MB</td>
+          <td>+1400.0 MB</td>
         </tr>
         <tr style="border-bottom: 2px solid #ccc;">
           <td style="vertical-align: middle; text-align: center; font-weight: bold; border-right: 2px solid #ddd;"><code>da3metric_large</code></td>
           <td>1</td>
-          <td>17.31 +/- 0.61</td>
-          <td>424.25 +/- 45.61</td>
-          <td>1.24 +/- 0.48</td>
-          <td>592.29 +/- 55.65</td>
-          <td><strong>1.7</strong></td>
-          <td>0.0 MB</td>
-          <td>0.0 MB</td>
+          <td>17.75 +/- 0.62</td>
+          <td>541.70 +/- 72.42</td>
+          <td>0.66 +/- 0.04</td>
+          <td>725.21 +/- 98.15</td>
+          <td><strong>1.4</strong></td>
+          <td>+0.1 MB</td>
+          <td>+1400.0 MB</td>
         </tr>
       </tbody>
     </table>
@@ -658,22 +658,22 @@ Latencies, throughput, host process RAM deltas, and peak device VRAM footprint m
         <tr>
           <td style="vertical-align: middle; text-align: center; font-weight: bold; border-right: 2px solid #ddd;"><code>da3mono_large</code></td>
           <td>1</td>
-          <td>19.34 +/- 1.31</td>
-          <td>6971.38 +/- 273.14</td>
-          <td>0.99 +/- 0.29</td>
-          <td>6814.43 +/- 282.94</td>
-          <td><strong>0.1</strong></td>
+          <td>21.11 +/- 0.64</td>
+          <td>5914.68 +/- 174.94</td>
+          <td>0.66 +/- 0.02</td>
+          <td>6274.85 +/- 813.43</td>
+          <td><strong>0.2</strong></td>
           <td>+0.0 MB</td>
         </tr>
         <tr style="border-bottom: 2px solid #ccc;">
           <td style="vertical-align: middle; text-align: center; font-weight: bold; border-right: 2px solid #ddd;"><code>da3metric_large</code></td>
           <td>1</td>
-          <td>17.87 +/- 1.31</td>
-          <td>7032.86 +/- 954.40</td>
-          <td>1.07 +/- 0.11</td>
-          <td>6407.92 +/- 350.31</td>
-          <td><strong>0.2</strong></td>
-          <td>+0.0 MB</td>
+          <td>19.16 +/- 1.23</td>
+          <td>7622.34 +/- 449.96</td>
+          <td>1.08 +/- 0.05</td>
+          <td>7223.87 +/- 121.01</td>
+          <td><strong>0.1</strong></td>
+          <td>+0.1 MB</td>
         </tr>
       </tbody>
     </table>
@@ -693,6 +693,7 @@ Evaluates sequential dual-session forward execution (`main_session` + `da3metric
       <th>End-to-End Latency (ms)</th>
       <th>Throughput (FPS)</th>
       <th>Peak Host RAM</th>
+      <th>Peak VRAM</th>
     </tr>
   </thead>
   <tbody>
@@ -700,41 +701,45 @@ Evaluates sequential dual-session forward execution (`main_session` + `da3metric
       <td style="vertical-align: middle; text-align: center; font-weight: bold; border-right: 2px solid #ddd;"><code>da3nested_small_large</code></td>
       <td>ViT-Small (~25M)</td>
       <td>ViT-Large (~335M)</td>
-      <td>513.84 +/- 57.57</td>
-      <td>8.50 +/- 0.79</td>
-      <td>616.72 +/- 33.63</td>
-      <td><strong>1.6</strong></td>
-      <td>+0.0 MB</td>
+      <td>835.85 +/- 79.97</td>
+      <td>10.67 +/- 0.40</td>
+      <td>1073.51 +/- 110.41</td>
+      <td><strong>0.9</strong></td>
+      <td>+1.0 MB</td>
+      <td>+1594.0 MB</td>
     </tr>
     <tr>
       <td style="vertical-align: middle; text-align: center; font-weight: bold; border-right: 2px solid #ddd;"><code>da3nested_base_large</code></td>
       <td>ViT-Base (~98M)</td>
       <td>ViT-Large (~335M)</td>
-      <td>1340.01 +/- 316.71</td>
-      <td>21.79 +/- 0.55</td>
-      <td>1922.75 +/- 344.29</td>
-      <td><strong>0.5</strong></td>
-      <td>+0.1 MB</td>
+      <td>1297.79 +/- 58.76</td>
+      <td>13.24 +/- 0.82</td>
+      <td>1327.52 +/- 62.49</td>
+      <td><strong>0.8</strong></td>
+      <td>+2.0 MB</td>
+      <td>+2048.0 MB</td>
     </tr>
     <tr>
       <td style="vertical-align: middle; text-align: center; font-weight: bold; border-right: 2px solid #ddd;"><code>da3nested_large_large</code></td>
       <td>ViT-Large (~335M)</td>
       <td>ViT-Large (~335M)</td>
-      <td>2710.09 +/- 419.06</td>
-      <td>12.83 +/- 1.02</td>
-      <td>4981.45 +/- 853.61</td>
-      <td><strong>0.2</strong></td>
-      <td>0.0 MB</td>
+      <td>2078.13 +/- 155.49</td>
+      <td>11.03 +/- 0.26</td>
+      <td>3574.00 +/- 493.71</td>
+      <td><strong>0.3</strong></td>
+      <td>+0.1 MB</td>
+      <td>+2844.0 MB</td>
     </tr>
     <tr style="border-bottom: 2px solid #ccc;">
       <td style="vertical-align: middle; text-align: center; font-weight: bold; border-right: 2px solid #ddd;"><code>da3nested_giant_large</code> *</td>
       <td>ViT-Giant (~1.35B)</td>
       <td>ViT-Large (~335M)</td>
-      <td>93813.10 +/- 59742.51</td>
-      <td>11.00 +/- 0.34</td>
-      <td>34528.18 +/- 2626.51</td>
-      <td><strong>0.03</strong></td>
-      <td>+220.2 MB</td>
+      <td>83770.78 +/- 62867.91</td>
+      <td>71.32 +/- 1.73</td>
+      <td>135745.27 +/- 84610.80</td>
+      <td><strong>0.01</strong></td>
+      <td>+3036.8 MB</td>
+      <td>+629.0 MB</td>
     </tr>
   </tbody>
 </table>

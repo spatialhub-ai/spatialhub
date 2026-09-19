@@ -182,74 +182,83 @@ Latency, throughput, and host process RAM deltas measured on the first pair of t
           <th>P95 (ms)</th>
           <th>Throughput (Pairs/s)</th>
           <th>Host RAM Delta</th>
+          <th>Peak VRAM Delta</th>
         </tr>
       </thead>
       <tbody>
         <tr>
           <td rowspan="4" style="vertical-align: middle; text-align: center; font-weight: bold;"><code>full</code></td>
           <td><code>640</code></td>
-          <td>94.61 +/- 22.20</td>
-          <td>87.58</td>
-          <td>129.20</td>
-          <td><strong>10.6</strong></td>
-          <td>+0.3 MB</td>
+          <td>85.42 +/- 5.27</td>
+          <td>85.48</td>
+          <td>96.85</td>
+          <td><strong>11.7</strong></td>
+          <td>+564.5 MB</td>
+          <td>+1808.0 MB</td>
         </tr>
         <tr>
           <td><code>832</code></td>
-          <td>203.89 +/- 18.33</td>
-          <td>203.41</td>
-          <td>232.80</td>
+          <td>205.73 +/- 40.02</td>
+          <td>197.83</td>
+          <td>265.53</td>
           <td><strong>4.9</strong></td>
-          <td>0.0 MB</td>
+          <td>+200.1 MB</td>
+          <td>+4338.0 MB</td>
         </tr>
         <tr>
           <td><code>960</code></td>
-          <td>449.88 +/- 133.34</td>
-          <td>393.33</td>
-          <td>746.24</td>
-          <td><strong>2.2</strong></td>
-          <td>0.0 MB</td>
+          <td>358.43 +/- 86.24</td>
+          <td>314.15</td>
+          <td>541.61</td>
+          <td><strong>2.8</strong></td>
+          <td>+360.7 MB</td>
+          <td>+6953.0 MB</td>
         </tr>
         <tr>
           <td><code>1024</code></td>
-          <td>2232.97 +/- 174.28</td>
-          <td>2221.04</td>
-          <td>2519.46</td>
-          <td><strong>0.4</strong></td>
-          <td>0.0 MB</td>
+          <td>3560.52 +/- 334.86</td>
+          <td>3437.02</td>
+          <td>4224.72</td>
+          <td><strong>0.3</strong></td>
+          <td>+1859.1 MB</td>
+          <td>+6953.0 MB</td>
         </tr>
         <tr>
           <td rowspan="4" style="vertical-align: middle; text-align: center; font-weight: bold;"><code>opt</code></td>
           <td><code>640</code></td>
-          <td>129.01 +/- 33.15</td>
-          <td>118.04</td>
-          <td>222.44</td>
-          <td><strong>7.8</strong></td>
-          <td>+1.3 MB</td>
+          <td>121.49 +/- 14.46</td>
+          <td>122.42</td>
+          <td>139.37</td>
+          <td><strong>8.2</strong></td>
+          <td>+101.2 MB</td>
+          <td>+1626.0 MB</td>
         </tr>
         <tr>
           <td><code>832</code></td>
-          <td>414.28 +/- 91.76</td>
-          <td>425.56</td>
-          <td>544.46</td>
-          <td><strong>2.4</strong></td>
-          <td>+0.1 MB</td>
+          <td>456.78 +/- 80.48</td>
+          <td>503.46</td>
+          <td>562.17</td>
+          <td><strong>2.2</strong></td>
+          <td>+207.7 MB</td>
+          <td>+4220.0 MB</td>
         </tr>
         <tr>
           <td><code>960</code></td>
-          <td>823.72 +/- 30.27</td>
-          <td>814.47</td>
-          <td>868.77</td>
-          <td><strong>1.2</strong></td>
-          <td>+0.1 MB</td>
+          <td>878.12 +/- 80.74</td>
+          <td>879.32</td>
+          <td>1009.08</td>
+          <td><strong>1.1</strong></td>
+          <td>+317.9 MB</td>
+          <td>+5904.0 MB</td>
         </tr>
         <tr>
           <td><code>1024</code></td>
-          <td>1421.16 +/- 159.17</td>
-          <td>1433.25</td>
-          <td>1643.53</td>
+          <td>1453.20 +/- 133.25</td>
+          <td>1463.95</td>
+          <td>1660.77</td>
           <td><strong>0.7</strong></td>
-          <td>0.0 MB</td>
+          <td>+490.8 MB</td>
+          <td>+6953.0 MB</td>
         </tr>
       </tbody>
     </table>
@@ -272,68 +281,68 @@ Latency, throughput, and host process RAM deltas measured on the first pair of t
         <tr>
           <td rowspan="4" style="vertical-align: middle; text-align: center; font-weight: bold;"><code>full</code></td>
           <td><code>640</code></td>
-          <td>2360.03 +/- 52.64</td>
-          <td>2346.09</td>
-          <td>2443.98</td>
-          <td><strong>0.4</strong></td>
-          <td>0.0 MB</td>
+          <td>3085.78 +/- 333.01</td>
+          <td>3018.24</td>
+          <td>3690.02</td>
+          <td><strong>0.3</strong></td>
+          <td>+1175.2 MB</td>
         </tr>
         <tr>
           <td><code>832</code></td>
-          <td>5348.43 +/- 453.55</td>
-          <td>5409.71</td>
-          <td>6000.84</td>
+          <td>5789.84 +/- 268.09</td>
+          <td>5704.12</td>
+          <td>6189.51</td>
           <td><strong>0.2</strong></td>
-          <td>0.0 MB</td>
+          <td>+2731.2 MB</td>
         </tr>
         <tr>
           <td><code>960</code></td>
-          <td>8036.79 +/- 246.66</td>
-          <td>8022.39</td>
-          <td>8526.92</td>
+          <td>9123.22 +/- 450.85</td>
+          <td>9049.17</td>
+          <td>9671.42</td>
           <td><strong>0.1</strong></td>
-          <td>+7.6 MB</td>
+          <td>+4065.2 MB</td>
         </tr>
         <tr>
           <td><code>1024</code></td>
-          <td>9716.32 +/- 661.70</td>
-          <td>9577.54</td>
-          <td>10932.50</td>
+          <td>11077.42 +/- 399.25</td>
+          <td>11022.39</td>
+          <td>11817.81</td>
           <td><strong>0.1</strong></td>
-          <td>0.0 MB</td>
+          <td>+3581.9 MB</td>
         </tr>
         <tr>
           <td rowspan="4" style="vertical-align: middle; text-align: center; font-weight: bold;"><code>opt</code></td>
           <td><code>640</code></td>
-          <td>2808.45 +/- 185.70</td>
-          <td>2829.20</td>
-          <td>3177.13</td>
+          <td>2833.60 +/- 120.07</td>
+          <td>2821.49</td>
+          <td>3020.90</td>
           <td><strong>0.4</strong></td>
-          <td>0.0 MB</td>
+          <td>+1332.2 MB</td>
         </tr>
         <tr>
           <td><code>832</code></td>
-          <td>5196.02 +/- 401.32</td>
-          <td>5159.67</td>
-          <td>5962.27</td>
+          <td>6070.13 +/- 1001.03</td>
+          <td>5627.47</td>
+          <td>8153.02</td>
           <td><strong>0.2</strong></td>
-          <td>+0.1 MB</td>
+          <td>+1490.8 MB</td>
         </tr>
         <tr>
           <td><code>960</code></td>
-          <td>7200.82 +/- 350.17</td>
-          <td>7213.02</td>
-          <td>7685.81</td>
+          <td>8201.68 +/- 455.54</td>
+          <td>8263.09</td>
+          <td>8992.29</td>
           <td><strong>0.1</strong></td>
-          <td>0.0 MB</td>
+          <td>+3115.0 MB</td>
         </tr>
         <tr>
           <td><code>1024</code></td>
-          <td>8625.53 +/- 436.09</td>
-          <td>8531.03</td>
-          <td>9217.05</td>
+          <td>10058.98 +/- 647.43</td>
+          <td>10141.71</td>
+          <td>10939.23</td>
           <td><strong>0.1</strong></td>
-          <td>0.0 MB</td>
+          <td>+3940.5 MB</td>
         </tr>
       </tbody>
     </table>

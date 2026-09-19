@@ -440,16 +440,16 @@ def benchmark_callable(
     if sync_fn is None and "cuda" in device.lower():
         sync_fn = get_cuda_sync_fn()
 
+    # Memory Baseline
+    start_ram = get_ram_mb() if track_ram else 0.0
+    start_vram_info = get_gpu_vram_mb() if (track_vram and "cuda" in device.lower()) else None
+    start_vram_used = start_vram_info.used_mb if start_vram_info is not None else 0.0
+
     # Warmup cycle
     for _ in range(num_warmup):
         func(*args, **kwargs)
         if sync_fn is not None:
             sync_fn()
-
-    # Memory Baseline
-    start_ram = get_ram_mb() if track_ram else 0.0
-    start_vram_info = get_gpu_vram_mb() if (track_vram and "cuda" in device.lower()) else None
-    start_vram_used = start_vram_info.used_mb if start_vram_info is not None else 0.0
 
     # Timed Iterations
     latencies_sec: list[float] = []

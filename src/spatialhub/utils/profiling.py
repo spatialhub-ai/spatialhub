@@ -45,6 +45,98 @@ def get_ram_mb() -> float:
     return 0.0
 
 
+@dataclass
+class GPUMemoryInfo:
+    """Represents device GPU memory metrics in megabytes."""
+
+    total_mb: float
+    free_mb: float
+    used_mb: float
+
+
+def get_cuda_driver() -> Any | None:
+    """Load native CUDA driver library dynamically without external framework dependencies."""
+    try:
+        import ctypes
+        import ctypes.util
+        import sys
+
+        if sys.platform == "darwin":
+            return None
+
+        candidates = ["nvcuda.dll"] if sys.platform == "win32" else ["libcuda.so.1", "libcuda.so"]
+        found_lib = ctypes.util.find_library("cuda")
+        if found_lib and found_lib not in candidates:
+            candidates.insert(0, found_lib)
+
+        for lib_name in candidates:
+            try:
+                driver = ctypes.CDLL(lib_name)
+                return driver
+            except (OSError, ImportError):
+                continue
+    except Exception:
+        pass
+    return None
+
+
+def get_cuda_sync_fn() -> Callable[[], None] | None:
+    """Return a CUDA device synchronization callable via the native driver, or None."""
+    driver = get_cuda_driver()
+    if driver is not None and hasattr(driver, "cuCtxSynchronize"):
+        return driver.cuCtxSynchronize
+    return None
+
+
+def get_gpu_vram_mb(device_id: int = 0) -> GPUMemoryInfo | None:
+    """Query current GPU VRAM (total, free, used in megabytes) using the native CUDA driver.
+
+    Safely checks for an existing active context before querying memory, and cleans
+    up temporary contexts to prevent resource leaks.
+
+    Args:
+        device_id: Target GPU device ordinal (default: 0).
+
+    Returns:
+        GPUMemoryInfo instance if CUDA driver is accessible, otherwise None.
+    """
+    driver = get_cuda_driver()
+    if driver is None:
+        return None
+
+    try:
+        import ctypes
+
+        driver.cuInit(0)
+
+        current_ctx = ctypes.c_void_p()
+        driver.cuCtxGetCurrent(ctypes.byref(current_ctx))
+
+        temp_ctx_created = False
+        if not current_ctx.value:
+            dev = ctypes.c_int()
+            driver.cuDeviceGet(ctypes.byref(dev), device_id)
+            driver.cuCtxCreate_v2(ctypes.byref(current_ctx), 0, dev)
+            temp_ctx_created = True
+
+        free_bytes = ctypes.c_size_t()
+        total_bytes = ctypes.c_size_t()
+        res = driver.cuMemGetInfo_v2(ctypes.byref(free_bytes), ctypes.byref(total_bytes))
+
+        if temp_ctx_created and current_ctx.value:
+            driver.cuCtxDestroy_v2(current_ctx)
+
+        if res == 0:
+            total_mb = total_bytes.value / (1024.0 * 1024.0)
+            free_mb = free_bytes.value / (1024.0 * 1024.0)
+            used_mb = max(0.0, total_mb - free_mb)
+            return GPUMemoryInfo(total_mb=total_mb, free_mb=free_mb, used_mb=used_mb)
+    except Exception:
+        pass
+
+    return None
+
+
 class ProfileNode:
     """
     Represents a single execution scope node in the hierarchical profiling call tree.
@@ -257,7 +349,7 @@ def timeit(name: str | None = None, track_memory: bool = True) -> Callable[..., 
 @dataclass
 class BenchmarkStats:
     """
-    Represents aggregated execution latency and throughput benchmark statistics.
+    Represents aggregated execution latency, throughput, and memory benchmark statistics.
 
     Attributes:
         name: Name or description of the benchmarked target.
@@ -272,6 +364,7 @@ class BenchmarkStats:
         warmup_iters: Number of warmup iterations completed prior to measurement.
         timed_iters: Number of timed iterations measured.
         ram_delta_mb: Peak host RAM memory delta allocated during benchmark.
+        vram_delta_mb: Peak device VRAM memory delta allocated during benchmark (if CUDA).
     """
 
     name: str
@@ -286,6 +379,7 @@ class BenchmarkStats:
     warmup_iters: int
     timed_iters: int
     ram_delta_mb: float = 0.0
+    vram_delta_mb: float = 0.0
 
     def to_dict(self) -> dict[str, Any]:
         """Convert statistics to dictionary representation."""
@@ -302,6 +396,7 @@ class BenchmarkStats:
             "warmup_iters": self.warmup_iters,
             "timed_iters": self.timed_iters,
             "ram_delta_mb": round(self.ram_delta_mb, 2),
+            "vram_delta_mb": round(self.vram_delta_mb, 2),
         }
 
 
@@ -313,6 +408,7 @@ def benchmark_callable(
     num_warmup: int = 10,
     num_iters: int = 50,
     track_ram: bool = True,
+    track_vram: bool = True,
     sync_fn: Callable[[], None] | None = None,
     **kwargs: Any,
 ) -> BenchmarkStats:
@@ -320,7 +416,7 @@ def benchmark_callable(
     Run a standardized benchmark on any callable function or adapter method.
 
     Executes a warmup cycle followed by timed iterations with high-resolution wall-clock
-    timing and optional device synchronization callback.
+    timing, device synchronization, and host/device memory footprint tracking.
 
     Args:
         func: Callable function or method to benchmark.
@@ -330,7 +426,8 @@ def benchmark_callable(
         num_warmup: Number of un-timed warmup iterations (default: 10).
         num_iters: Number of timed measurement iterations (default: 50).
         track_ram: Whether to measure host process RAM deltas (default: True).
-        sync_fn: Optional callable hook to synchronize hardware execution queues (e.g. cuda.synchronize).
+        track_vram: Whether to measure device VRAM deltas if CUDA is active (default: True).
+        sync_fn: Optional callable hook to synchronize hardware execution queues (e.g. cuCtxSynchronize).
         **kwargs: Keyword arguments passed to func.
 
     Returns:
@@ -339,7 +436,11 @@ def benchmark_callable(
     if num_iters <= 0:
         raise ValueError(f"num_iters must be a positive integer, got {num_iters}")
 
-    # Warmup Cycle
+    # Auto-resolve sync_fn if CUDA device requested and no explicit hook provided
+    if sync_fn is None and "cuda" in device.lower():
+        sync_fn = get_cuda_sync_fn()
+
+    # Warmup cycle
     for _ in range(num_warmup):
         func(*args, **kwargs)
         if sync_fn is not None:
@@ -347,6 +448,8 @@ def benchmark_callable(
 
     # Memory Baseline
     start_ram = get_ram_mb() if track_ram else 0.0
+    start_vram_info = get_gpu_vram_mb() if (track_vram and "cuda" in device.lower()) else None
+    start_vram_used = start_vram_info.used_mb if start_vram_info is not None else 0.0
 
     # Timed Iterations
     latencies_sec: list[float] = []
@@ -379,6 +482,12 @@ def benchmark_callable(
 
     ram_delta = max(0.0, get_ram_mb() - start_ram) if track_ram else 0.0
 
+    vram_delta = 0.0
+    if start_vram_info is not None:
+        end_vram_info = get_gpu_vram_mb()
+        if end_vram_info is not None:
+            vram_delta = max(0.0, end_vram_info.used_mb - start_vram_used)
+
     return BenchmarkStats(
         name=name,
         device=device,
@@ -392,6 +501,7 @@ def benchmark_callable(
         warmup_iters=num_warmup,
         timed_iters=num_iters,
         ram_delta_mb=ram_delta,
+        vram_delta_mb=vram_delta,
     )
 
 
@@ -413,21 +523,35 @@ def format_benchmark_table(
     if isinstance(stats_list, BenchmarkStats):
         stats_list = [stats_list]
 
+    has_cuda = any("cuda" in s.device.lower() for s in stats_list)
+
     lines: list[str] = []
     if title:
         lines.append(f"### {title}\n")
 
-    lines.extend([
-        f"| Model / Target | Device | Latency Mean (ms) | Median (ms) | P95 (ms) | Throughput ({throughput_unit}) | Peak RAM Delta |",
-        "| :--- | :--- | :--- | :--- | :--- | :--- | :--- |",
-    ])
-
-    for s in stats_list:
-        ram_str = f"+{s.ram_delta_mb:.1f} MB" if s.ram_delta_mb > 0 else "0.0 MB"
-        lines.append(
-            f"| **{s.name}** | `{s.device}` | {s.mean_ms:.2f} +/- {s.std_ms:.2f} | "
-            f"{s.median_ms:.2f} | {s.p95_ms:.2f} | **{s.fps:.1f}** | {ram_str} |"
-        )
+    if has_cuda:
+        lines.extend([
+            f"| Model / Target | Device | Latency Mean (ms) | Median (ms) | P95 (ms) | Throughput ({throughput_unit}) | Peak RAM Delta | Peak VRAM Delta |",
+            "| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |",
+        ])
+        for s in stats_list:
+            ram_str = f"+{s.ram_delta_mb:.1f} MB" if s.ram_delta_mb > 0 else "0.0 MB"
+            vram_str = f"+{s.vram_delta_mb:.1f} MB" if ("cuda" in s.device.lower() and s.vram_delta_mb > 0) else ("0.0 MB" if "cuda" in s.device.lower() else "N/A")
+            lines.append(
+                f"| **{s.name}** | `{s.device}` | {s.mean_ms:.2f} +/- {s.std_ms:.2f} | "
+                f"{s.median_ms:.2f} | {s.p95_ms:.2f} | **{s.fps:.1f}** | {ram_str} | {vram_str} |"
+            )
+    else:
+        lines.extend([
+            f"| Model / Target | Device | Latency Mean (ms) | Median (ms) | P95 (ms) | Throughput ({throughput_unit}) | Peak RAM Delta |",
+            "| :--- | :--- | :--- | :--- | :--- | :--- | :--- |",
+        ])
+        for s in stats_list:
+            ram_str = f"+{s.ram_delta_mb:.1f} MB" if s.ram_delta_mb > 0 else "0.0 MB"
+            lines.append(
+                f"| **{s.name}** | `{s.device}` | {s.mean_ms:.2f} +/- {s.std_ms:.2f} | "
+                f"{s.median_ms:.2f} | {s.p95_ms:.2f} | **{s.fps:.1f}** | {ram_str} |"
+            )
 
     return "\n".join(lines)
 

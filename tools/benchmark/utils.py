@@ -1,8 +1,10 @@
-"""Benchmark utilities and execution provider resolution."""
+"""Shared benchmark utilities and execution provider resolution."""
 
 from __future__ import annotations
 
 import logging
+
+import numpy as np
 import onnxruntime as ort
 
 logger = logging.getLogger(__name__)
@@ -39,3 +41,27 @@ def get_available_ort_providers(requested: str = "all") -> list[tuple[str | tupl
 
     return providers
 
+
+def compute_rotation_geodesic_degrees(r_pt: np.ndarray, r_ort: np.ndarray) -> float:
+    """Compute angular geodesic rotation difference in degrees between two rotation matrices.
+
+    Args:
+        r_pt: PyTorch rotation matrix of shape (3, 3).
+        r_ort: ONNX Runtime rotation matrix of shape (3, 3).
+
+    Returns:
+        Geodesic rotation error in degrees.
+    """
+    r_rel = np.matmul(r_pt, r_ort.T)
+    trace = np.trace(r_rel)
+    cos_theta = (trace - 1.0) / 2.0
+
+    v = np.array([
+        r_rel[2, 1] - r_rel[1, 2],
+        r_rel[0, 2] - r_rel[2, 0],
+        r_rel[1, 0] - r_rel[0, 1],
+    ])
+    sin_theta = np.linalg.norm(v) / 2.0
+
+    theta_rad = np.arctan2(sin_theta, cos_theta)
+    return float(np.degrees(theta_rad))

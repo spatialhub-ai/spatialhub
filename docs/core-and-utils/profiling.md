@@ -1,12 +1,15 @@
 # Performance Profiling
 
-`spatialhub.utils.profiling` provides benchmarking utilities to measure execution latency percentiles, throughput (FPS), and process memory consumption across hardware execution providers.
+`spatialhub.utils.profiling` provides benchmarking utilities to measure execution latency percentiles, throughput (FPS), host RAM changes, and GPU VRAM footprint across execution providers.
 
 ```python
 from spatialhub.utils.profiling import (
     BenchmarkStats,
+    GPUMemoryInfo,
     benchmark_callable,
     format_benchmark_table,
+    get_cuda_sync_fn,
+    get_gpu_vram_mb,
     get_ram_mb,
 )
 ```
@@ -15,19 +18,20 @@ from spatialhub.utils.profiling import (
 
 ## Profiling Methodology
 
-Accurate benchmarking of compute pipelines requires structured timing protocols to avoid measuring initialization and kernel compilation overhead:
+Accurate benchmarking of compute pipelines requires structured timing protocols to avoid measuring initialization artifacts or asynchronous dispatch gaps:
 
-1. **Warmup Cycle**: Executes unmeasured warmup iterations (typically 5–10) to allow GPU kernel compilation, memory allocations, and execution provider optimizations to stabilize.
-2. **High-Resolution Timing**: Measures wall-clock execution time using `time.perf_counter` around the target function or pipeline.
-3. **Queue Synchronization**: For GPU providers (`CUDAExecutionProvider`), hardware execution queues are synchronized before and after each timed iteration.
-4. **VRAM Arena Management**: ONNX Runtime GPU sessions are configured with `arena_extend_strategy = "kSameAsRequested"` to prevent memory retention artifacts across dynamic input shapes.
-5. **Statistical Aggregation**: Computes Mean $\pm$ Standard Deviation, Median, Min, Max, and 95th percentile (P95) latency to detect execution jitter.
+1. **Pre-Warmup Memory Baseline**: Captures initial host process Resident Set Size (RSS) and device VRAM footprint prior to the warmup loop to measure total runtime memory allocation and buffer pool growth.
+2. **Warmup Cycle**: Executes unmeasured warmup iterations (typically 5–10) to allow GPU kernel compilation, memory pool arenas, and execution provider optimizations to stabilize.
+3. **Queue Synchronization (`cuCtxSynchronize`)**: For CUDA execution providers, hardware execution queues are synchronized before and after each timed iteration using low-level CUDA Driver C-API bindings (`cuCtxSynchronize`). This ensures wall-clock timers measure complete hardware execution rather than asynchronous host-side queue dispatch.
+4. **High-Resolution Timing**: Measures wall-clock execution time with `time.perf_counter` around the target function or pipeline.
+5. **VRAM Arena Tracking**: Device VRAM allocations are monitored via `cuMemGetInfo_v2` across `nvcuda.dll` (Windows) and `libcuda.so` (Linux), recording device memory deltas in megabytes.
+6. **Statistical Aggregation**: Computes Mean $\pm$ Standard Deviation, Median, Min, Max, and 95th percentile (P95) latency to detect execution jitter.
 
 ---
 
 ## `benchmark_callable`
 
-Benchmarks any callable Python function, method, or model pipeline by executing a designated warmup phase followed by timed measurement iterations.
+Benchmarks any callable Python function, method, or model pipeline by capturing baseline memory, executing a designated warmup phase, and running timed measurement iterations with hardware synchronization.
 
 ### Example Usage
 
@@ -35,23 +39,24 @@ Benchmarks any callable Python function, method, or model pipeline by executing 
 import numpy as np
 from spatialhub.utils.profiling import benchmark_callable, format_benchmark_table
 
-# Generic image processing or model inference function
+# Target pipeline function
 def process_pipeline(image_tensor: np.ndarray, threshold: float = 0.5) -> np.ndarray:
     filtered = np.clip(image_tensor * 1.5, 0.0, 1.0)
     return filtered > threshold
 
 dummy_input = np.random.rand(1, 3, 480, 640).astype(np.float32)
 
-# Benchmark execution
+# Benchmark execution with RAM and VRAM telemetry
 stats: BenchmarkStats = benchmark_callable(
     process_pipeline,
     dummy_input,
     threshold=0.6,
     name="ImagePreprocessor",
-    device="CPU",
+    device="CUDA",
     num_warmup=5,
     num_iters=50,
     track_ram=True,
+    track_vram=True,
 )
 
 # Render formatted Markdown table
@@ -69,7 +74,8 @@ print(format_benchmark_table(stats))
 | `num_warmup` | `int` | `10` | Number of unmeasured warmup iterations. |
 | `num_iters` | `int` | `50` | Number of timed measurement iterations (must be $> 0$). |
 | `track_ram` | `bool` | `True` | Flag to track host process Resident Set Size (RSS) memory change. |
-| `sync_fn` | `Callable[[], None] | None` | `None` | Optional callback hook to synchronize hardware execution queues. |
+| `track_vram` | `bool` | `True` | Flag to track device VRAM memory footprint change on CUDA. |
+| `sync_fn` | `Callable[[], None] \| None` | `None` | Optional hardware sync hook (auto-resolves to `cuCtxSynchronize` if `device="CUDA"`). |
 | `**kwargs` | `Any` | | Keyword arguments passed to `func`. |
 
 ### Return Value
@@ -97,6 +103,7 @@ class BenchmarkStats:
     warmup_iters: int
     timed_iters: int
     ram_delta_mb: float = 0.0
+    vram_delta_mb: float = 0.0
 ```
 
 ### Attributes
@@ -115,6 +122,7 @@ class BenchmarkStats:
 | `warmup_iters` | `int` | Number of warmup iterations completed. |
 | `timed_iters` | `int` | Number of timed iterations measured. |
 | `ram_delta_mb` | `float` | Peak host process RSS memory increase in megabytes. |
+| `vram_delta_mb` | `float` | Peak device VRAM allocation increase in megabytes (CUDA). |
 
 ### Methods
 
@@ -124,7 +132,7 @@ class BenchmarkStats:
 
 ## `format_benchmark_table`
 
-Formats a single `BenchmarkStats` or list of `BenchmarkStats` objects into a clean Markdown table.
+Formats a single `BenchmarkStats` or list of `BenchmarkStats` objects into a clean Markdown table. When any evaluated entry uses a CUDA device, the output table automatically incorporates the `Peak VRAM Delta` column.
 
 ```python
 from spatialhub.utils.profiling import format_benchmark_table
@@ -140,6 +148,6 @@ table_markdown = format_benchmark_table(
 
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `stats_list` | `list[BenchmarkStats] | BenchmarkStats` | *Required* | Single `BenchmarkStats` or list of instances to format. |
-| `title` | `str | None` | `None` | Optional header title displayed above the table. |
+| `stats_list` | `list[BenchmarkStats] \| BenchmarkStats` | *Required* | Single `BenchmarkStats` or list of instances to format. |
+| `title` | `str \| None` | `None` | Optional header title displayed above the table. |
 | `throughput_unit` | `str` | `"FPS"` | Unit label for the throughput column (e.g. `'FPS'`, `'Pairs/s'`). |

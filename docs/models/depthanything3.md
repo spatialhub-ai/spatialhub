@@ -160,242 +160,496 @@ $$
 
 ## Numerical Parity Verification
 
-Evaluates numerical agreement between PyTorch reference checkpoints and the SpatialHub ONNX Runtime adapter on the HiRoom evaluation dataset at $504 \times 504$ resolution.
+Evaluates numerical agreement between PyTorch reference checkpoints and the SpatialHub ONNX Runtime adapter on the HiRoom evaluation dataset at $504 \times 504$ resolution across both **Posed** (input camera parameters supplied) and **Unposed** (camera trajectory estimated from visual features alone) evaluation sequences.
 
 ### Any-View Foundation Series
 
-Comparison across single-view ($N=1$) and multi-view ($N=2, 4$) sequences:
+=== "Posed Mode (Input Poses Supplied)"
 
-<table>
-  <thead>
-    <tr>
-      <th>Model Variant</th>
-      <th>Views ($N$)</th>
-      <th>Depth MAE</th>
-      <th>Depth Max Diff</th>
-      <th>Relative Error (%)</th>
-      <th>Conf MAE</th>
-      <th>Extrinsics Rot Error (PT vs ORT)</th>
-      <th>Extrinsics Trans Error (PT vs ORT)</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td rowspan="3" style="vertical-align: middle; text-align: center; font-weight: bold; border-right: 2px solid #ddd;"><code>da3_small</code></td>
-      <td>1</td>
-      <td>0.000096</td>
-      <td>0.001976</td>
-      <td><strong>0.01%</strong></td>
-      <td>0.001233</td>
-      <td>0.0000°</td>
-      <td>0.000000</td>
-    </tr>
-    <tr>
-      <td>2</td>
-      <td>0.001272</td>
-      <td>0.085482</td>
-      <td><strong>0.04%</strong></td>
-      <td>0.014252</td>
-      <td>0.0000°</td>
-      <td>0.000000</td>
-    </tr>
-    <tr style="border-bottom: 2px solid #ccc;">
-      <td>4</td>
-      <td>0.004254</td>
-      <td>0.246895</td>
-      <td><strong>0.05%</strong></td>
-      <td>0.000582</td>
-      <td>0.0000°</td>
-      <td>0.000000</td>
-    </tr>
-    <tr>
-      <td rowspan="3" style="vertical-align: middle; text-align: center; font-weight: bold; border-right: 2px solid #ddd;"><code>da3_base</code></td>
-      <td>1</td>
-      <td>0.000044</td>
-      <td>0.002224</td>
-      <td><strong>0.00%</strong></td>
-      <td>0.003377</td>
-      <td>0.0000°</td>
-      <td>0.000000</td>
-    </tr>
-    <tr>
-      <td>2</td>
-      <td>0.001764</td>
-      <td>0.081946</td>
-      <td><strong>0.06%</strong></td>
-      <td>0.021171</td>
-      <td>0.0000°</td>
-      <td>0.000000</td>
-    </tr>
-    <tr style="border-bottom: 2px solid #ccc;">
-      <td>4</td>
-      <td>0.002598</td>
-      <td>0.281878</td>
-      <td><strong>0.03%</strong></td>
-      <td>0.000913</td>
-      <td>0.0000°</td>
-      <td>0.000000</td>
-    </tr>
-    <tr>
-      <td rowspan="3" style="vertical-align: middle; text-align: center; font-weight: bold; border-right: 2px solid #ddd;"><code>da3_large</code></td>
-      <td>1</td>
-      <td>0.000050</td>
-      <td>0.002824</td>
-      <td><strong>0.00%</strong></td>
-      <td>0.004860</td>
-      <td>0.0000°</td>
-      <td>0.000000</td>
-    </tr>
-    <tr>
-      <td>2</td>
-      <td>0.002046</td>
-      <td>0.098485</td>
-      <td><strong>0.06%</strong></td>
-      <td>0.016927</td>
-      <td>0.0000°</td>
-      <td>0.000000</td>
-    </tr>
-    <tr style="border-bottom: 2px solid #ccc;">
-      <td>4</td>
-      <td>0.006935</td>
-      <td>0.441951</td>
-      <td><strong>0.09%</strong></td>
-      <td>0.001602</td>
-      <td>0.0000°</td>
-      <td>0.000000</td>
-    </tr>
-    <tr>
-      <td rowspan="3" style="vertical-align: middle; text-align: center; font-weight: bold; border-right: 2px solid #ddd;"><code>da3_giant</code></td>
-      <td>1</td>
-      <td>0.000188</td>
-      <td>0.005118</td>
-      <td><strong>0.00%</strong></td>
-      <td>0.004523</td>
-      <td>0.0000°</td>
-      <td>0.000000</td>
-    </tr>
-    <tr>
-      <td>2</td>
-      <td>0.001602</td>
-      <td>0.084178</td>
-      <td><strong>0.04%</strong></td>
-      <td>0.021703</td>
-      <td>0.0000°</td>
-      <td>0.000000</td>
-    </tr>
-    <tr style="border-bottom: 2px solid #ccc;">
-      <td>4</td>
-      <td>0.020584</td>
-      <td>1.637156</td>
-      <td><strong>0.23%</strong></td>
-      <td>0.008453</td>
-      <td>0.0000°</td>
-      <td>0.000000</td>
-    </tr>
-  </tbody>
-</table>
+    <table>
+      <thead>
+        <tr>
+          <th>Model Variant</th>
+          <th>Views ($N$)</th>
+          <th>Depth MAE</th>
+          <th>Depth Max Diff</th>
+          <th>Relative Error (%)</th>
+          <th>Conf MAE</th>
+          <th>Extrinsics Rot Error (PT vs ORT)</th>
+          <th>Extrinsics Trans Error (PT vs ORT)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td rowspan="3" style="vertical-align: middle; text-align: center; font-weight: bold; border-right: 2px solid #ddd;"><code>da3_small</code></td>
+          <td>1</td>
+          <td>0.000096</td>
+          <td>0.001976</td>
+          <td><strong>0.01%</strong></td>
+          <td>0.001233</td>
+          <td>0.0000°</td>
+          <td>0.000000</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td>0.001272</td>
+          <td>0.085482</td>
+          <td><strong>0.04%</strong></td>
+          <td>0.014252</td>
+          <td>0.0000°</td>
+          <td>0.000000</td>
+        </tr>
+        <tr style="border-bottom: 2px solid #ccc;">
+          <td>4</td>
+          <td>0.004254</td>
+          <td>0.246895</td>
+          <td><strong>0.05%</strong></td>
+          <td>0.000582</td>
+          <td>0.0000°</td>
+          <td>0.000000</td>
+        </tr>
+        <tr>
+          <td rowspan="3" style="vertical-align: middle; text-align: center; font-weight: bold; border-right: 2px solid #ddd;"><code>da3_base</code></td>
+          <td>1</td>
+          <td>0.000044</td>
+          <td>0.002224</td>
+          <td><strong>0.00%</strong></td>
+          <td>0.003377</td>
+          <td>0.0000°</td>
+          <td>0.000000</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td>0.001764</td>
+          <td>0.081946</td>
+          <td><strong>0.06%</strong></td>
+          <td>0.021171</td>
+          <td>0.0000°</td>
+          <td>0.000000</td>
+        </tr>
+        <tr style="border-bottom: 2px solid #ccc;">
+          <td>4</td>
+          <td>0.002598</td>
+          <td>0.281878</td>
+          <td><strong>0.03%</strong></td>
+          <td>0.000913</td>
+          <td>0.0000°</td>
+          <td>0.000000</td>
+        </tr>
+        <tr>
+          <td rowspan="3" style="vertical-align: middle; text-align: center; font-weight: bold; border-right: 2px solid #ddd;"><code>da3_large</code></td>
+          <td>1</td>
+          <td>0.000050</td>
+          <td>0.002824</td>
+          <td><strong>0.00%</strong></td>
+          <td>0.004860</td>
+          <td>0.0000°</td>
+          <td>0.000000</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td>0.002046</td>
+          <td>0.098485</td>
+          <td><strong>0.06%</strong></td>
+          <td>0.016927</td>
+          <td>0.0000°</td>
+          <td>0.000000</td>
+        </tr>
+        <tr style="border-bottom: 2px solid #ccc;">
+          <td>4</td>
+          <td>0.006935</td>
+          <td>0.441951</td>
+          <td><strong>0.09%</strong></td>
+          <td>0.001602</td>
+          <td>0.0000°</td>
+          <td>0.000000</td>
+        </tr>
+        <tr>
+          <td rowspan="3" style="vertical-align: middle; text-align: center; font-weight: bold; border-right: 2px solid #ddd;"><code>da3_giant</code></td>
+          <td>1</td>
+          <td>0.000188</td>
+          <td>0.005118</td>
+          <td><strong>0.00%</strong></td>
+          <td>0.004523</td>
+          <td>0.0000°</td>
+          <td>0.000000</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td>0.001602</td>
+          <td>0.084178</td>
+          <td><strong>0.04%</strong></td>
+          <td>0.021703</td>
+          <td>0.0000°</td>
+          <td>0.000000</td>
+        </tr>
+        <tr style="border-bottom: 2px solid #ccc;">
+          <td>4</td>
+          <td>0.020584</td>
+          <td>1.637156</td>
+          <td><strong>0.23%</strong></td>
+          <td>0.008453</td>
+          <td>0.0000°</td>
+          <td>0.000000</td>
+        </tr>
+      </tbody>
+    </table>
+
+=== "Unposed Mode (Camera Trajectory Estimated)"
+
+    <table>
+      <thead>
+        <tr>
+          <th>Model Variant</th>
+          <th>Views ($N$)</th>
+          <th>Depth MAE</th>
+          <th>Depth Max Diff</th>
+          <th>Relative Error (%)</th>
+          <th>Conf MAE</th>
+          <th>Extrinsics Rot Error (PT vs ORT)</th>
+          <th>Extrinsics Trans Error (PT vs ORT)</th>
+          <th>Trajectory Rot (ORT vs GT)</th>
+          <th>Trajectory Trans (ORT vs GT)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td rowspan="3" style="vertical-align: middle; text-align: center; font-weight: bold; border-right: 2px solid #ddd;"><code>da3_small</code></td>
+          <td>1</td>
+          <td>0.000107</td>
+          <td>0.001337</td>
+          <td><strong>0.01%</strong></td>
+          <td>0.001294</td>
+          <td>0.0000°</td>
+          <td>0.000000</td>
+          <td>N/A</td>
+          <td>N/A</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td>0.000261</td>
+          <td>0.034103</td>
+          <td><strong>0.03%</strong></td>
+          <td>0.015273</td>
+          <td>0.0033°</td>
+          <td>0.000038</td>
+          <td>100.2812° *</td>
+          <td>4.740358</td>
+        </tr>
+        <tr style="border-bottom: 2px solid #ccc;">
+          <td>4</td>
+          <td>0.000205</td>
+          <td>0.026474</td>
+          <td><strong>0.02%</strong></td>
+          <td>0.009382</td>
+          <td>0.0083°</td>
+          <td>0.000190</td>
+          <td><strong>4.7084°</strong></td>
+          <td><strong>0.363254</strong></td>
+        </tr>
+        <tr>
+          <td rowspan="3" style="vertical-align: middle; text-align: center; font-weight: bold; border-right: 2px solid #ddd;"><code>da3_base</code></td>
+          <td>1</td>
+          <td>0.000040</td>
+          <td>0.002288</td>
+          <td><strong>0.00%</strong></td>
+          <td>0.002276</td>
+          <td>0.0001°</td>
+          <td>0.000001</td>
+          <td>N/A</td>
+          <td>N/A</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td>0.000224</td>
+          <td>0.023873</td>
+          <td><strong>0.02%</strong></td>
+          <td>0.021786</td>
+          <td>0.0081°</td>
+          <td>0.000039</td>
+          <td>100.5857° *</td>
+          <td>4.721515</td>
+        </tr>
+        <tr style="border-bottom: 2px solid #ccc;">
+          <td>4</td>
+          <td>0.000122</td>
+          <td>0.021366</td>
+          <td><strong>0.02%</strong></td>
+          <td>0.017614</td>
+          <td>0.0097°</td>
+          <td>0.000142</td>
+          <td><strong>5.2677°</strong></td>
+          <td><strong>0.379212</strong></td>
+        </tr>
+        <tr>
+          <td rowspan="3" style="vertical-align: middle; text-align: center; font-weight: bold; border-right: 2px solid #ddd;"><code>da3_large</code></td>
+          <td>1</td>
+          <td>0.000037</td>
+          <td>0.003703</td>
+          <td><strong>0.00%</strong></td>
+          <td>0.008109</td>
+          <td>0.0001°</td>
+          <td>0.000001</td>
+          <td>N/A</td>
+          <td>N/A</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td>0.000286</td>
+          <td>0.076807</td>
+          <td><strong>0.03%</strong></td>
+          <td>0.045860</td>
+          <td>0.0051°</td>
+          <td>0.000089</td>
+          <td>100.5322° *</td>
+          <td>4.727690</td>
+        </tr>
+        <tr style="border-bottom: 2px solid #ccc;">
+          <td>4</td>
+          <td>0.000241</td>
+          <td>0.055369</td>
+          <td><strong>0.03%</strong></td>
+          <td>0.025738</td>
+          <td>0.0074°</td>
+          <td>0.000181</td>
+          <td><strong>2.0173°</strong></td>
+          <td><strong>0.151687</strong></td>
+        </tr>
+        <tr>
+          <td rowspan="3" style="vertical-align: middle; text-align: center; font-weight: bold; border-right: 2px solid #ddd;"><code>da3_giant</code></td>
+          <td>1</td>
+          <td>0.000032</td>
+          <td>0.002410</td>
+          <td><strong>0.00%</strong></td>
+          <td>0.002995</td>
+          <td>0.0001°</td>
+          <td>0.000004</td>
+          <td>N/A</td>
+          <td>N/A</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td>0.000365</td>
+          <td>0.062983</td>
+          <td><strong>0.03%</strong></td>
+          <td>0.050428</td>
+          <td>0.0037°</td>
+          <td>0.000053</td>
+          <td>100.4026° *</td>
+          <td>4.733258</td>
+        </tr>
+        <tr style="border-bottom: 2px solid #ccc;">
+          <td>4</td>
+          <td>0.000165</td>
+          <td>0.093573</td>
+          <td><strong>0.02%</strong></td>
+          <td>0.202900</td>
+          <td>0.0108°</td>
+          <td>0.000096</td>
+          <td><strong>0.6106°</strong></td>
+          <td><strong>0.026799</strong></td>
+        </tr>
+      </tbody>
+    </table>
+
+    > [!NOTE]
+    > For $N=2$ views, the two camera positions define a 1D line segment rather than a full 3D point cloud, so a unique 3D $\mathrm{Sim}(3)$ rotation alignment cannot be geometrically constrained against ground truth. For $N \ge 3$ views, full 3D Umeyama $\mathrm{Sim}(3)$ alignment operates, demonstrating monotonic trajectory recovery improvements as model capacity scales ($4.71^\circ \rightarrow 0.61^\circ$).
 
 ### Specialized Monocular Series
 
-Single-view ($N=1$) parity evaluation:
+=== "Posed Mode"
 
-<table>
-  <thead>
-    <tr>
-      <th>Model Variant</th>
-      <th>Views ($N$)</th>
-      <th>Depth MAE</th>
-      <th>Depth Max Diff</th>
-      <th>Relative Error (%)</th>
-      <th>Output Modality</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td style="vertical-align: middle; text-align: center; font-weight: bold; border-right: 2px solid #ddd;"><code>da3mono_large</code></td>
-      <td>1</td>
-      <td>0.000062</td>
-      <td>0.008396</td>
-      <td><strong>0.01%</strong></td>
-      <td>Relative Depth + Sky Mask</td>
-    </tr>
-    <tr style="border-bottom: 2px solid #ccc;">
-      <td style="vertical-align: middle; text-align: center; font-weight: bold; border-right: 2px solid #ddd;"><code>da3metric_large</code></td>
-      <td>1</td>
-      <td>0.000120</td>
-      <td>0.008575</td>
-      <td><strong>0.00%</strong></td>
-      <td>Metric Depth (Meters)</td>
-    </tr>
-  </tbody>
-</table>
+    <table>
+      <thead>
+        <tr>
+          <th>Model Variant</th>
+          <th>Views ($N$)</th>
+          <th>Depth MAE</th>
+          <th>Depth Max Diff</th>
+          <th>Relative Error (%)</th>
+          <th>Output Modality</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="vertical-align: middle; text-align: center; font-weight: bold; border-right: 2px solid #ddd;"><code>da3mono_large</code></td>
+          <td>1</td>
+          <td>0.000062</td>
+          <td>0.008396</td>
+          <td><strong>0.01%</strong></td>
+          <td>Relative Depth + Sky Mask</td>
+        </tr>
+        <tr style="border-bottom: 2px solid #ccc;">
+          <td style="vertical-align: middle; text-align: center; font-weight: bold; border-right: 2px solid #ddd;"><code>da3metric_large</code></td>
+          <td>1</td>
+          <td>0.000120</td>
+          <td>0.008575</td>
+          <td><strong>0.00%</strong></td>
+          <td>Metric Depth (Meters)</td>
+        </tr>
+      </tbody>
+    </table>
+
+=== "Unposed Mode"
+
+    <table>
+      <thead>
+        <tr>
+          <th>Model Variant</th>
+          <th>Views ($N$)</th>
+          <th>Depth MAE</th>
+          <th>Depth Max Diff</th>
+          <th>Relative Error (%)</th>
+          <th>Output Modality</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="vertical-align: middle; text-align: center; font-weight: bold; border-right: 2px solid #ddd;"><code>da3mono_large</code></td>
+          <td>1</td>
+          <td>0.000063</td>
+          <td>0.009497</td>
+          <td><strong>0.01%</strong></td>
+          <td>Relative Depth + Sky Mask</td>
+        </tr>
+        <tr style="border-bottom: 2px solid #ccc;">
+          <td style="vertical-align: middle; text-align: center; font-weight: bold; border-right: 2px solid #ddd;"><code>da3metric_large</code></td>
+          <td>1</td>
+          <td>0.000119</td>
+          <td>0.008165</td>
+          <td><strong>0.00%</strong></td>
+          <td>Metric Depth (Meters)</td>
+        </tr>
+      </tbody>
+    </table>
 
 ### Nested Dual-Model Series
 
-Single-view ($N=1$) parity evaluation for dual-session scale projection:
+=== "Posed Mode"
 
-<table>
-  <thead>
-    <tr>
-      <th>Model Variant</th>
-      <th>Views ($N$)</th>
-      <th>Depth MAE</th>
-      <th>Depth Max Diff</th>
-      <th>Relative Error (%)</th>
-      <th>Conf MAE</th>
-      <th>Extrinsics Rot Error (PT vs ORT)</th>
-      <th>Extrinsics Trans Error (PT vs ORT)</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td style="vertical-align: middle; text-align: center; font-weight: bold; border-right: 2px solid #ddd;"><code>da3nested_small_large</code></td>
-      <td>1</td>
-      <td>0.000593</td>
-      <td>0.006289</td>
-      <td><strong>0.02%</strong></td>
-      <td>0.001255</td>
-      <td>0.0000°</td>
-      <td>0.000000</td>
-    </tr>
-    <tr>
-      <td style="vertical-align: middle; text-align: center; font-weight: bold; border-right: 2px solid #ddd;"><code>da3nested_base_large</code></td>
-      <td>1</td>
-      <td>0.000351</td>
-      <td>0.007988</td>
-      <td><strong>0.01%</strong></td>
-      <td>0.003424</td>
-      <td>0.0000°</td>
-      <td>0.000000</td>
-    </tr>
-    <tr>
-      <td style="vertical-align: middle; text-align: center; font-weight: bold; border-right: 2px solid #ddd;"><code>da3nested_large_large</code></td>
-      <td>1</td>
-      <td>0.000620</td>
-      <td>0.008171</td>
-      <td><strong>0.02%</strong></td>
-      <td>0.004896</td>
-      <td>0.0000°</td>
-      <td>0.000000</td>
-    </tr>
-    <tr style="border-bottom: 2px solid #ccc;">
-      <td style="vertical-align: middle; text-align: center; font-weight: bold; border-right: 2px solid #ddd;"><code>da3nested_giant_large</code></td>
-      <td>1</td>
-      <td>0.004001</td>
-      <td>0.019733</td>
-      <td><strong>0.13%</strong></td>
-      <td>0.005890</td>
-      <td>0.0000°</td>
-      <td>0.000000</td>
-    </tr>
-  </tbody>
-</table>
+    <table>
+      <thead>
+        <tr>
+          <th>Model Variant</th>
+          <th>Views ($N$)</th>
+          <th>Depth MAE</th>
+          <th>Depth Max Diff</th>
+          <th>Relative Error (%)</th>
+          <th>Conf MAE</th>
+          <th>Extrinsics Rot Error (PT vs ORT)</th>
+          <th>Extrinsics Trans Error (PT vs ORT)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="vertical-align: middle; text-align: center; font-weight: bold; border-right: 2px solid #ddd;"><code>da3nested_small_large</code></td>
+          <td>1</td>
+          <td>0.000593</td>
+          <td>0.006289</td>
+          <td><strong>0.02%</strong></td>
+          <td>0.001255</td>
+          <td>0.0000°</td>
+          <td>0.000000</td>
+        </tr>
+        <tr>
+          <td style="vertical-align: middle; text-align: center; font-weight: bold; border-right: 2px solid #ddd;"><code>da3nested_base_large</code></td>
+          <td>1</td>
+          <td>0.000351</td>
+          <td>0.007988</td>
+          <td><strong>0.01%</strong></td>
+          <td>0.003424</td>
+          <td>0.0000°</td>
+          <td>0.000000</td>
+        </tr>
+        <tr>
+          <td style="vertical-align: middle; text-align: center; font-weight: bold; border-right: 2px solid #ddd;"><code>da3nested_large_large</code></td>
+          <td>1</td>
+          <td>0.000620</td>
+          <td>0.008171</td>
+          <td><strong>0.02%</strong></td>
+          <td>0.004896</td>
+          <td>0.0000°</td>
+          <td>0.000000</td>
+        </tr>
+        <tr style="border-bottom: 2px solid #ccc;">
+          <td style="vertical-align: middle; text-align: center; font-weight: bold; border-right: 2px solid #ddd;"><code>da3nested_giant_large</code></td>
+          <td>1</td>
+          <td>0.004001</td>
+          <td>0.019733</td>
+          <td><strong>0.13%</strong></td>
+          <td>0.005890</td>
+          <td>0.0000°</td>
+          <td>0.000000</td>
+        </tr>
+      </tbody>
+    </table>
+
+=== "Unposed Mode"
+
+    <table>
+      <thead>
+        <tr>
+          <th>Model Variant</th>
+          <th>Views ($N$)</th>
+          <th>Depth MAE</th>
+          <th>Depth Max Diff</th>
+          <th>Relative Error (%)</th>
+          <th>Conf MAE</th>
+          <th>Extrinsics Rot Error (PT vs ORT)</th>
+          <th>Extrinsics Trans Error (PT vs ORT)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="vertical-align: middle; text-align: center; font-weight: bold; border-right: 2px solid #ddd;"><code>da3nested_small_large</code></td>
+          <td>1</td>
+          <td>0.000566</td>
+          <td>0.006497</td>
+          <td><strong>0.01%</strong></td>
+          <td>0.001228</td>
+          <td>0.0000°</td>
+          <td>0.000001</td>
+        </tr>
+        <tr>
+          <td style="vertical-align: middle; text-align: center; font-weight: bold; border-right: 2px solid #ddd;"><code>da3nested_base_large</code></td>
+          <td>1</td>
+          <td>0.000991</td>
+          <td>0.008332</td>
+          <td><strong>0.03%</strong></td>
+          <td>0.002253</td>
+          <td>0.0001°</td>
+          <td>0.000002</td>
+        </tr>
+        <tr>
+          <td style="vertical-align: middle; text-align: center; font-weight: bold; border-right: 2px solid #ddd;"><code>da3nested_large_large</code></td>
+          <td>1</td>
+          <td>0.000258</td>
+          <td>0.014519</td>
+          <td><strong>0.01%</strong></td>
+          <td>0.008264</td>
+          <td>0.0001°</td>
+          <td>0.000002</td>
+        </tr>
+        <tr style="border-bottom: 2px solid #ccc;">
+          <td style="vertical-align: middle; text-align: center; font-weight: bold; border-right: 2px solid #ddd;"><code>da3nested_giant_large</code></td>
+          <td>1</td>
+          <td>0.001533</td>
+          <td>0.010335</td>
+          <td><strong>0.05%</strong></td>
+          <td>0.006238</td>
+          <td>0.0001°</td>
+          <td>0.000012</td>
+        </tr>
+      </tbody>
+    </table>
 
 To execute local parity testing:
 
 ```bash
+# Verify both posed and unposed sequence parity
 uv run tools/benchmark/parity_depth_anything_3.py \
     --variant all \
+    --mode both \
     --view-counts 1 2 4 \
     --output-file .profile/parity_da3.md
 ```

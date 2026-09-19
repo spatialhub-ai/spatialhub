@@ -68,6 +68,7 @@ from depth_anything_3.api import DepthAnything3
 from depth_anything_3.model.da3 import NestedDepthAnything3Net
 from spatialhub.core.runtime import resolve_model_path
 from spatialhub.models.depth_anything_3.adapter import DepthAnything3Adapter
+from spatialhub.models.depth_anything_3.utils import align_poses_umeyama
 from utils import compute_rotation_geodesic_degrees, get_available_ort_providers
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
@@ -75,7 +76,6 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_ONNX_DIR = PROJECT_ROOT / "onnx_weight"
 
-print(sys.prefix)
 
 PRESET_REGISTRY: dict[str, dict[str, Any]] = {
     "da3_small": {
@@ -138,6 +138,7 @@ class ParityMetricRecord:
     """Represents numerical parity validation statistics for a single evaluation run."""
 
     variant: str
+    mode: str
     views: int
     depth_mae: float
     depth_max_diff: float
@@ -146,8 +147,9 @@ class ParityMetricRecord:
     conf_max_diff: float | None
     ext_rot_deg_pt_vs_ort: float | None
     ext_trans_err_pt_vs_ort: float | None
-    ext_rot_deg_ort_vs_gt: float | None
-    ext_trans_err_ort_vs_gt: float | None
+    focal_err_pt_vs_ort: float | None = None
+    ext_rot_deg_ort_vs_gt: float | None = None
+    ext_trans_err_ort_vs_gt: float | None = None
 
 
 def resolve_variant_model_path(
@@ -273,30 +275,53 @@ def evaluate_single_parity(
     extrinsics: np.ndarray | None,
     intrinsics: np.ndarray | None,
     provider_spec: Any,
+    mode: str = "posed",
     model_dir: Path | None = None,
 ) -> ParityMetricRecord:
-    """Execute numerical parity verification between PyTorch reference and ONNX Runtime adapter."""
+    """Execute numerical parity verification between PyTorch reference and ONNX Runtime adapter.
+
+    Args:
+        variant: Target model variant identifier.
+        view_count: Number of evaluation frames ($N$).
+        images: List of input image paths.
+        extrinsics: Ground-truth camera extrinsics (if available).
+        intrinsics: Ground-truth camera intrinsics (if available).
+        provider_spec: Hardware execution provider for ONNX Runtime.
+        mode: Evaluation mode ('posed' or 'unposed').
+        model_dir: Optional custom directory containing local weights.
+
+    Returns:
+        ParityMetricRecord with comprehensive residual and trajectory statistics.
+    """
+    is_posed = mode == "posed"
     entry = PRESET_REGISTRY[variant]
     onnx_target = resolve_variant_model_path(variant, custom_dir=model_dir)
+
+    # In unposed mode, input camera poses are omitted to test trajectory decoder from scratch
+    eval_ext_input = [e for e in extrinsics] if (is_posed and extrinsics is not None) else None
+    eval_int_input = [k for k in intrinsics] if (is_posed and intrinsics is not None) else None
 
     with DepthAnything3Adapter(
         model_name=onnx_target,
         process_res=504,
         process_res_method="upper_bound_resize",
         providers=[provider_spec],
-        align_to_input_ext_scale=True,
+        align_to_input_ext_scale=is_posed,
     ) as adapter:
         ort_result = adapter.estimate_depth(
             images=images,
-            extrinsics=[e for e in extrinsics] if extrinsics is not None else None,
-            intrinsics=[k for k in intrinsics] if intrinsics is not None else None,
+            extrinsics=eval_ext_input,
+            intrinsics=eval_int_input,
         )
 
     ort_depth = ort_result.depth
     ort_conf = ort_result.conf
     ort_ext = ort_result.extrinsics
+    ort_int = ort_result.intrinsics
 
     torch_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    pt_ext_input = extrinsics if is_posed else None
+    pt_int_input = intrinsics if is_posed else None
 
     if not entry.get("nested", False):
         hf_id = entry["hf_id"]
@@ -304,16 +329,17 @@ def evaluate_single_parity(
         with torch.no_grad():
             pt_pred = pt_model.inference(
                 image=images,
-                extrinsics=extrinsics,
-                intrinsics=intrinsics,
+                extrinsics=pt_ext_input,
+                intrinsics=pt_int_input,
                 process_res=504,
                 process_res_method="upper_bound_resize",
-                align_to_input_ext_scale=True,
+                align_to_input_ext_scale=is_posed,
                 infer_gs=False,
             )
         pt_depth = pt_pred.depth
         pt_conf = pt_pred.conf
         pt_ext = pt_pred.extrinsics
+        pt_int = pt_pred.intrinsics
         del pt_model
     else:
         main_hf_id, metric_hf_id = entry["hf_ids"]
@@ -330,17 +356,18 @@ def evaluate_single_parity(
         with torch.no_grad():
             pt_pred = pt_main_wrapper.inference(
                 image=images,
-                extrinsics=extrinsics,
-                intrinsics=intrinsics,
+                extrinsics=pt_ext_input,
+                intrinsics=pt_int_input,
                 process_res=504,
                 process_res_method="upper_bound_resize",
-                align_to_input_ext_scale=True,
+                align_to_input_ext_scale=is_posed,
                 infer_gs=False,
             )
 
         pt_depth = pt_pred.depth
         pt_conf = pt_pred.conf
         pt_ext = pt_pred.extrinsics
+        pt_int = pt_pred.intrinsics
 
         del pt_main_wrapper, pt_metric_wrapper, nested_net
 
@@ -348,6 +375,7 @@ def evaluate_single_parity(
         torch.cuda.empty_cache()
     gc.collect()
 
+    # Depth parity metrics
     depth_diff = np.abs(pt_depth - ort_depth)
     depth_mae = float(np.mean(depth_diff))
     depth_max_diff = float(np.max(depth_diff))
@@ -355,6 +383,7 @@ def evaluate_single_parity(
     denom = np.maximum(np.abs(pt_depth), 1e-4)
     depth_rel_err = float(np.mean(depth_diff / denom) * 100.0)
 
+    # Confidence parity metrics
     conf_mae = None
     conf_max_diff = None
     if pt_conf is not None and ort_conf is not None:
@@ -362,16 +391,40 @@ def evaluate_single_parity(
         conf_mae = float(np.mean(c_diff))
         conf_max_diff = float(np.max(c_diff))
 
+    # Extrinsics parity (PT vs ORT)
     rot_pt_ort, trans_pt_ort = None, None
     if pt_ext is not None and ort_ext is not None:
         rot_pt_ort, trans_pt_ort = compute_camera_trajectory_differences(pt_ext, ort_ext)
 
+    # Intrinsics / Focal length parity (PT vs ORT)
+    focal_err_pt_ort = None
+    if pt_int is not None and ort_int is not None:
+        f_pt = (pt_int[..., 0, 0] + pt_int[..., 1, 1]) / 2.0
+        f_ort = (ort_int[..., 0, 0] + ort_int[..., 1, 1]) / 2.0
+        focal_err_pt_ort = float(np.mean(np.abs(f_pt - f_ort)))
+
+    # Trajectory alignment vs Ground Truth (ORT vs GT) in unposed mode
     rot_ort_gt, trans_ort_gt = None, None
-    if extrinsics is not None and ort_ext is not None:
-        rot_ort_gt, trans_ort_gt = compute_camera_trajectory_differences(extrinsics, ort_ext)
+    if not is_posed and extrinsics is not None and ort_ext is not None and view_count >= 2:
+        try:
+            if view_count == 2:
+                # Compare relative baseline rotation error and translation distance
+                rot_ort_gt, trans_ort_gt = compute_camera_trajectory_differences(extrinsics, ort_ext)
+            else:
+                _, _, _, ort_ext_aligned = align_poses_umeyama(
+                    extrinsics,
+                    ort_ext,
+                    return_aligned=True,
+                    ransac=(view_count >= 10),
+                    random_state=42,
+                )
+                rot_ort_gt, trans_ort_gt = compute_camera_trajectory_differences(extrinsics, ort_ext_aligned)
+        except Exception as align_err:
+            logger.warning("Trajectory GT alignment skipped: %s", align_err)
 
     return ParityMetricRecord(
         variant=variant,
+        mode=mode,
         views=view_count,
         depth_mae=depth_mae,
         depth_max_diff=depth_max_diff,
@@ -380,6 +433,7 @@ def evaluate_single_parity(
         conf_max_diff=conf_max_diff,
         ext_rot_deg_pt_vs_ort=rot_pt_ort,
         ext_trans_err_pt_vs_ort=trans_pt_ort,
+        focal_err_pt_vs_ort=focal_err_pt_ort,
         ext_rot_deg_ort_vs_gt=rot_ort_gt,
         ext_trans_err_ort_vs_gt=trans_ort_gt,
     )
@@ -390,21 +444,55 @@ def format_parity_table(
     title: str = "Depth Anything 3 Numerical Parity Summary (PyTorch vs ONNX Runtime)",
 ) -> str:
     """Format parity records into a structured GitHub-flavored Markdown table."""
-    lines: list[str] = [
-        f"### {title}\n",
-        "| Model Variant | Views ($N$) | Depth MAE | Depth Max Diff | Relative Error (%) | Conf MAE | Extrinsics Rot Error (PT vs ORT) | Extrinsics Trans Error (PT vs ORT) |",
-        "| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |",
-    ]
+    has_unposed = any(r.mode == "unposed" for r in records)
+    has_gt_metrics = any(r.ext_rot_deg_ort_vs_gt is not None for r in records)
 
-    for r in records:
-        conf_mae_str = f"{r.conf_mae:.6f}" if r.conf_mae is not None else "N/A"
-        rot_pt_ort_str = f"{r.ext_rot_deg_pt_vs_ort:.4f}°" if r.ext_rot_deg_pt_vs_ort is not None else "N/A"
-        trans_pt_ort_str = f"{r.ext_trans_err_pt_vs_ort:.6f}" if r.ext_trans_err_pt_vs_ort is not None else "N/A"
+    lines: list[str] = [f"### {title}\n"]
 
-        lines.append(
-            f"| **`{r.variant}`** | {r.views} | {r.depth_mae:.6f} | {r.depth_max_diff:.6f} | "
-            f"**{r.depth_rel_err:.2f}%** | {conf_mae_str} | {rot_pt_ort_str} | {trans_pt_ort_str} |"
-        )
+    if has_gt_metrics:
+        lines.extend([
+            "| Model Variant | Mode | Views ($N$) | Depth MAE | Depth Max Diff | Relative Error (%) | Conf MAE | Extrinsics Rot Error (PT vs ORT) | Extrinsics Trans Error (PT vs ORT) | Trajectory Rot (ORT vs GT) | Trajectory Trans (ORT vs GT) |",
+            "| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |",
+        ])
+        for r in records:
+            conf_mae_str = f"{r.conf_mae:.6f}" if r.conf_mae is not None else "N/A"
+            rot_pt_ort_str = f"{r.ext_rot_deg_pt_vs_ort:.4f}°" if r.ext_rot_deg_pt_vs_ort is not None else "N/A"
+            trans_pt_ort_str = f"{r.ext_trans_err_pt_vs_ort:.6f}" if r.ext_trans_err_pt_vs_ort is not None else "N/A"
+            rot_gt_str = f"{r.ext_rot_deg_ort_vs_gt:.4f}°" if r.ext_rot_deg_ort_vs_gt is not None else "N/A"
+            trans_gt_str = f"{r.ext_trans_err_ort_vs_gt:.6f}" if r.ext_trans_err_ort_vs_gt is not None else "N/A"
+
+            lines.append(
+                f"| **`{r.variant}`** | `{r.mode}` | {r.views} | {r.depth_mae:.6f} | {r.depth_max_diff:.6f} | "
+                f"**{r.depth_rel_err:.2f}%** | {conf_mae_str} | {rot_pt_ort_str} | {trans_pt_ort_str} | {rot_gt_str} | {trans_gt_str} |"
+            )
+    elif has_unposed:
+        lines.extend([
+            "| Model Variant | Mode | Views ($N$) | Depth MAE | Depth Max Diff | Relative Error (%) | Conf MAE | Extrinsics Rot Error (PT vs ORT) | Extrinsics Trans Error (PT vs ORT) |",
+            "| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |",
+        ])
+        for r in records:
+            conf_mae_str = f"{r.conf_mae:.6f}" if r.conf_mae is not None else "N/A"
+            rot_pt_ort_str = f"{r.ext_rot_deg_pt_vs_ort:.4f}°" if r.ext_rot_deg_pt_vs_ort is not None else "N/A"
+            trans_pt_ort_str = f"{r.ext_trans_err_pt_vs_ort:.6f}" if r.ext_trans_err_pt_vs_ort is not None else "N/A"
+
+            lines.append(
+                f"| **`{r.variant}`** | `{r.mode}` | {r.views} | {r.depth_mae:.6f} | {r.depth_max_diff:.6f} | "
+                f"**{r.depth_rel_err:.2f}%** | {conf_mae_str} | {rot_pt_ort_str} | {trans_pt_ort_str} |"
+            )
+    else:
+        lines.extend([
+            "| Model Variant | Views ($N$) | Depth MAE | Depth Max Diff | Relative Error (%) | Conf MAE | Extrinsics Rot Error (PT vs ORT) | Extrinsics Trans Error (PT vs ORT) |",
+            "| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |",
+        ])
+        for r in records:
+            conf_mae_str = f"{r.conf_mae:.6f}" if r.conf_mae is not None else "N/A"
+            rot_pt_ort_str = f"{r.ext_rot_deg_pt_vs_ort:.4f}°" if r.ext_rot_deg_pt_vs_ort is not None else "N/A"
+            trans_pt_ort_str = f"{r.ext_trans_err_pt_vs_ort:.6f}" if r.ext_trans_err_pt_vs_ort is not None else "N/A"
+
+            lines.append(
+                f"| **`{r.variant}`** | {r.views} | {r.depth_mae:.6f} | {r.depth_max_diff:.6f} | "
+                f"**{r.depth_rel_err:.2f}%** | {conf_mae_str} | {rot_pt_ort_str} | {trans_pt_ort_str} |"
+            )
 
     return "\n".join(lines)
 
@@ -414,22 +502,27 @@ def run_parity_verification(
     view_counts: list[int],
     scene_data: dict[str, Any],
     provider_spec: Any,
+    modes: list[str] | None = None,
     model_dir: Path | None = None,
     output_file: Path | str | None = None,
 ) -> list[ParityMetricRecord]:
-    """Execute complete parity verification across variants and view counts.
+    """Execute complete parity verification across variants, view counts, and modes.
 
     Args:
         variants: List of target adapter variant names.
         view_counts: List of view counts to evaluate ($N$).
         scene_data: Dictionary containing evaluation image paths and camera geometry.
         provider_spec: Execution provider specification for ONNX Runtime.
+        modes: List of evaluation modes ('posed', 'unposed').
         model_dir: Optional custom directory containing local weights.
         output_file: Optional path to incrementally append Markdown parity tables.
 
     Returns:
         List of computed ParityMetricRecord results.
     """
+    if modes is None:
+        modes = ["posed"]
+
     all_scene_images = scene_data["images"]
     scene_extrinsics = scene_data.get("extrinsics")
     scene_intrinsics = scene_data.get("intrinsics")
@@ -441,63 +534,65 @@ def run_parity_verification(
     records: list[ParityMetricRecord] = []
 
     for variant in variants:
-        for view_count in view_counts:
-            num_images = len(all_scene_images)
-            if num_images < view_count:
-                logger.warning(
-                    "Requested %d views, but scene only contains %d images. Please provide a dataset with more images. Skipping view count %d.",
-                    view_count, num_images, view_count,
-                )
-                continue
-
-            eval_images = all_scene_images[:view_count]
-
-            eval_extrinsics = None
-            if scene_extrinsics is not None:
-                if len(scene_extrinsics) < view_count:
+        for mode in modes:
+            for view_count in view_counts:
+                num_images = len(all_scene_images)
+                if num_images < view_count:
                     logger.warning(
-                        "Scene contains %d extrinsics but %d views were requested. Extrinsics will not be used.",
-                        len(scene_extrinsics), view_count,
+                        "Requested %d views, but scene only contains %d images. Skipping view count %d.",
+                        view_count, num_images, view_count,
                     )
-                else:
-                    eval_extrinsics = scene_extrinsics[:view_count]
+                    continue
 
-            eval_intrinsics = None
-            if scene_intrinsics is not None:
-                if len(scene_intrinsics) < view_count:
-                    logger.warning(
-                        "Scene contains %d intrinsics but %d views were requested. Intrinsics will not be used.",
-                        len(scene_intrinsics), view_count,
+                eval_images = all_scene_images[:view_count]
+
+                eval_extrinsics = None
+                if scene_extrinsics is not None:
+                    if len(scene_extrinsics) < view_count:
+                        logger.warning(
+                            "Scene contains %d extrinsics but %d views were requested. Extrinsics will not be used.",
+                            len(scene_extrinsics), view_count,
+                        )
+                    else:
+                        eval_extrinsics = scene_extrinsics[:view_count]
+
+                eval_intrinsics = None
+                if scene_intrinsics is not None:
+                    if len(scene_intrinsics) < view_count:
+                        logger.warning(
+                            "Scene contains %d intrinsics but %d views were requested. Intrinsics will not be used.",
+                            len(scene_intrinsics), view_count,
+                        )
+                    else:
+                        eval_intrinsics = scene_intrinsics[:view_count]
+
+                logger.info("Verifying parity | variant=%s | mode=%s | views=%d...", variant, mode, view_count,)
+
+                try:
+                    rec = evaluate_single_parity(
+                        variant=variant,
+                        view_count=view_count,
+                        images=eval_images,
+                        extrinsics=eval_extrinsics,
+                        intrinsics=eval_intrinsics,
+                        provider_spec=provider_spec,
+                        mode=mode,
+                        model_dir=model_dir,
                     )
-                else:
-                    eval_intrinsics = scene_intrinsics[:view_count]
+                    records.append(rec)
 
-            logger.info("Verifying parity | variant=%s | views=%d...", variant, view_count)
+                    single_table = format_parity_table([rec], title=f"Parity Check ({variant} | {mode.upper()} | N={view_count})",)
+                    print("\n" + single_table + "\n")
 
-            try:
-                rec = evaluate_single_parity(
-                    variant=variant,
-                    view_count=view_count,
-                    images=eval_images,
-                    extrinsics=eval_extrinsics,
-                    intrinsics=eval_intrinsics,
-                    provider_spec=provider_spec,
-                    model_dir=model_dir,
-                )
-                records.append(rec)
+                    if out_path is not None:
+                        with out_path.open("a", encoding="utf-8") as f:
+                            if f.tell() > 0:
+                                f.write("\n\n")
+                            f.write(single_table)
+                            f.flush()
 
-                single_table = format_parity_table([rec], title=f"Parity Check ({variant} | N={view_count})")
-                print("\n" + single_table + "\n")
-
-                if out_path is not None:
-                    with out_path.open("a", encoding="utf-8") as f:
-                        if f.tell() > 0:
-                            f.write("\n\n")
-                        f.write(single_table)
-                        f.flush()
-
-            except Exception as err:
-                logger.warning("Failed parity verification for variant '%s' (N=%d): %s", variant, view_count, err)
+                except Exception as err:
+                    logger.warning("Failed parity verification for variant '%s' (mode=%s, N=%d): %s", variant, mode, view_count, err,)
 
     return records
 
@@ -512,6 +607,13 @@ def main() -> None:
         default="all",
         choices=["all"] + SUPPORTED_VARIANTS,
         help="Target model variant (default: 'all').",
+    )
+    parser.add_argument(
+        "--mode",
+        type=str,
+        default="both",
+        choices=["posed", "unposed", "both"],
+        help="Evaluation sequence mode ('posed', 'unposed', or 'both', default: 'both').",
     )
     parser.add_argument(
         "--view-counts",
@@ -552,12 +654,14 @@ def main() -> None:
 
     variants_to_eval = SUPPORTED_VARIANTS if args.variant == "all" else [args.variant]
     model_dir_path = Path(args.model_dir) if args.model_dir is not None else None
+    modes_to_eval = ["posed", "unposed"] if args.mode == "both" else [args.mode]
 
     records = run_parity_verification(
         variants=variants_to_eval,
         view_counts=args.view_counts,
         scene_data=scene_data,
         provider_spec=cuda_provider_spec,
+        modes=modes_to_eval,
         model_dir=model_dir_path,
         output_file=args.output_file,
     )

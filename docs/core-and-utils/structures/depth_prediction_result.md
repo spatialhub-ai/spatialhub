@@ -1,4 +1,4 @@
-﻿# DepthPredictionResult
+# DepthPredictionResult
 
 `spatialhub.structures.DepthPredictionResult` encapsulates estimated metric or relative depth maps and camera parameters produced by depth estimation adapters such as [`DepthAnything3Adapter`](../../models/depthanything3.md).
 

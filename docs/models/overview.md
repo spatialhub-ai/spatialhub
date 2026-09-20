@@ -1,4 +1,4 @@
-﻿# Models Overview
+# Models Overview
 
 SpatialHub provides ONNX Runtime adapters for 7 computer vision model architectures across perception tasks. All adapters return standard Python dataclass contracts defined in [`spatialhub.structures`](../core-and-utils/structures/overview.md).
 

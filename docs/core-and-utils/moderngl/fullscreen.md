@@ -1,4 +1,4 @@
-﻿# Fullscreen Shader Engine
+# Fullscreen Shader Engine
 
 `spatialhub.utils.moderngl.fullscreen.FullscreenShader` manages fullscreen quad fragment shader execution and sequential multi-pass texture ping-pong swapping.
 

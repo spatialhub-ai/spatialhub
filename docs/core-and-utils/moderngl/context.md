@@ -1,4 +1,4 @@
-﻿# ModernGL Context
+# ModernGL Context
 
 `spatialhub.utils.moderngl.context.create_moderngl_context` initializes a headless or standalone ModernGL execution context for hardware-accelerated offscreen shader passes and rendering.
 

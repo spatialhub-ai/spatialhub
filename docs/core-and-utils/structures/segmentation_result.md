@@ -1,4 +1,4 @@
-﻿# SegmentationResult
+# SegmentationResult
 
 `spatialhub.structures.SegmentationResult` represents spatial binary masks, bounding boxes, and confidence scores produced by segmentation, proposal, and zero-shot detection models such as [`FastSAMAdapter`](../../models/fastsam.md), [`SAMAdapter`](../../models/sam.md), and [`CNOSAdapter`](../../models/cnos.md).
 

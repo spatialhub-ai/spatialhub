@@ -1,4 +1,4 @@
-﻿# FeatureExtractionResult
+# FeatureExtractionResult
 
 `spatialhub.structures.FeatureExtractionResult` contains dense patch tokens or global CLS embedding vectors produced by feature extraction adapters such as [`DINOv2Adapter`](../../models/dinov2.md).
 

@@ -1,4 +1,4 @@
-﻿# MatchResult
+# MatchResult
 
 `spatialhub.structures.MatchResult` represents 2D keypoint correspondences and match confidence scores produced by feature matching adapters such as [`EfficientLoFTRAdapter`](../../models/eloftr.md).
 

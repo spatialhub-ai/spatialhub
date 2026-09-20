@@ -1,4 +1,4 @@
-﻿"""
+"""
 Offscreen rendering and batched atlas generation backend.
 """
 

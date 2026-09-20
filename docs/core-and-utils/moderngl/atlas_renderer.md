@@ -1,4 +1,4 @@
-﻿# Batched Atlas Mesh Renderer
+# Batched Atlas Mesh Renderer
 
 `spatialhub.utils.moderngl.atlas_renderer.BatchedAtlasRenderer` renders multiple instanced 3D views in a single GPU draw call by packing them into a 2D grid atlas framebuffer with multi-target color attachments (G-Buffer).
 

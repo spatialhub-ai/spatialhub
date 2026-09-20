@@ -1,4 +1,4 @@
-﻿# 3D Template Renderer
+# 3D Template Renderer
 
 `spatialhub.utils.template_renderer.TemplateRenderer` renders 2D RGBA templates and metric depth maps from 3D CAD meshes (`.ply`, `.obj`, `.stl`, `.off`) using `trimesh` and ModernGL batched offscreen atlas rendering.
 

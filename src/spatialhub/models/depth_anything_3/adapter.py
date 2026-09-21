@@ -174,6 +174,9 @@ class DepthAnything3Adapter:
                 Structured prediction dataclass containing depth maps, confidence maps,
                 and aligned camera intrinsics/extrinsics.
         """
+        if not getattr(self, "ort_sessions", None):
+            raise RuntimeError("Inference session has been closed or was not initialized.")
+
         # Preprocess input images and camera parameters
         np_inputs = self._preprocess(images=images, extrinsics=extrinsics, intrinsics=intrinsics)
 

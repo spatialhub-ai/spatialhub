@@ -48,7 +48,7 @@ class TestResolveModelPath:
         ],
     )
     def test_resolve_incomplete_hf_coordinates_raises(self, repo_id: str | None, filename: str | None):
-        with pytest.raises(FileNotFoundError, match="no Hugging Face repository/filename was provided"):
+        with pytest.raises(FileNotFoundError, match="repository parameters were not provided"):
             resolve_model_path(model_path=None, repo_id=repo_id, filename=filename)
 
     def test_resolve_hf_download_success(self, tmp_path: Path):
@@ -129,7 +129,7 @@ class TestCreateOrtSession:
     """Test suite covering ONNX runtime session initialization, provider normalization, and fallback logging."""
 
     def test_create_ort_session_missing_file_raises(self):
-        with pytest.raises(FileNotFoundError, match="Cannot initialize ONNX session. File does not exist"):
+        with pytest.raises(FileNotFoundError, match="Cannot initialize session. File does not exist"):
             create_ort_session(model_path="non_existent_model.onnx")
 
     def test_create_ort_session_default_provider(self, tmp_path: Path):
@@ -203,13 +203,13 @@ class TestCreateOrtSession:
         fake_model = tmp_path / "test.onnx"
         fake_model.write_bytes(b"dummy")
 
-        # Requested CUDA, but ORT fell back to CPU
+        # Requested CUDA, but session fell back to CPU
         mock_session = MagicMock(spec=ort.InferenceSession)
         mock_session.get_providers.return_value = ["CPUExecutionProvider"]
 
         with caplog.at_level(logging.WARNING), patch("onnxruntime.InferenceSession", return_value=mock_session):
             create_ort_session(fake_model, providers="CUDAExecutionProvider")
-            assert "Requested providers ['CUDAExecutionProvider'], but ONNX Runtime fell back to 'CPUExecutionProvider'" in caplog.text
+            assert "Requested providers ['CUDAExecutionProvider'], but session initialized on 'CPUExecutionProvider'" in caplog.text
 
     def test_create_ort_session_matching_provider_debug(self, tmp_path: Path, caplog: pytest.LogCaptureFixture):
         fake_model = tmp_path / "test.onnx"
@@ -221,5 +221,5 @@ class TestCreateOrtSession:
 
         with caplog.at_level(logging.DEBUG), patch("onnxruntime.InferenceSession", return_value=mock_session):
             create_ort_session(fake_model, providers=["CUDAExecutionProvider", "CPUExecutionProvider"])
-            assert "ONNX session initialized on provider: CUDAExecutionProvider" in caplog.text
+            assert "Session initialized on provider: CUDAExecutionProvider" in caplog.text
 

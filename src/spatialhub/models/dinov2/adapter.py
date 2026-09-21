@@ -114,10 +114,13 @@ class DINOv2Adapter:
         Returns:
             np.ndarray: Normalized batch tensor of shape (N, 3, target_size, target_size) with dtype float32.
         """
-        if isinstance(images, np.ndarray) and images.ndim == 3:
-            raw_list = [images]
-        elif isinstance(images, np.ndarray) and images.ndim == 4:
-            raw_list = [images[i] for i in range(images.shape[0])]
+        if isinstance(images, np.ndarray):
+            if images.ndim == 3:
+                raw_list = [images]
+            elif images.ndim == 4:
+                raw_list = [images[i] for i in range(images.shape[0])]
+            else:
+                raise ValueError(f"Expected RGB image array with shape (H, W, 3) or (N, H, W, 3), got shape {images.shape}")
         elif isinstance(images, (list, tuple)):
             raw_list = list(images)
         else:

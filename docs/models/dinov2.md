@@ -365,11 +365,11 @@ with DINOv2Adapter(
     target_size=224,
     providers=["CUDAExecutionProvider", "CPUExecutionProvider"],
 ) as extractor:
-    # 1. Single image input (path or array)
+    # Single image input (path or array)
     result_single = extractor.extract_features("sample.jpg", l2_normalize=True)
     print("Single embedding shape:", result_single.features.shape)  # (1, 1024)
 
-    # 2. Batch / collection input (list of images or paths)
+    # Batch or collection input (list of images or paths)
     result_batch = extractor.extract_features(["image_0.jpg", "image_1.jpg"], l2_normalize=True)
     print("Batch embedding shape:", result_batch.features.shape)   # (2, 1024)
 ```

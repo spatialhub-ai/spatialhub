@@ -19,6 +19,20 @@ The `EfficientLoFTRAdapter` accepts two model precision variants via `model_type
 
 EfficientLoFTR matches coarse-to-fine keypoints across image pairs without requiring PyTorch during inference.
 
+<div align="center">
+```mermaid
+graph TD
+    A["Image Pair (A, B): Paths / Arrays"] --> B["Aspect Ratio Downscaling (max_dim)"]
+    B --> C["Multiple-of-32 Dimension Alignment"]
+    C --> D["Grayscale Conversion & Normalization"]
+    D --> E["Bottom-Right Zero Padding to Shared (W_pad, H_pad)"]
+    E --> F["ONNX Runtime Forward Pass"]
+    F --> G["Filter Matches Outside Unpadded Boundaries"]
+    G --> H["Project Coordinates to Native Resolution"]
+    H --> I["MatchResult"]
+```
+</div>
+
 ### Maximum Dimension Scaling
 
 Given an input image with native dimensions $(W_{\text{orig}}, H_{\text{orig}})$ and optional maximum dimension limit $D_{\max}$ (`max_dim`), dimensions are scaled preserving aspect ratio:
@@ -377,15 +391,18 @@ result.visualize(top_k=50, save_path="matches.png")
     ```bash
     uv run tools/export/export_efficient_loftr.py \
         --checkpoint weights/eloftr_outdoor.ckpt \
-        --output-path weights/eloftr_outdoor_full.onnx \
+        --output-folder onnx_weight \
         --opset 17 \
         --device cpu
     ```
 
     | Parameter | Type | Default | Description |
     | :--- | :--- | :--- | :--- |
-    | `--checkpoint` | `str` | *Required* | Path to source `.ckpt` PyTorch weights file. |
-    | `--output-path` | `str` | *Required* | Destination path for the exported `.onnx` binary. |
+    | `--variant` | `str` | `"all"` | Model variant to export (`full`, `opt`, or `all`). |
+    | `--checkpoint` | `str` | `None` | Path to source `.ckpt` PyTorch weights file (downloaded if omitted). |
+    | `--output-folder` | `str` | `onnx_weight` | Destination directory for exported `.onnx` model files. |
+    | `--width` | `int` | `640` | Input image width in pixels (must be a multiple of 32). |
+    | `--height` | `int` | `480` | Input image height in pixels (must be a multiple of 32). |
     | `--opset` | `int` | `17` | ONNX Operator Set version. |
     | `--device` | `str` | `"cpu"` | Hardware device used during export tracing (`cpu` or `cuda`). |
 

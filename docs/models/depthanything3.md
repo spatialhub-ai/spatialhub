@@ -6,12 +6,12 @@
 
 ## Supported Model Presets & Series
 
-The `DepthAnything3Adapter` accepts canonical model identifier strings, preset aliases, or multi-model sequences for nested pipelines via `model_name`:
+The `DepthAnything3Adapter` accepts model presets, filenames, or multi-model sequences for nested pipelines via `model_name`:
 
 ### DA3 Any-View Foundation Series
 Foundation models supporting single-image and multi-view sequences ($N \ge 1$), joint depth prediction, and relative camera pose estimation:
 
-| Canonical Identifier | ONNX File | Parameter Count | Backbone Architecture | Primary Operational Role |
+| Model Preset (`model_name`) | ONNX File | Parameter Count | Backbone Architecture | Primary Operational Role |
 | :--- | :--- | :--- | :--- | :--- |
 | `"da3_small"` | `da3_small.onnx` | ~25M | ViT-Small (DINOv2) | High-throughput, real-time edge processing and low-latency robotics. |
 | `"da3_base"` (Default) | `da3_base.onnx` | ~98M | ViT-Base (DINOv2) | Balanced spatial accuracy and computational throughput. |
@@ -21,7 +21,7 @@ Foundation models supporting single-image and multi-view sequences ($N \ge 1$), 
 ### Specialized Monocular Variants
 Single-image models fine-tuned for specific monocular tasks:
 
-| Canonical Identifier | ONNX File | Parameter Count | Output Modality | Description |
+| Model Preset (`model_name`) | ONNX File | Parameter Count | Output Modality | Description |
 | :--- | :--- | :--- | :--- | :--- |
 | `"da3mono_large"` | `da3mono_large.onnx` | ~335M | Relative Depth + Sky Mask | High-resolution monocular relative depth with sky probability estimation. |
 | `"da3metric_large"` | `da3metric_large.onnx` | ~335M | Metric Depth (Meters) | Direct absolute metric depth prediction using camera focal length scaling. |
@@ -29,7 +29,7 @@ Single-image models fine-tuned for specific monocular tasks:
 ### Nested Dual-Model Series
 Combines the high-frequency geometric detail of an Any-View model with the physical scale of `da3metric_large` via least-squares scale-and-shift alignment:
 
-| Canonical Identifier | Primary Model | Metric Reference | Primary Operational Role |
+| Model Preset (`model_name`) | Primary Model | Metric Reference | Primary Operational Role |
 | :--- | :--- | :--- | :--- |
 | `"da3nested_small_large"` | `da3_small.onnx` | `da3metric_large.onnx` | Lightweight metric estimation with high frame throughput. |
 | `"da3nested_base_large"` | `da3_base.onnx` | `da3metric_large.onnx` | Balanced detail resolution and physical metric projection. |
@@ -42,6 +42,7 @@ Combines the high-frequency geometric detail of an Any-View model with the physi
 
 Depth Anything 3 processes an input sequence of $N$ images, producing aligned depth maps, confidence masks, and optional camera trajectory transformations.
 
+<div align="center">
 ```mermaid
 graph TD
     A["Input Images (N views)"] --> B["Preprocessing: Resize (divisible by 14) & ImageNet Normalize"]
@@ -63,6 +64,7 @@ graph TD
     L --> N
     M --> N
 ```
+</div>
 
 ### Dimension Resizing & Normalization
 
@@ -1126,7 +1128,7 @@ with DepthAnything3(model_name="da3nested_base_large", providers=["CUDAExecution
 
     | Parameter | Type | Default | Description |
     | :--- | :--- | :--- | :--- |
-    | `--variant` | `str` | `"all"` | Canonical variant preset name to profile. |
+    | `--variant` | `str` | `"all"` | Model preset name to profile (`da3_small`, `da3_base`, etc., or `all`). |
     | `--provider` | `str` | `"all"` | Execution provider filter (`cuda`, `cpu`, or `all`). |
     | `--process-res` | `list[int]` | `[504]` | Spatial input resolutions to evaluate (must be multiples of 14). |
     | `--view-counts` | `list[int]` | `[1, 2]` | View counts to evaluate per run ($N=1$ for single-image, $\ge 2$ for multi-view). |

@@ -168,3 +168,20 @@ class TestDepthAnything3Inference:
         assert result.depth is not None
         assert result.conf is not None
         assert result.depth_type == "relative"
+
+    def test_context_manager_and_close(self):
+        """Test context manager lifecycle and close method releasing session resources."""
+        adapter = DepthAnything3Adapter.__new__(DepthAnything3Adapter)
+        adapter.ort_sessions = [MagicMock()]
+
+        with adapter as ctx:
+            assert len(ctx.ort_sessions) == 1
+
+        assert len(adapter.ort_sessions) == 0
+
+    def test_estimate_depth_closed_session_raises(self):
+        """Test exception when attempting inference after closing session resources."""
+        adapter = DepthAnything3Adapter.__new__(DepthAnything3Adapter)
+        adapter.ort_sessions = []
+        with pytest.raises(RuntimeError, match="Inference session has been closed"):
+            adapter.estimate_depth(images=[np.zeros((480, 640, 3), dtype=np.uint8)])

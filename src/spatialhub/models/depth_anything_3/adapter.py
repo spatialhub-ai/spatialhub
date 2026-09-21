@@ -138,7 +138,6 @@ class DepthAnything3Adapter:
                 model_path=filename if Path(filename).exists() else None,
                 repo_id="SpatialHub/depth-anything-3-onnx",
                 filename=filename,
-                download_sidecar_data=True,
             )
 
             session = create_ort_session(

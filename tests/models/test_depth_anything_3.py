@@ -94,7 +94,6 @@ class TestDepthAnything3Init:
                     model_path=None,
                     repo_id="SpatialHub/depth-anything-3-onnx",
                     filename=expected_file,
-                    download_sidecar_data=True,
                 )
 
     def test_custom_process_res_and_method(self):

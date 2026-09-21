@@ -171,7 +171,6 @@ def resolve_variant_model_path(
                 model_path=None,
                 repo_id="SpatialHub/depth-anything-3-onnx",
                 filename=fname,
-                download_sidecar_data=True,
             )
             resolved_files.append(str(downloaded_path))
 

@@ -80,7 +80,7 @@ class TestResolveModelPath:
             mock_download.assert_called_once_with(repo_id="spatialhub/demo-model", filename="demo.onnx")
             assert "Provided model_path 'non_existent_path.onnx' not found locally" in caplog.text
 
-    def test_resolve_hf_download_with_sidecar_data_success(self, tmp_path: Path):
+    def test_resolve_hf_download_with_external_data_success(self, tmp_path: Path):
         model_file = tmp_path / "model.onnx"
         model_file.write_bytes(b"model data")
         sidecar_file = tmp_path / "model.onnx.data"
@@ -91,37 +91,33 @@ class TestResolveModelPath:
                 return str(model_file)
             elif filename == "model.onnx.data":
                 return str(sidecar_file)
-            raise ValueError("Unknown filename")
+            raise ValueError(f"Unknown filename: {filename}")
 
-        with patch("spatialhub.core.runtime.hf_hub_download", side_effect=side_effect) as mock_download:
+        with patch(
+            "spatialhub.core.runtime._get_external_data_filenames", return_value=["model.onnx.data"]
+        ), patch("spatialhub.core.runtime.hf_hub_download", side_effect=side_effect) as mock_download:
             resolved = resolve_model_path(
                 repo_id="spatialhub/large-model",
                 filename="model.onnx",
-                download_sidecar_data=True,
             )
             assert resolved == model_file
             assert mock_download.call_count == 2
             mock_download.assert_any_call(repo_id="spatialhub/large-model", filename="model.onnx")
             mock_download.assert_any_call(repo_id="spatialhub/large-model", filename="model.onnx.data")
 
-    def test_resolve_hf_download_with_sidecar_data_missing_ignored(self, tmp_path: Path):
+    def test_resolve_hf_download_self_contained_model_no_extra_calls(self, tmp_path: Path):
         model_file = tmp_path / "model.onnx"
         model_file.write_bytes(b"model data")
 
-        def side_effect(repo_id: str, filename: str):
-            if filename == "model.onnx":
-                return str(model_file)
-            # Sidecar doesn't exist on HF Hub
-            raise RuntimeError("404 Not Found")
-
-        with patch("spatialhub.core.runtime.hf_hub_download", side_effect=side_effect) as mock_download:
+        with patch(
+            "spatialhub.core.runtime._get_external_data_filenames", return_value=[]
+        ), patch("spatialhub.core.runtime.hf_hub_download", return_value=str(model_file)) as mock_download:
             resolved = resolve_model_path(
                 repo_id="spatialhub/self-contained-model",
                 filename="model.onnx",
-                download_sidecar_data=True,
             )
             assert resolved == model_file
-            assert mock_download.call_count == 2
+            mock_download.assert_called_once_with(repo_id="spatialhub/self-contained-model", filename="model.onnx")
 
     def test_resolve_hf_download_failure_raises_runtime_error(self):
         with patch("spatialhub.core.runtime.hf_hub_download", side_effect=ConnectionError("Network unreachable")):

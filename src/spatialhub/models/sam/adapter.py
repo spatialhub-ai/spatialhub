@@ -78,7 +78,6 @@ class SAMAdapter:
             model_path=encoder_onnx_path,
             repo_id="SpatialHub/sam-onnx",
             filename=enc_filename if encoder_onnx_path is None else None,
-            download_sidecar_data=True if "vit_h" in variant else False,
         )
         resolved_dec = resolve_model_path(
             model_path=decoder_onnx_path,

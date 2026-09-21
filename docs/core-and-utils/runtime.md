@@ -20,7 +20,6 @@ resolved_path: Path = resolve_model_path(
     model_path=None,
     repo_id="SpatialHub/efficient-loftr-onnx",
     filename="eloftr_outdoor_full.onnx",
-    download_sidecar_data=False,
 )
 ```
 
@@ -31,7 +30,6 @@ resolved_path: Path = resolve_model_path(
 | `model_path` | `str | Path | None` | `None` | Explicit local ONNX weight file path. |
 | `repo_id` | `str | None` | `None` | Remote Hugging Face repository ID. |
 | `filename` | `str | None` | `None` | Target ONNX filename in the repository. |
-| `download_sidecar_data` | `bool` | `False` | Flag to fetch companion `.data` files for models >2GB with external weights. |
 
 ### Return Value
 * **`Path`**: Absolute local path to resolved `.onnx` weight file.

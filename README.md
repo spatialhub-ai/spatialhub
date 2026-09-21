@@ -38,7 +38,7 @@ Downstream spatial algorithms operate directly on these standardized dataclasses
 
 ## Key Principles
 
-- **Modular Return Contracts:** Standardized dataclass outputs across all model families ([`MatchResult`](./docs/core-and-utils/structures/match_result.md), [`DepthPredictionResult`](./docs/core-and-utils/structures/depth_prediction_result.md), [`FeatureExtractionResult`](./docs/core-and-utils/structures/feature_extraction_result.md), [`SegmentationResult`](./docs/core-and-utils/structures/segmentation_result.md), [`PoseEstimationResult`](./docs/core-and-utils/structures/pose_estimation_result.md)).
+- **Modular Return Contracts:** Standardized dataclass outputs across all model families ([`MatchResult`](https://spatialhub-ai.github.io/spatialhub/core-and-utils/structures/match_result/), [`DepthPredictionResult`](https://spatialhub-ai.github.io/spatialhub/core-and-utils/structures/depth_prediction_result/), [`FeatureExtractionResult`](https://spatialhub-ai.github.io/spatialhub/core-and-utils/structures/feature_extraction_result/), [`SegmentationResult`](https://spatialhub-ai.github.io/spatialhub/core-and-utils/structures/segmentation_result/), [`PoseEstimationResult`](https://spatialhub-ai.github.io/spatialhub/core-and-utils/structures/pose_estimation_result/)).
 - **Zero-PyTorch Inference:** Core runtime paths execute exclusively on **ONNX Runtime** with pure NumPy and OpenCV vector operations.
 - **Automatic Weight Management:** Downloads, verifies, and caches pretrained `.onnx` weight binaries from Hugging Face Hub.
 - **Hardware Acceleration:** Native support for CPU, CUDA, and TensorRT execution providers with runtime fallback verification.
@@ -50,13 +50,13 @@ Downstream spatial algorithms operate directly on these standardized dataclasses
 
 | Model Architecture | Task | Default Variant / Option | Returned Dataclass | Documentation |
 | :--- | :--- | :--- | :--- | :--- |
-| [**FoundationPose**](./docs/models/foundationpose.md) | 6D Object Pose Estimation & Tracking | 3D CAD Mesh (`.ply`, `.obj`, `.stl`) | [`PoseEstimationResult`](./docs/core-and-utils/structures/pose_estimation_result.md) | [Model Reference](./docs/models/foundationpose.md) • [Export Guide](./src/spatialhub/models/foundationpose/README.md) |
-| [**EfficientLoFTR**](./docs/models/eloftr.md) | Semi-dense Feature Matching | `"full"` or `"opt"` | [`MatchResult`](./docs/core-and-utils/structures/match_result.md) | [Model Reference](./docs/models/eloftr.md) • [Export Guide](./src/spatialhub/models/efficient_loftr/README.md) |
-| [**Depth Anything 3**](./docs/models/depthanything3.md) | Monocular & Multi-View Depth | `"da3_base"` (small/large/giant/metric/nested) | [`DepthPredictionResult`](./docs/core-and-utils/structures/depth_prediction_result.md) | [Model Reference](./docs/models/depthanything3.md) • [Export Guide](./src/spatialhub/models/depth_anything_3/README.md) |
-| [**DINOv2**](./docs/models/dinov2.md) | Image Feature Extraction | `"dinov2_vitl14"` (vits14/vitb14/vitg14) | [`FeatureExtractionResult`](./docs/core-and-utils/structures/feature_extraction_result.md) | [Model Reference](./docs/models/dinov2.md) • [Export Guide](./src/spatialhub/models/dinov2/README.md) |
-| [**FastSAM**](./docs/models/fastsam.md) | Real-Time Proposal Segmentation | `"FastSAM-x"` or `"FastSAM-s"` | [`SegmentationResult`](./docs/core-and-utils/structures/segmentation_result.md) | [Model Reference](./docs/models/fastsam.md) • [Export Guide](./src/spatialhub/models/fastsam/README.md) |
-| [**SAM**](./docs/models/sam.md) | Automatic Mask Generation (AMG) | `"sam_vit_h"` (vit_l/vit_b) | [`SegmentationResult`](./docs/core-and-utils/structures/segmentation_result.md) | [Model Reference](./docs/models/sam.md) • [Export Guide](./src/spatialhub/models/sam/README.md) |
-| [**CNOS**](./docs/models/cnos.md) | CAD Zero-Shot Object Detection | 3D CAD Mesh (`.ply`, `.obj`, `.stl`) | [`SegmentationResult`](./docs/core-and-utils/structures/segmentation_result.md) | [Model Reference](./docs/models/cnos.md) • [Export Guide](./src/spatialhub/models/cnos/README.md) |
+| **FoundationPose** | 6D Object Pose Estimation & Tracking | 3D CAD Mesh (`.ply`, `.obj`, `.stl`) | [`PoseEstimationResult`](https://spatialhub-ai.github.io/spatialhub/core-and-utils/structures/pose_estimation_result/) | [Docs](https://spatialhub-ai.github.io/spatialhub/models/foundationpose/) • [README](./src/spatialhub/models/foundationpose/README.md) |
+| **EfficientLoFTR** | Semi-dense Feature Matching | `"full"` or `"opt"` | [`MatchResult`](https://spatialhub-ai.github.io/spatialhub/core-and-utils/structures/match_result/) | [Docs](https://spatialhub-ai.github.io/spatialhub/models/eloftr/) • [README](./src/spatialhub/models/efficient_loftr/README.md) |
+| **Depth Anything 3** | Monocular & Multi-View Depth | `"da3_base"` (small/large/giant/metric/nested) | [`DepthPredictionResult`](https://spatialhub-ai.github.io/spatialhub/core-and-utils/structures/depth_prediction_result/) | [Docs](https://spatialhub-ai.github.io/spatialhub/models/depthanything3/) • [README](./src/spatialhub/models/depth_anything_3/README.md) |
+| **DINOv2** | Image Feature Extraction | `"dinov2_vitl14"` (vits14/vitb14/vitg14) | [`FeatureExtractionResult`](https://spatialhub-ai.github.io/spatialhub/core-and-utils/structures/feature_extraction_result/) | [Docs](https://spatialhub-ai.github.io/spatialhub/models/dinov2/) • [README](./src/spatialhub/models/dinov2/README.md) |
+| **FastSAM** | Real-Time Proposal Segmentation | `"FastSAM-x"` or `"FastSAM-s"` | [`SegmentationResult`](https://spatialhub-ai.github.io/spatialhub/core-and-utils/structures/segmentation_result/) | [Docs](https://spatialhub-ai.github.io/spatialhub/models/fastsam/) • [README](./src/spatialhub/models/fastsam/README.md) |
+| **SAM** | Automatic Mask Generation (AMG) | `"sam_vit_h"` (vit_l/vit_b) | [`SegmentationResult`](https://spatialhub-ai.github.io/spatialhub/core-and-utils/structures/segmentation_result/) | [Docs](https://spatialhub-ai.github.io/spatialhub/models/sam/) • [README](./src/spatialhub/models/sam/README.md) |
+| **CNOS** | CAD Zero-Shot Object Detection | 3D CAD Mesh (`.ply`, `.obj`, `.stl`) | [`SegmentationResult`](https://spatialhub-ai.github.io/spatialhub/core-and-utils/structures/segmentation_result/) | [Docs](https://spatialhub-ai.github.io/spatialhub/models/cnos/) • [README](./src/spatialhub/models/cnos/README.md) |
 
 ---
 
@@ -127,7 +127,7 @@ Standalone ONNX export utilities are located under `tools/export/` to export mod
 uv run tools/export/export_efficient_loftr.py --checkpoint weights/model.ckpt --output-path weights/model.onnx
 ```
 
-See the [Reproducible ONNX Export Guide](https://spatialhub-ai.github.io/spatialhub/onnx-export/overview/) for complete documentation.
+See the [Reproducible ONNX Export Guide](https://spatialhub-ai.github.io/spatialhub/core-and-utils/export/) for complete documentation.
 
 ---
 

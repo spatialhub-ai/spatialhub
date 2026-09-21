@@ -124,7 +124,7 @@ result.visualize_mask(save_path="cnos_sam_detection.png")
 
 ## 5. Returned Result Data Structure
 
-Returns a [`SegmentationResult`](../../docs/structures/overview.md#4-segmentationresult) dataclass:
+Returns a [`SegmentationResult`](https://spatialhub-ai.github.io/spatialhub/core-and-utils/structures/segmentation_result/) dataclass:
 
 | Attribute | Type | Shape | Description |
 | :--- | :--- | :--- | :--- |

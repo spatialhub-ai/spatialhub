@@ -104,7 +104,7 @@ tracked_result.visualize(save_path="tracked_pose.png")
 
 ## Returned Result Data Structure
 
-Returns a [`PoseEstimationResult`](../../docs/core-and-utils/structures/pose_estimation_result.md) dataclass:
+Returns a [`PoseEstimationResult`](https://spatialhub-ai.github.io/spatialhub/core-and-utils/structures/pose_estimation_result/) dataclass:
 
 | Attribute | Type | Shape | Description |
 | :--- | :--- | :--- | :--- |

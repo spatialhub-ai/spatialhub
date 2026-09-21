@@ -467,7 +467,7 @@ uv run tools/benchmark/profile_efficient_loftr.py \
 
 ## Returned Result Data Structure
 
-Returns a [`MatchResult`](../../../docs/core-and-utils/structures/match_result.md) dataclass:
+Returns a [`MatchResult`](https://spatialhub-ai.github.io/spatialhub/core-and-utils/structures/match_result/) dataclass:
 
 | Attribute | Type | Shape | Description |
 | :--- | :--- | :--- | :--- |

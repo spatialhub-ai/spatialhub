@@ -448,7 +448,7 @@ uv run tools/benchmark/profile_dinov2.py \
 
 ## Returned Result Data Structure
 
-Returns a [`FeatureExtractionResult`](../../docs/core-and-utils/structures/feature_extraction_result.md) dataclass:
+Returns a [`FeatureExtractionResult`](https://spatialhub-ai.github.io/spatialhub/core-and-utils/structures/feature_extraction_result/) dataclass:
 
 | Attribute | Type | Shape | Description |
 | :--- | :--- | :--- | :--- |

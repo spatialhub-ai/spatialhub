@@ -1143,7 +1143,7 @@ uv run tools/benchmark/profile_depth_anything_3.py \
 
 ## Returned Result Data Structure
 
-Returns a [`DepthPredictionResult`](../../../docs/core-and-utils/structures/depth_prediction_result.md) dataclass:
+Returns a [`DepthPredictionResult`](https://spatialhub-ai.github.io/spatialhub/core-and-utils/structures/depth_prediction_result/) dataclass:
 
 | Attribute | Type | Shape | Description |
 | :--- | :--- | :--- | :--- |

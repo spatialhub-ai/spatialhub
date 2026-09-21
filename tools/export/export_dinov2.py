@@ -4,226 +4,247 @@
 #     "torch==2.7.1",
 #     "onnx>=1.19.0",
 #     "onnxruntime>=1.20.1",
+#     "tqdm>=4.66.0"
 # ]
 # ///
 
+"""ONNX export utility for DINOv2."""
+
+from __future__ import annotations
 
 import argparse
 import logging
-import os
-import numpy as np
-import os.path as osp
+from pathlib import Path
+import sys
+from typing import Any
 
 import torch
 import torch.nn as nn
 
-import onnx
-import onnxruntime as ort
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+EXPORT_TOOLS_DIR = Path(__file__).resolve().parent
+if str(EXPORT_TOOLS_DIR) not in sys.path:
+    sys.path.insert(0, str(EXPORT_TOOLS_DIR))
+
+from utils import check_onnx, convert_to_external_data
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+logger = logging.getLogger(__name__)
 
-descriptor_size = {
-    "dinov2_vits14": 384,
-    "dinov2_vitb14": 768,
-    "dinov2_vitl14": 1024,
-    "dinov2_vitg14": 1536,
+DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "onnx_weight"
+
+MODEL_REGISTRY: dict[str, dict[str, Any]] = {
+    "vits14": {
+        "repo_name": "dinov2_vits14",
+        "dim": 384,
+        "filename": "dinov2_vits14.onnx",
+    },
+    "vitb14": {
+        "repo_name": "dinov2_vitb14",
+        "dim": 768,
+        "filename": "dinov2_vitb14.onnx",
+    },
+    "vitl14": {
+        "repo_name": "dinov2_vitl14",
+        "dim": 1024,
+        "filename": "dinov2_vitl14.onnx",
+    },
+    "vitg14": {
+        "repo_name": "dinov2_vitg14",
+        "dim": 1536,
+        "filename": "dinov2_vitg14.onnx",
+    },
 }
 
 
-def check_onnx(onnx_path: str):
+def validate_dimensions(width: int, height: int) -> None:
+    """Validate that input spatial dimensions are positive and divisible by 14.
+
+    DINOv2 uses non-overlapping 14x14 pixel patches. Input dimensions must be
+    multiples of 14 for valid vision transformer patch tokenization.
+
+    Args:
+        width: Image width in pixels.
+        height: Image height in pixels.
+
+    Raises:
+        ValueError: If width or height is non-positive or not divisible by 14.
     """
-    Validates the exported ONNX model graph.
-    """
-    print(f"Checking ONNX model integrity at {onnx_path}...")
-    if not os.path.exists(onnx_path):
-        raise FileNotFoundError(f"ONNX file not found at {onnx_path}")
-
-    try:
-        onnx.checker.check_model(model=onnx_path)
-        print("The ONNX graph is clean and valid!")
-    except onnx.checker.ValidationError as e:
-        raise RuntimeError(f"Graph validation failed: {e}") from e
-
-
-def validate_onnx(onnx_path: str, torch_model: nn.Module, image_size: int = 224):
-    """
-    Validates structural integrity and numerical parity with PyTorch.
-    """
-    logging.info(f"Validating ONNX model at {onnx_path}...")
-    if not os.path.exists(onnx_path):
-        raise FileNotFoundError(f"ONNX file not found at {onnx_path}")
-
-    # Structural check
-    check_onnx(onnx_path)
-
-    # Numerical Parity Check
-    session = ort.InferenceSession(onnx_path, providers=["CPUExecutionProvider"])
-    dummy_input = torch.randn(2, 3, image_size, image_size, dtype=torch.float32)
-
-    with torch.no_grad():
-        torch_out = torch_model(dummy_input).cpu().numpy()
-
-    ort_out = session.run(None, {"image": dummy_input.numpy()})[0]
-
-    max_diff = np.max(np.abs(torch_out - ort_out))
-    mean_diff = np.mean(np.abs(torch_out - ort_out))
-    matches = np.allclose(torch_out, ort_out, rtol=1e-3, atol=1e-3)
-
-    logging.info(f"   Max Difference : {max_diff:.6e}")
-    logging.info(f"   Mean Difference: {mean_diff:.6e}")
-
-    if matches:
-        logging.info(" PyTorch and ONNX outputs match perfectly!")
-    else:
-        logging.warning(" Numerical difference exceeded standard tolerance.")
+    if width <= 0 or height <= 0:
+        raise ValueError(f"Image dimensions must be positive integers, received width={width}, height={height}.")
+    if width % 14 != 0 or height % 14 != 0:
+        raise ValueError(
+            f"Image dimensions must be divisible by patch size 14, received width={width}, height={height}."
+        )
 
 
 class DINOv2Wrapper(nn.Module):
-    """
-    PyTorch Module wrapper that exposes the DINOv2 model's global CLS-token representation.
+    """Wrapper to expose a single tensor input signature for ONNX export."""
 
-    This wrapper encapsulates a pre-trained DINOv2 model sourced from PyTorch Hub. It
-    ensures that a forward pass accepts an image tensor and returns only the normalized
-    global CLS-token embedding, discarding intermediate patch tokens or other complex outputs,
-    matching the expected interface for the exported ONNX graph.
-
-    Attributes:
-        model (nn.Module): The underlying raw DINOv2 model loaded from PyTorch Hub.
-    """
-
-    def __init__(self, model):
+    def __init__(self, model: nn.Module) -> None:
         super().__init__()
         self.model = model
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # Calling model(x) directly returns the normalized CLS token (x_norm_clstoken)
-        return self.model(x)
+    def forward(self, image: torch.Tensor) -> torch.Tensor:
+        return self.model(image)
 
 
-def export_dinov2(
-    model_name: str,
-    output_folder: str,
-    image_size: int = 224,
-    opset: int = 17,
-) -> tuple[str, DINOv2Wrapper]:
-    """
-    Exports a specified pre-trained DINOv2 model to ONNX format.
-
-    The function downloads the requested DINOv2 backbone from facebookresearch/dinov2
-    via torch.hub, wraps it in a DINOv2Wrapper to constrain outputs to the CLS-token,
-    sets the network to evaluation mode, performs a tracer-based ONNX export with a dummy
-    input, and serializes the model to the target directory.
-
-    Export Specifications:
-        - ONNX Input:
-            * Name: "image"
-            * Type: float32
-            * Shape: (N, 3, image_size, image_size)
-        - ONNX Output:
-            * Name: "cls_token"
-            * Type: float32
-            * Shape: (N, D)
-        - Dynamic Dimensions:
-            * Only the batch dimension (axis 0 of both "image" and "cls_token") is dynamic.
-            * Height and width are fixed to the specified `image_size`.
+def load_model(variant: str, device: str = "cpu") -> tuple[nn.Module, str]:
+    """Load a pretrained DINOv2 model from torch.hub (facebookresearch/dinov2).
 
     Args:
-        model_name (str):
-            The DINOv2 backbone variant name. Must be one of the supported variants:
-            - "dinov2_vits14" (D=384)
-            - "dinov2_vitb14" (D=768)
-            - "dinov2_vitl14" (D=1024)
-            - "dinov2_vitg14" (D=1536)
-        output_folder (str):
-            The target directory where the exported ONNX model (.onnx file) will be saved.
-        image_size (int):
-            The fixed spatial dimension (height and width) of the input images to embed
-            into the ONNX graph. Defaults to 224.
-        opset (int):
-            The ONNX operator set version used during the export process. Defaults to 17.
+        variant: Variant key ('vits14', 'vitb14', 'vitl14', 'vitg14').
+        device: Hardware device to place the model on ('cpu' or 'cuda').
 
     Returns:
-        tuple[str, DINOv2Wrapper]:
-            A tuple containing:
-            - output_path (str): The file path to the generated ONNX model.
-            - wrapped_model (DINOv2Wrapper): The wrapped PyTorch model instance used in the export process.
+        tuple[nn.Module, str]: Wrapped PyTorch model in eval mode and resolved model identifier.
     """
-    logging.info(f"Loading {model_name} from torch.hub (facebookresearch/dinov2)...")
-    raw_model = torch.hub.load("facebookresearch/dinov2", model_name)
-    raw_model.eval()
+    variant_key = variant.lower()
 
-    wrapped_model = DINOv2Wrapper(raw_model)
-    wrapped_model.eval()
+    if variant_key in MODEL_REGISTRY:
+        hub_name = MODEL_REGISTRY[variant_key]["repo_name"]
+    else:
+        hub_name = variant
 
-    # Input: [B, 3, H, W] -> Output: [B, D]
-    dummy_input = torch.randn(1, 3, image_size, image_size, dtype=torch.float32)
+    logger.info("Loading %s from torch.hub (facebookresearch/dinov2)...", hub_name)
+    raw_model = torch.hub.load("facebookresearch/dinov2", hub_name)
+    raw_model.eval().to(device)
+    model = DINOv2Wrapper(raw_model)
+
+    return model, hub_name
+
+
+def export_onnx(
+    model: nn.Module,
+    output_path: str | Path,
+    width: int = 224,
+    height: int = 224,
+    opset: int = 17,
+    device: str = "cpu",
+) -> Path:
+    """Export DINOv2 model graph to ONNX format with dynamic batch dimension.
+
+    Args:
+        model: PyTorch DINOv2 model instance.
+        output_path: Destination path for exported ONNX file.
+        width: Input image width in pixels (must be a multiple of 14).
+        height: Input image height in pixels (must be a multiple of 14).
+        opset: ONNX operator set version (default: 17).
+        device: Hardware device to use during export tracing.
+
+    Returns:
+        Path: Path to exported ONNX model file.
+    """
+    validate_dimensions(width, height)
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    dummy_input = torch.randn(1, 3, height, width, dtype=torch.float32, device=device)
 
     dynamic_axes = {
         "image": {0: "batch_size"},
         "cls_token": {0: "batch_size"},
     }
 
-    output_path = osp.join(output_folder, f"{model_name}.onnx")
-    os.makedirs(osp.dirname(osp.abspath(output_path)), exist_ok=True)
-    logging.info(f"Exporting {model_name} to {output_path}")
+    logger.info("Exporting ONNX graph (opset %d, shape %dx%d) -> %s...", opset, width, height, output_path)
+    with torch.no_grad():
+        torch.onnx.export(
+            model,
+            dummy_input,
+            str(output_path),
+            opset_version=opset,
+            input_names=["image"],
+            output_names=["cls_token"],
+            dynamic_axes=dynamic_axes,
+        )
 
-    torch.onnx.export(
-        wrapped_model,
-        dummy_input,
-        output_path,
-        opset_version=opset,
-        input_names=["image"],
-        output_names=["cls_token"],
-        dynamic_axes=dynamic_axes,
-    )
+    convert_to_external_data(output_path)
 
-    logging.info(f"ONNX export successful: {output_path}")
-    return output_path, wrapped_model
+    logger.info("ONNX export completed: %s", output_path)
+    return output_path
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         description="Export DINOv2 PyTorch model from torch.hub to ONNX format exposing global CLS token embeddings."
     )
     parser.add_argument(
-        "--model-name",
+        "--variant",
         type=str,
-        default="dinov2_vitl14",
-        choices=list(descriptor_size.keys()),
-        help=(
-            "The specific pre-trained DINOv2 backbone variant to export. "
-            "Options: dinov2_vits14 (384-dim), dinov2_vitb14 (768-dim), "
-            "dinov2_vitl14 (1024-dim), or dinov2_vitg14 (1536-dim)."
-        ),
+        default="vitl14",
+        choices=[
+            "all",
+            "vits14",
+            "vitb14",
+            "vitl14",
+            "vitg14",
+        ],
+        help="Model variant to export ('vits14', 'vitb14', 'vitl14', 'vitg14', or 'all').",
     )
     parser.add_argument(
         "--output-folder",
         type=str,
-        default="./onnx_model",
-        help="The destination directory where the serialized .onnx model will be written.",
+        default=str(DEFAULT_OUTPUT_DIR),
+        help="Destination directory for exported .onnx models.",
+    )
+    parser.add_argument(
+        "--width",
+        type=int,
+        default=224,
+        help="Input image width in pixels (must be a multiple of 14, default: 224).",
+    )
+    parser.add_argument(
+        "--height",
+        type=int,
+        default=224,
+        help="Input image height in pixels (must be a multiple of 14, default: 224).",
+    )
+    parser.add_argument(
+        "--image-size",
+        type=int,
+        default=None,
+        help="Convenience parameter to set square dimensions (width = height = image_size).",
     )
     parser.add_argument(
         "--opset",
         type=int,
         default=17,
-        help="The target ONNX operator set version. Operator set version >= 17 is recommended.",
+        help="ONNX operator set version (default: 17).",
+    )
+    parser.add_argument(
+        "--device",
+        type=str,
+        default="cpu",
+        help="Hardware device to use during export ('cpu' or 'cuda').",
     )
     args = parser.parse_args()
 
-    # Export to ONNX
-    output_path, wrapped_model = export_dinov2(
-        model_name=args.model_name,
-        output_folder=args.output_folder,
-        opset=args.opset,
-    )
+    width = args.image_size if args.image_size is not None else args.width
+    height = args.image_size if args.image_size is not None else args.height
+    validate_dimensions(width, height)
 
-    # Validate Onnx
-    validate_onnx(
-        onnx_path=output_path,
-        torch_model=wrapped_model,
-        image_size=224,
-    )
+    output_dir = Path(args.output_folder)
+
+    variants_to_export = list(MODEL_REGISTRY.keys()) if args.variant == "all" else [args.variant]
+
+    for variant in variants_to_export:
+        variant_info = MODEL_REGISTRY[variant]
+        dest_path = output_dir / variant_info["filename"]
+
+        model, _ = load_model(variant, device=args.device)
+        exported_file = export_onnx(
+            model=model,
+            output_path=dest_path,
+            width=width,
+            height=height,
+            opset=args.opset,
+            device=args.device,
+        )
+        check_onnx(exported_file)
+
 
 
 if __name__ == "__main__":
     main()
+

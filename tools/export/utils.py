@@ -171,7 +171,7 @@ def convert_to_external_data(
     data_filename: str | None = None,
     size_threshold: int = 0,
 ) -> Path:
-    """Consolidate external ONNX tensor data into a single unified data file.
+    """Consolidate external ONNX tensor data into a single unified .onnx.data file.
 
     Args:
         onnx_path: Path to the input ONNX model file.
@@ -187,9 +187,39 @@ def convert_to_external_data(
     save_path.parent.mkdir(parents=True, exist_ok=True)
 
     if data_filename is None:
-        data_filename = save_path.with_suffix(".onnx.data").name
+        data_filename = f"{save_path.name}.data" if not save_path.name.endswith(".onnx.data") else save_path.name
 
-    logger.info("Consolidating external data for %s -> %s...", model_path.name, data_filename)
+    # Inspect initializers to collect external data locations without loading large buffers
+    model_proto = onnx.load(str(model_path), load_external_data=False)
+
+    old_external_files: set[str] = set()
+    for init in model_proto.graph.initializer:
+        if init.data_location == onnx.TensorProto.EXTERNAL:
+            for entry in init.external_data:
+                if entry.key == "location":
+                    old_external_files.add(entry.value)
+
+    for func in getattr(model_proto, "functions", []):
+        for init in getattr(func, "initializer", []):
+            if init.data_location == onnx.TensorProto.EXTERNAL:
+                for entry in init.external_data:
+                    if entry.key == "location":
+                        old_external_files.add(entry.value)
+
+    if not old_external_files:
+        return save_path
+
+    if old_external_files == {data_filename} and (save_path.parent / data_filename).exists():
+        logger.info("External tensor data is already unified in %s.", data_filename)
+        return save_path
+
+    logger.info(
+        "Consolidating %d external tensor files for %s -> %s...",
+        len(old_external_files),
+        model_path.name,
+        data_filename,
+    )
+
     model = onnx.load(str(model_path), load_external_data=True)
 
     convert_model_to_external_data(
@@ -208,4 +238,13 @@ def convert_to_external_data(
         size_threshold=size_threshold,
     )
 
+    # Clean up the old fragmented external files
+    for old_file in old_external_files:
+        if old_file != data_filename:
+            old_path = model_path.parent / old_file
+            if old_path.exists() and old_path.is_file():
+                old_path.unlink(missing_ok=True)
+
+    logger.info("Consolidation complete: %s and %s", save_path.name, data_filename)
     return save_path
+

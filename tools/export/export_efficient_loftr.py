@@ -179,15 +179,7 @@ def export_onnx(
             },
         )
 
-    # Consolidate external tensor files if separate data files were created
-    parent_dir = output_path.parent
-    external_files = list(parent_dir.glob(f"{output_path.name}_*"))
-    if external_files:
-        logger.info("Consolidating external tensor data into unified .onnx.data file...")
-        convert_to_external_data(output_path)
-        for external_file in external_files:
-            if external_file.exists() and external_file != output_path.with_suffix(".onnx.data"):
-                external_file.unlink(missing_ok=True)
+    convert_to_external_data(output_path)
 
     logger.info("ONNX export completed: %s", output_path)
     return output_path

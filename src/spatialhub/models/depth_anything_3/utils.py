@@ -4,7 +4,7 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
-# 11 Anchor RGB color points for Matplotlib's 'Spectral' colormap
+# Anchor RGB color points for Matplotlib's 'Spectral' colormap
 _SPECTRAL_ANCHORS = np.array([
     [158,   1,  66],  # #9e0142
     [213,  62,  79],  # #d53e4f
@@ -303,20 +303,19 @@ def _umeyama_sim3_from_paths_evo_rep(pose_ref: np.ndarray, pose_est: np.ndarray,
     if pose_ref.shape != pose_est.shape:
         raise ValueError("Data matrices must have the same shape")
 
-    # 1. Extract translation vectors (m=3 dimensions, n=N points)
-    # Transposing to (3, N) to perfectly match evo's data structure
+    # Extract translation vectors (m=3 dimensions, n=N points)
     x = pose_est[:, :3, 3].T
     y = pose_ref[:, :3, 3].T
     m, n = x.shape
 
-    # 2. Umeyama Algorithm (Evo exact replication)
+    # Umeyama closed-form estimation
     mean_x = x.mean(axis=1)
     mean_y = y.mean(axis=1)
 
     # Variance
     sigma_x = 1.0 / n * (np.linalg.norm(x - mean_x[:, np.newaxis]) ** 2)
 
-    # Vectorized covariance calculation (replacing evo's for-loop)
+    # Vectorized covariance calculation
     cov_xy = (1.0 / n) * ((y - mean_y[:, np.newaxis]) @ (x - mean_x[:, np.newaxis]).T)
 
     u, d, v = np.linalg.svd(cov_xy)
@@ -335,7 +334,7 @@ def _umeyama_sim3_from_paths_evo_rep(pose_ref: np.ndarray, pose_est: np.ndarray,
     s = 1.0 / sigma_x * np.trace(np.diag(d).dot(s_mat)) if with_scale else 1.0
     t = mean_y - s * r.dot(mean_x)
 
-    # 3. Apply transformation exactly as evo's `scale()` and `transform()` methods do
+    # Apply rigid similarity transformation to candidate poses
     pose_est_aligned = pose_est.copy()
 
     # evo left-multiplies: new_pose = T_align @ p_scaled

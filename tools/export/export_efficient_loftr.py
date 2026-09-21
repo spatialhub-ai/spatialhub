@@ -136,20 +136,22 @@ def load_model(
 
 
 def export_onnx(
-    matcher: torch.nn.Module,
+    model: torch.nn.Module,
     output_path: str | Path,
     width: int = 640,
     height: int = 480,
     opset: int = 17,
+    device: str = "cpu",
 ) -> Path:
     """Export model graph to ONNX format with dynamic match dimensions.
 
     Args:
-        matcher: Initialized model instance.
+        model: Initialized model instance.
         output_path: Destination path for exported ONNX file.
         width: Input image width in pixels.
         height: Input image height in pixels.
-        opset: ONNX operator set version.
+        opset: ONNX operator set version (default: 17).
+        device: Hardware device to use during export tracing.
 
     Returns:
         Path: Path to exported ONNX model file.
@@ -158,13 +160,13 @@ def export_onnx(
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    dummy0 = torch.randn(1, 1, height, width, dtype=torch.float32)
-    dummy1 = torch.randn(1, 1, height, width, dtype=torch.float32)
+    dummy0 = torch.randn(1, 1, height, width, dtype=torch.float32, device=device)
+    dummy1 = torch.randn(1, 1, height, width, dtype=torch.float32, device=device)
 
     logger.info("Exporting ONNX graph (opset %d, shape %dx%d) -> %s...", opset, width, height, output_path)
     with torch.no_grad():
         torch.onnx.export(
-            matcher,
+            model,
             (dummy0, dummy1),
             str(output_path),
             opset_version=opset,
@@ -248,6 +250,7 @@ def main() -> None:
             width=args.width,
             height=args.height,
             opset=args.opset,
+            device=args.device,
         )
         check_onnx(exported_file)
 

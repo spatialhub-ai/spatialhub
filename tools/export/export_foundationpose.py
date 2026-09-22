@@ -43,14 +43,21 @@ FOUNDATIONPOSE_DIR = PROJECT_ROOT / "upstream" / "foundationpose"
 if str(FOUNDATIONPOSE_DIR) not in sys.path:
     sys.path.insert(0, str(FOUNDATIONPOSE_DIR))
 
+EXPORT_TOOLS_DIR = Path(__file__).resolve().parent
+if str(EXPORT_TOOLS_DIR) not in sys.path:
+    sys.path.insert(0, str(EXPORT_TOOLS_DIR))
+
 from learning.models.refine_network import RefineNet
 from learning.models.score_network import ScoreNetMultiPair
+from utils import check_onnx, convert_to_external_data
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 # Disable PyTorch multi-head attention fastpath for deterministic ONNX tracing
 torch.backends.mha.set_fastpath_enabled(False)
+DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "onnx_weight"
+DEVICE = "cpu"
 
 
 class ScoreNetONNXWrapper(nn.Module):
@@ -113,10 +120,19 @@ class ScoreNetONNXWrapper(nn.Module):
 
 
 def load_refine_net(cfg_path: Union[str, Path], ckpt_dir: Union[str, Path]) -> RefineNet:
+    """Load pretrained RefineNet model parameters from checkpoint.
+
+    Args:
+        cfg_path: Path to configuration YAML file.
+        ckpt_dir: Path to model checkpoint file (.pth).
+
+    Returns:
+        RefineNet: Loaded model instance.
+    """
     cfg = OmegaConf.load(str(cfg_path))
     model = RefineNet(cfg=cfg, c_in=cfg.get("c_in", 6))
 
-    ckpt = torch.load(str(ckpt_dir), map_location="cpu")
+    ckpt = torch.load(str(ckpt_dir), map_location=DEVICE)
     if "model" in ckpt:
         ckpt = ckpt["model"]
 
@@ -127,16 +143,25 @@ def load_refine_net(cfg_path: Union[str, Path], ckpt_dir: Union[str, Path]) -> R
 def export_refinenet(
     model: Union[RefineNet, nn.Module],
     onnx_path: Union[str, Path],
-    device: str = "cpu",
     opset_version: int = 18,
 ) -> Path:
+    """Export RefineNet model graph to ONNX format with dynamic candidate batch axis.
+
+    Args:
+        model: RefineNet model instance.
+        onnx_path: Destination path for exported ONNX file.
+        opset_version: ONNX operator set version (default: 18).
+
+    Returns:
+        Path: Path to exported ONNX model file.
+    """
     onnx_path = Path(onnx_path)
     onnx_path.parent.mkdir(parents=True, exist_ok=True)
 
-    model = model.to(device).eval()
+    model = model.to(DEVICE).eval()
 
-    dummy_input_render_A = torch.randn(1, 6, 160, 160, device=device, dtype=torch.float32)
-    dummy_input_real_B = torch.randn(1, 6, 160, 160, device=device, dtype=torch.float32)
+    dummy_input_render_A = torch.randn(1, 6, 160, 160, device=DEVICE, dtype=torch.float32)
+    dummy_input_real_B = torch.randn(1, 6, 160, 160, device=DEVICE, dtype=torch.float32)
 
     dynamic_axes = {
         "input_render_A": {0: "candidate_count"},
@@ -156,15 +181,25 @@ def export_refinenet(
         opset_version=opset_version,
     )
 
+    convert_to_external_data(onnx_path)
     logger.info("RefineNet ONNX export successful: %s", onnx_path)
     return onnx_path
 
 
 def load_score_net(cfg_path: Union[str, Path], ckpt_dir: Union[str, Path]) -> ScoreNetONNXWrapper:
+    """Load pretrained ScoreNet model and wrap with explicit attention module.
+
+    Args:
+        cfg_path: Path to configuration YAML file.
+        ckpt_dir: Path to model checkpoint file (.pth).
+
+    Returns:
+        ScoreNetONNXWrapper: Wrapped model instance.
+    """
     cfg = OmegaConf.load(str(cfg_path))
     base_model = ScoreNetMultiPair(cfg=cfg, c_in=cfg.get("c_in", 6))
 
-    ckpt = torch.load(str(ckpt_dir), map_location="cpu")
+    ckpt = torch.load(str(ckpt_dir), map_location=DEVICE)
     if "model" in ckpt:
         ckpt = ckpt["model"]
 
@@ -176,16 +211,25 @@ def load_score_net(cfg_path: Union[str, Path], ckpt_dir: Union[str, Path]) -> Sc
 def export_scorenet(
     model: Union[ScoreNetONNXWrapper, nn.Module],
     onnx_path: Union[str, Path],
-    device: str = "cpu",
     opset_version: int = 18,
 ) -> Path:
+    """Export ScoreNet candidate evaluation model to ONNX format.
+
+    Args:
+        model: ScoreNet model wrapper instance.
+        onnx_path: Destination path for exported ONNX file.
+        opset_version: ONNX operator set version (default: 18).
+
+    Returns:
+        Path: Path to exported ONNX model file.
+    """
     onnx_path = Path(onnx_path)
     onnx_path.parent.mkdir(parents=True, exist_ok=True)
 
-    model = model.to(device).eval()
+    model = model.to(DEVICE).eval()
 
-    dummy_input_render_A = torch.randn(1, 6, 160, 160, device=device, dtype=torch.float32)
-    dummy_input_real_B = torch.randn(1, 6, 160, 160, device=device, dtype=torch.float32)
+    dummy_input_render_A = torch.randn(1, 6, 160, 160, device=DEVICE, dtype=torch.float32)
+    dummy_input_real_B = torch.randn(1, 6, 160, 160, device=DEVICE, dtype=torch.float32)
 
     dynamic_axes = {
         "input_render_A": {0: "candidate_count"},
@@ -204,25 +248,9 @@ def export_scorenet(
         opset_version=opset_version,
     )
 
+    convert_to_external_data(onnx_path)
     logger.info("ScoreNet ONNX export successful: %s", onnx_path)
     return onnx_path
-
-
-def validate_onnx(onnx_path: Union[str, Path]) -> bool:
-    onnx_path = Path(onnx_path)
-    if not onnx_path.exists():
-        raise FileNotFoundError(f"ONNX model file not found at {onnx_path}")
-
-    logger.info("Checking ONNX model integrity at %s...", onnx_path)
-    model = onnx.load(str(onnx_path))
-
-    try:
-        onnx.checker.check_model(model)
-        logger.info("ONNX graph validation passed cleanly: %s", onnx_path.name)
-        return True
-    except onnx.checker.ValidationError as err:
-        logger.error("ONNX graph validation failed for %s: %s", onnx_path.name, err)
-        return False
 
 
 def main() -> None:
@@ -230,8 +258,7 @@ def main() -> None:
     parser.add_argument("--weights-dir", type=str, default="./weights", help="Directory containing model checkpoint folders.")
     parser.add_argument("--refine-run-name", type=str, default="2023-10-28-18-33-37", help="RefineNet checkpoint directory name.")
     parser.add_argument("--score-run-name", type=str, default="2024-01-11-20-02-45", help="ScoreNet checkpoint directory name.")
-    parser.add_argument("--output-folder", type=str, default="./weights/onnx_output", help="Destination folder for exported .onnx files.")
-    parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu", help="Target hardware device ('cpu' or 'cuda').")
+    parser.add_argument("--output-folder", type=str, default=str(DEFAULT_OUTPUT_DIR), help="Destination directory for exported .onnx files.")
     parser.add_argument("--opset", type=int, default=18, help="Target ONNX operator set version (default: 18).")
     args = parser.parse_args()
 
@@ -246,8 +273,8 @@ def main() -> None:
     if refinenet_model_path.exists() and refinenet_config_path.exists():
         logger.info("Loading RefineNet model...")
         refine_model = load_refine_net(refinenet_config_path, refinenet_model_path)
-        refine_onnx = export_refinenet(model=refine_model, onnx_path=refinenet_onnx_path, device=args.device, opset_version=args.opset)
-        validate_onnx(refine_onnx)
+        refine_onnx = export_refinenet(model=refine_model, onnx_path=refinenet_onnx_path, opset_version=args.opset)
+        check_onnx(refine_onnx)
     else:
         logger.warning("RefineNet weights or config not found at %s. Skipping RefineNet export.", refinenet_model_path)
 
@@ -259,11 +286,12 @@ def main() -> None:
     if scorenet_model_path.exists() and scorenet_config_path.exists():
         logger.info("Loading ScoreNet model...")
         score_model = load_score_net(scorenet_config_path, scorenet_model_path)
-        score_onnx = export_scorenet(model=score_model, onnx_path=scorenet_onnx_path, device=args.device, opset_version=args.opset)
-        validate_onnx(score_onnx)
+        score_onnx = export_scorenet(model=score_model, onnx_path=scorenet_onnx_path, opset_version=args.opset)
+        check_onnx(score_onnx)
     else:
         logger.warning("ScoreNet weights or config not found at %s. Skipping ScoreNet export.", scorenet_model_path)
 
 
 if __name__ == "__main__":
     main()
+

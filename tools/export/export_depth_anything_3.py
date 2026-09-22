@@ -49,6 +49,7 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "onnx_weight"
+DEVICE = "cpu"
 
 MODEL_REGISTRY: dict[str, dict[str, str]] = {
     "small": {
@@ -165,14 +166,12 @@ def validate_dimensions(width: int, height: int) -> None:
 
 def load_model(
     model_name_or_path: str = "base",
-    device: str = "cpu",
 ) -> DepthAnything3:
     """Load pretrained DepthAnything3 PyTorch model via PyTorchModelHubMixin.
 
     Args:
         model_name_or_path: Variant key ('small', 'base', 'large', 'giant', 'mono_large')
             or Hugging Face repository ID / local directory.
-        device: Target hardware device ('cpu' or 'cuda').
 
     Returns:
         DepthAnything3: Loaded evaluation-mode model.
@@ -182,9 +181,9 @@ def load_model(
     else:
         target_model = model_name_or_path
 
-    logger.info("Loading DepthAnything3 model '%s' onto device '%s'...", target_model, device)
+    logger.info("Loading DepthAnything3 model '%s' onto device '%s'...", target_model, DEVICE)
     model = DepthAnything3.from_pretrained(target_model)
-    model = model.to(device)
+    model = model.to(DEVICE)
     return model.eval()
 
 
@@ -195,7 +194,6 @@ def export_onnx(
     height: int = 504,
     opset: int = 18,
     num_views: int = 2,
-    device: str = "cpu",
 ) -> Path:
     """Export DepthAnything3 model graph to ONNX format with dynamic spatial and view dimensions.
 
@@ -206,7 +204,6 @@ def export_onnx(
         height: Input image height in pixels (must be a multiple of 14).
         opset: ONNX operator set version (default: 18).
         num_views: Number of dummy views for tracing graph execution.
-        device: Hardware device to use during export tracing.
 
     Returns:
         Path: Path to exported ONNX model file.
@@ -220,13 +217,13 @@ def export_onnx(
         infer_gs=False,
         use_ray_pose=False,
         ref_view_strategy="saddle_balanced",
-    ).to(device)
+    ).to(DEVICE)
     wrapped_model.eval()
 
     logger.info("Generating dummy input tensors (B=1, N=%d, H=%d, W=%d)...", num_views, height, width)
-    dummy_image = torch.randn(1, num_views, 3, height, width, device=device, dtype=torch.float32)
-    dummy_ext = torch.eye(4, device=device).reshape(1, 1, 4, 4).repeat(1, num_views, 1, 1)
-    dummy_int = torch.eye(3, device=device).reshape(1, 1, 3, 3).repeat(1, num_views, 1, 1)
+    dummy_image = torch.randn(1, num_views, 3, height, width, device=DEVICE, dtype=torch.float32)
+    dummy_ext = torch.eye(4, device=DEVICE).reshape(1, 1, 4, 4).repeat(1, num_views, 1, 1)
+    dummy_int = torch.eye(3, device=DEVICE).reshape(1, 1, 3, 3).repeat(1, num_views, 1, 1)
     dummy_inputs = (dummy_image, dummy_ext, dummy_int)
 
     input_names = ["image", "extrinsics_in", "intrinsics_in"]
@@ -257,30 +254,32 @@ def export_onnx(
 
     convert_to_external_data(output_path)
 
-    logger.info("ONNX export completed: %s", output_path)
+    logger.info("DepthAnything3 ONNX export completed successfully: %s", output_path)
     return output_path
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Export Depth Anything 3 (DA3) PyTorch model to ONNX format.")
+    parser = argparse.ArgumentParser(
+        description="Export Depth Anything 3 (DA3) PyTorch checkpoints to standalone ONNX format."
+    )
     parser.add_argument(
         "--variant",
         type=str,
         default="base",
         choices=["all", "small", "base", "large", "giant", "mono_large", "metric_large"],
-        help="Model variant to export ('small', 'base', 'large', 'giant', 'mono_large', 'metric_large', or 'all').",
+        help="DepthAnything3 model variant to export ('small', 'base', 'large', 'giant', 'mono_large', 'metric_large', or 'all').",
     )
     parser.add_argument(
-        "--model-name",
+        "--checkpoint",
         type=str,
         default=None,
-        help="Optional custom Hugging Face repo ID or local checkpoint path (overrides --variant).",
+        help="Path to pretrained weights checkpoint or Hugging Face repo ID (downloaded automatically if omitted).",
     )
     parser.add_argument(
         "--output-folder",
         type=str,
         default=str(DEFAULT_OUTPUT_DIR),
-        help="Destination directory for exported .onnx models.",
+        help="Destination directory for exported .onnx model files.",
     )
     parser.add_argument(
         "--width",
@@ -300,33 +299,10 @@ def main() -> None:
         default=18,
         help="ONNX operator set version (default: 18).",
     )
-    parser.add_argument(
-        "--device",
-        type=str,
-        default="cpu",
-        help="Hardware device to use during export ('cpu' or 'cuda').",
-    )
     args = parser.parse_args()
 
     validate_dimensions(args.width, args.height)
     output_dir = Path(args.output_folder)
-
-    if args.model_name is not None:
-        target_name = Path(args.model_name).stem.lower()
-        filename = f"{target_name}.onnx"
-        dest_path = output_dir / filename
-
-        model = load_model(model_name_or_path=args.model_name, device=args.device)
-        exported_file = export_onnx(
-            model=model,
-            output_path=dest_path,
-            width=args.width,
-            height=args.height,
-            opset=args.opset,
-            device=args.device,
-        )
-        check_onnx(exported_file)
-        return
 
     variants_to_export = list(MODEL_REGISTRY.keys()) if args.variant == "all" else [args.variant]
 
@@ -334,19 +310,18 @@ def main() -> None:
         variant_info = MODEL_REGISTRY[variant]
         dest_path = output_dir / variant_info["filename"]
 
-        model = load_model(model_name_or_path=variant, device=args.device)
+        checkpoint_source = args.checkpoint if (len(variants_to_export) == 1 and args.checkpoint is not None) else variant
+
+        model = load_model(model_name_or_path=checkpoint_source)
         exported_file = export_onnx(
             model=model,
             output_path=dest_path,
             width=args.width,
             height=args.height,
             opset=args.opset,
-            device=args.device,
         )
         check_onnx(exported_file)
 
 
 if __name__ == "__main__":
     main()
-
-

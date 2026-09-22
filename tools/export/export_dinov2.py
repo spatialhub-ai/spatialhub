@@ -33,6 +33,7 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "onnx_weight"
+DEVICE = "cpu"
 
 MODEL_REGISTRY: dict[str, dict[str, Any]] = {
     "vits14": {
@@ -90,12 +91,11 @@ class DINOv2Wrapper(nn.Module):
         return self.model(image)
 
 
-def load_model(variant: str, device: str = "cpu") -> tuple[nn.Module, str]:
+def load_model(variant: str) -> tuple[nn.Module, str]:
     """Load a pretrained DINOv2 model from torch.hub (facebookresearch/dinov2).
 
     Args:
         variant: Variant key ('vits14', 'vitb14', 'vitl14', 'vitg14').
-        device: Hardware device to place the model on ('cpu' or 'cuda').
 
     Returns:
         tuple[nn.Module, str]: Wrapped PyTorch model in eval mode and resolved model identifier.
@@ -109,7 +109,7 @@ def load_model(variant: str, device: str = "cpu") -> tuple[nn.Module, str]:
 
     logger.info("Loading %s from torch.hub (facebookresearch/dinov2)...", hub_name)
     raw_model = torch.hub.load("facebookresearch/dinov2", hub_name)
-    raw_model.eval().to(device)
+    raw_model.eval().to(DEVICE)
     model = DINOv2Wrapper(raw_model)
 
     return model, hub_name
@@ -121,7 +121,6 @@ def export_onnx(
     width: int = 224,
     height: int = 224,
     opset: int = 17,
-    device: str = "cpu",
 ) -> Path:
     """Export DINOv2 model graph to ONNX format with dynamic batch dimension.
 
@@ -131,7 +130,6 @@ def export_onnx(
         width: Input image width in pixels (must be a multiple of 14).
         height: Input image height in pixels (must be a multiple of 14).
         opset: ONNX operator set version (default: 17).
-        device: Hardware device to use during export tracing.
 
     Returns:
         Path: Path to exported ONNX model file.
@@ -140,7 +138,7 @@ def export_onnx(
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    dummy_input = torch.randn(1, 3, height, width, dtype=torch.float32, device=device)
+    dummy_input = torch.randn(1, 3, height, width, dtype=torch.float32, device=DEVICE)
 
     dynamic_axes = {
         "image": {0: "batch_size"},
@@ -212,12 +210,6 @@ def main() -> None:
         default=17,
         help="ONNX operator set version (default: 17).",
     )
-    parser.add_argument(
-        "--device",
-        type=str,
-        default="cpu",
-        help="Hardware device to use during export ('cpu' or 'cuda').",
-    )
     args = parser.parse_args()
 
     width = args.image_size if args.image_size is not None else args.width
@@ -232,19 +224,18 @@ def main() -> None:
         variant_info = MODEL_REGISTRY[variant]
         dest_path = output_dir / variant_info["filename"]
 
-        model, _ = load_model(variant, device=args.device)
+        model, _ = load_model(variant)
         exported_file = export_onnx(
             model=model,
             output_path=dest_path,
             width=width,
             height=height,
             opset=args.opset,
-            device=args.device,
         )
         check_onnx(exported_file)
 
 
-
 if __name__ == "__main__":
     main()
+
 

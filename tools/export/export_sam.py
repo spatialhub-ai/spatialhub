@@ -11,207 +11,130 @@
 # ///
 
 
+"""ONNX export utility for Segment Anything Model (SAM)."""
+
+from __future__ import annotations
+
 import argparse
 import logging
-import os
-import os.path as osp
 from pathlib import Path
-
-import numpy as np
-from tqdm import tqdm
-import urllib.request
+import sys
+from typing import Any
 
 import torch
-import onnx
-import onnxruntime as ort
-from onnx.external_data_helper import convert_model_to_external_data
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+EXPORT_TOOLS_DIR = Path(__file__).resolve().parent
+if str(EXPORT_TOOLS_DIR) not in sys.path:
+    sys.path.insert(0, str(EXPORT_TOOLS_DIR))
 
 from segment_anything import sam_model_registry
 from segment_anything.modeling import Sam
 from segment_anything.utils.onnx import SamOnnxModel
 
+from utils import check_onnx, convert_to_external_data, download_file
+
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
+DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "onnx_weight"
+DEFAULT_CHECKPOINT_DIR = PROJECT_ROOT / ".cache" / "checkpoints" / "sam"
+DEVICE = "cpu"
 
-def ensure_checkpoint(checkpoint_path: str | Path | None, model_type: str) -> Path:
-    """Verify that SAM PyTorch checkpoint exists, downloading if missing.
+MODEL_REGISTRY: dict[str, dict[str, Any]] = {
+    "vit_b": {
+        "url": "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth",
+        "checkpoint_filename": "sam_vit_b_01ec64.pth",
+        "encoder_filename": "vit_b_encoder.onnx",
+        "decoder_filename": "vit_b_decoder.onnx",
+    },
+    "vit_l": {
+        "url": "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_l_0b3195.pth",
+        "checkpoint_filename": "sam_vit_l_0b3195.pth",
+        "encoder_filename": "vit_l_encoder.onnx",
+        "decoder_filename": "vit_l_decoder.onnx",
+    },
+    "vit_h": {
+        "url": "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth",
+        "checkpoint_filename": "sam_vit_h_4b8939.pth",
+        "encoder_filename": "vit_h_encoder.onnx",
+        "decoder_filename": "vit_h_decoder.onnx",
+    },
+}
+
+
+def ensure_checkpoint(
+    checkpoint_path: str | Path | None = None,
+    variant: str = "vit_b",
+    cache_dir: str | Path = DEFAULT_CHECKPOINT_DIR,
+) -> Path:
+    """Verify that checkpoint exists, downloading if missing.
 
     Args:
-        checkpoint_path: Local path to SAM checkpoint file (.pth).
-        model_type: Variant name ('vit_h', 'vit_l', 'vit_b').
+        checkpoint_path: Optional path to local checkpoint file (.pth).
+        variant: Model variant key ('vit_b', 'vit_l', or 'vit_h').
+        cache_dir: Directory for cached weights.
 
     Returns:
         Path: Path to verified checkpoint file.
     """
-    if model_type not in MODEL_DICT:
-        raise ValueError(f"Unknown model_type '{model_type}'. Choose from {list(MODEL_DICT.keys())}")
+    if variant not in MODEL_REGISTRY:
+        raise ValueError(
+            f"Unknown SAM variant '{variant}'. Supported variants: {list(MODEL_REGISTRY.keys())}"
+        )
 
-    url = MODEL_DICT[model_type]
-    filename = url.split("/")[-1]
-
-    if not checkpoint_path:
-        checkpoint_path = Path("./SAM") / filename
+    if checkpoint_path is not None:
+        path = Path(checkpoint_path)
+        if path.exists():
+            return path
+        logger.info("Checkpoint not found at %s. Downloading...", path)
+        target_path = path
     else:
-        checkpoint_path = Path(checkpoint_path)
+        target_path = Path(cache_dir) / MODEL_REGISTRY[variant]["checkpoint_filename"]
 
-    checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
-    download_model(url, str(checkpoint_path.parent))
+    if target_path.exists():
+        logger.info("Using checkpoint at %s", target_path)
+        return target_path
 
-    return checkpoint_path
-
-
-MODEL_DICT = {
-    "vit_h": "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth",  # 2.56 GB
-    "vit_l": "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_l_0b3195.pth",  # 1.25 GB
-    "vit_b": "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth",  # 375 MB
-}
-
-def check_onnx(onnx_path: str):
-    """
-    Validates the exported ONNX model graph.
-    """
-    print(f"Checking ONNX model integrity at {onnx_path}...")
-    if not os.path.exists(onnx_path):
-        raise FileNotFoundError(f"ONNX file not found at {onnx_path}")
-
-    try:
-        onnx.checker.check_model(model=onnx_path)
-        print("The ONNX graph is clean and valid!")
-    except onnx.checker.ValidationError as e:
-        raise RuntimeError(f"Graph validation failed: {e}") from e
+    url = MODEL_REGISTRY[variant]["url"]
+    logger.info("Downloading %s checkpoint from %s to %s...", variant, url, target_path)
+    download_file(url=url, output_path=target_path)
+    return target_path
 
 
-def validate_image_encoder(sam: Sam, onnx_path: str, rtol: float = 1e-3, atol: float = 1e-3):
-    logging.info(f"Validating ONNX model at {onnx_path}...")
-
-    # Structural check via ONNX
-    check_onnx(onnx_path)
-
-    # Prepare dummy input
-    dummy_input = torch.randn(1, 3, 1024, 1024, dtype=torch.float)
-
-    # PyTorch inference
-    sam.eval()
-    with torch.no_grad():
-        torch_out = sam.image_encoder(dummy_input).cpu().numpy()
-
-    # ONNX Runtime inference
-    session = ort.InferenceSession(onnx_path, providers=["CPUExecutionProvider"])
-    onnx_out = session.run(None, {"image": dummy_input.numpy()})[0]
-
-    # Numerical comparison
-    max_diff = np.max(np.abs(torch_out - onnx_out))
-    mean_diff = np.mean(np.abs(torch_out - onnx_out))
-    matches = np.allclose(torch_out, onnx_out, rtol=rtol, atol=atol)
-
-    print(f"   Max Difference : {max_diff:.6e}")
-    print(f"   Mean Difference: {mean_diff:.6e}")
-
-    if matches:
-        print(" PyTorch and ONNX outputs MATCH within tolerance!")
-    else:
-        print(" Output difference exceeded tolerance.")
-    return matches
-
-
-def validate_mask_decoder(sam: Sam, onnx_path: str, return_single_mask: bool = True, rtol: float = 1e-3, atol: float = 1e-3,):
-    logging.info(f"Validating ONNX model at {onnx_path}...")
-
-    # Structural check via ONNX
-    check_onnx(onnx_path)
-
-    # Prepare dummy inputs
-    embed_dim = sam.prompt_encoder.embed_dim
-    embed_size = sam.prompt_encoder.image_embedding_size
-    mask_input_size = [4 * x for x in embed_size]
-
-    dummy_inputs = {
-        "image_embeddings": torch.randn(
-            1, embed_dim, *embed_size, dtype=torch.float
-        ),
-        "point_coords": torch.tensor(
-            [[[500.0, 500.0], [250.0, 300.0]]], dtype=torch.float
-        ),
-        "point_labels": torch.tensor([[1.0, 0.0]], dtype=torch.float),
-        "mask_input": torch.randn(1, 1, *mask_input_size, dtype=torch.float),
-        "has_mask_input": torch.tensor([1.0], dtype=torch.float),
-        "orig_im_size": torch.tensor([720.0, 1280.0], dtype=torch.float),
-    }
-
-    # PyTorch inference (via SamOnnxModel wrapper)
-    py_decoder = SamOnnxModel(sam, return_single_mask=return_single_mask)
-    py_decoder.eval()
-    with torch.no_grad():
-        py_masks, py_ious, py_low_res = py_decoder(**dummy_inputs)
-
-    # ONNX Runtime inference
-    session = ort.InferenceSession(onnx_path, providers=["CPUExecutionProvider"])
-    ort_inputs = {k: v.numpy() for k, v in dummy_inputs.items()}
-    ort_masks, ort_ious, ort_low_res = session.run(None, ort_inputs)
-
-    # Numerical comparison
-    mask_diff = np.max(np.abs(py_masks.cpu().numpy() - ort_masks))
-    iou_diff = np.max(np.abs(py_ious.cpu().numpy() - ort_ious))
-
-    print(f"   Mask Max Difference: {mask_diff:.6e}")
-    print(f"   IoU Max Difference : {iou_diff:.6e}")
-
-    masks_match = np.allclose(py_masks.cpu().numpy(), ort_masks, rtol=rtol, atol=atol)
-    ious_match = np.allclose(py_ious.cpu().numpy(), ort_ious, rtol=rtol, atol=atol)
-
-    if masks_match and ious_match:
-        print(" PyTorch and ONNX outputs MATCH within tolerance!")
-    else:
-        print(" Output difference exceeded tolerance.")
-    return masks_match and ious_match
-
-
-class DownloadProgressBar(tqdm):
-    """Hooks into urllib.request to render a progress bar."""
-    def update_to(self, b=1, bsize=1, tsize=None):
-        if tsize is not None:
-            self.total = tsize
-        self.update(b * bsize - self.n)
-
-
-def download_model(url: str, output_dir: str) -> None:
-    filename = url.split("/")[-1]
-    output_path = osp.join(output_dir, filename)
-
-    if osp.exists(output_path):
-        logging.info(f"File already exists at {output_path}. Skipping download.")
-        return
-
-    logging.info(f"Downloading SAM model from {url} to {output_path}...")
-    
-    with DownloadProgressBar(unit='B', unit_scale=True, miniters=1, desc=filename) as t:
-        urllib.request.urlretrieve(url, filename=output_path, reporthook=t.update_to)
-        
-    logging.info("SAM model download complete!")
-
-
-def export_image_encoder(sam: Sam, output_path: str | Path, opset: int = 17) -> Path:
-    """Export SAM Image Encoder to ONNX format.
+def export_image_encoder(
+    sam: Sam,
+    output_path: str | Path,
+    opset: int = 17,
+) -> Path:
+    """Export SAM image encoder to ONNX format.
 
     Args:
         sam: Loaded SAM model instance.
         output_path: Destination path for exported encoder .onnx model file.
-        opset: ONNX operator set version (default: 17).
+        opset: ONNX operator set version.
 
     Returns:
-        Path: Destination path of exported encoder ONNX model file.
+        Path: Path to exported encoder ONNX model file.
     """
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    logger.info("Exporting SAM Image Encoder...")
-    dummy_input = torch.randn(1, 3, 1024, 1024, dtype=torch.float32)
+    logger.info(
+        "Exporting SAM image encoder to %s (opset=%d, device=%s)...",
+        output_path,
+        opset,
+        DEVICE,
+    )
+    dummy_input = torch.randn(1, 3, 1024, 1024, dtype=torch.float32, device=DEVICE)
 
     dynamic_axes = {
         "image": {0: "batch_size"},
         "image_embeddings": {0: "batch_size"},
     }
+
+    sam.image_encoder.to(DEVICE)
+    sam.image_encoder.eval()
 
     torch.onnx.export(
         sam.image_encoder,
@@ -223,28 +146,10 @@ def export_image_encoder(sam: Sam, output_path: str | Path, opset: int = 17) -> 
         dynamic_axes=dynamic_axes,
     )
 
-    # Consolidate external tensor data into a single .data file.
-    onnx_model = onnx.load(str(output_path), load_external_data=True)
+    convert_to_external_data(output_path)
+    check_onnx(str(output_path))
 
-    data_filename = output_path.with_suffix(".onnx.data").name
-
-    convert_model_to_external_data(
-        onnx_model,
-        all_tensors_to_one_file=True,
-        location=data_filename,
-        size_threshold=0,
-    )
-
-    onnx.save_model(
-        onnx_model,
-        str(output_path),
-        save_as_external_data=True,
-        all_tensors_to_one_file=True,
-        location=data_filename,
-        size_threshold=0,
-    )
-
-    logger.info("Image Encoder exported successfully to %s", output_path)
+    logger.info("SAM image encoder export complete: %s", output_path)
     return output_path
 
 
@@ -254,39 +159,46 @@ def export_mask_decoder(
     opset: int = 17,
     return_single_mask: bool = True,
 ) -> Path:
-    """Export SAM Mask Decoder to ONNX format.
+    """Export SAM mask decoder to ONNX format.
 
     Args:
         sam: Loaded SAM model instance.
         output_path: Destination path for exported decoder .onnx model file.
-        opset: ONNX operator set version (default: 17).
-        return_single_mask: Flag to output single best mask.
+        opset: ONNX operator set version.
+        return_single_mask: Whether to output single best mask proposal.
 
     Returns:
-        Path: Destination path of exported decoder ONNX model file.
+        Path: Path to exported decoder ONNX model file.
     """
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    logger.info("Exporting SAM Mask Decoder...")
+    logger.info(
+        "Exporting SAM mask decoder to %s (opset=%d, return_single_mask=%s, device=%s)...",
+        output_path,
+        opset,
+        return_single_mask,
+        DEVICE,
+    )
     onnx_model = SamOnnxModel(
         model=sam,
         return_single_mask=return_single_mask,
         use_stability_score=False,
         return_extra_metrics=False,
-    )
+    ).to(DEVICE)
+    onnx_model.eval()
 
     embed_dim = sam.prompt_encoder.embed_dim
     embed_size = sam.prompt_encoder.image_embedding_size
     mask_input_size = [4 * x for x in embed_size]
 
     dummy_inputs = {
-        "image_embeddings": torch.randn(1, embed_dim, *embed_size, dtype=torch.float32),
-        "point_coords": torch.randint(low=0, high=1024, size=(1, 5, 2), dtype=torch.float32),
-        "point_labels": torch.randint(low=0, high=4, size=(1, 5), dtype=torch.float32),
-        "mask_input": torch.randn(1, 1, *mask_input_size, dtype=torch.float32),
-        "has_mask_input": torch.tensor([1], dtype=torch.float32),
-        "orig_im_size": torch.tensor([1500, 2250], dtype=torch.float32),
+        "image_embeddings": torch.randn(1, embed_dim, *embed_size, dtype=torch.float32, device=DEVICE),
+        "point_coords": torch.randint(low=0, high=1024, size=(1, 5, 2), dtype=torch.float32, device=DEVICE),
+        "point_labels": torch.randint(low=0, high=4, size=(1, 5), dtype=torch.float32, device=DEVICE),
+        "mask_input": torch.randn(1, 1, *mask_input_size, dtype=torch.float32, device=DEVICE),
+        "has_mask_input": torch.tensor([1], dtype=torch.float32, device=DEVICE),
+        "orig_im_size": torch.tensor([1500, 2250], dtype=torch.float32, device=DEVICE),
     }
 
     dynamic_axes = {
@@ -311,36 +223,113 @@ def export_mask_decoder(
         dynamic_axes=dynamic_axes,
     )
 
-    logger.info("Mask Decoder exported successfully to %s", output_path)
+    convert_to_external_data(output_path)
+    check_onnx(str(output_path))
+
+    logger.info("SAM mask decoder export complete: %s", output_path)
     return output_path
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Export SAM PyTorch model to ONNX format.")
-    parser.add_argument("--model-type", type=str, default="vit_h", choices=["vit_h", "vit_l", "vit_b"], help="Variant of SAM model.")
-    parser.add_argument("--checkpoint", type=str, default=None, help="Path to SAM checkpoint file (.pth).")
-    parser.add_argument("--out-encoder", type=str, default="./onnx_model/vit_h_encoder.onnx", help="Path for output Image Encoder ONNX file.")
-    parser.add_argument("--out-decoder", type=str, default="./onnx_model/vit_h_decoder.onnx", help="Path for output Mask Decoder ONNX file.")
-    parser.add_argument("--opset", type=int, default=17, help="ONNX operator set version (default: 17).")
-    parser.add_argument("--return-single-mask", default=True, action="store_true", help="Output only the best mask proposal.")
-    args = parser.parse_args()
+def export_sam_variant(
+    variant: str,
+    output_folder: str | Path = DEFAULT_OUTPUT_DIR,
+    checkpoint: str | Path | None = None,
+    opset: int = 17,
+    return_single_mask: bool = True,
+) -> tuple[Path, Path]:
+    """Export image encoder and mask decoder for a SAM variant.
 
-    checkpoint_path = ensure_checkpoint(args.checkpoint, args.model_type)
+    Args:
+        variant: SAM variant key ('vit_b', 'vit_l', or 'vit_h').
+        output_folder: Directory to store exported ONNX models.
+        checkpoint: Optional path to local SAM checkpoint (.pth).
+        opset: ONNX operator set version.
+        return_single_mask: Whether to output single best mask proposal.
 
-    logger.info("Loading SAM (%s) from %s...", args.model_type, checkpoint_path)
-    sam = sam_model_registry[args.model_type](checkpoint=str(checkpoint_path))
+    Returns:
+        tuple[Path, Path]: Exported (encoder_path, decoder_path).
+    """
+    if variant not in MODEL_REGISTRY:
+        raise ValueError(
+            f"Unknown SAM variant '{variant}'. Supported variants: {list(MODEL_REGISTRY.keys())}"
+        )
+
+    meta = MODEL_REGISTRY[variant]
+    output_dir = Path(output_folder)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    encoder_path = output_dir / meta["encoder_filename"]
+    decoder_path = output_dir / meta["decoder_filename"]
+
+    ckpt_path = ensure_checkpoint(checkpoint_path=checkpoint, variant=variant)
+    logger.info("Loading SAM model (%s) from %s...", variant, ckpt_path)
+    sam = sam_model_registry[variant](checkpoint=str(ckpt_path))
+    sam.to(DEVICE)
     sam.eval()
 
-    encoder_onnx = export_image_encoder(sam, args.out_encoder, args.opset)
-    decoder_onnx = export_mask_decoder(sam, args.out_decoder, args.opset, args.return_single_mask)
+    export_image_encoder(sam=sam, output_path=encoder_path, opset=opset)
+    export_mask_decoder(
+        sam=sam,
+        output_path=decoder_path,
+        opset=opset,
+        return_single_mask=return_single_mask,
+    )
 
-    validate_image_encoder(sam, str(encoder_onnx))
-    validate_mask_decoder(sam, str(decoder_onnx), return_single_mask=args.return_single_mask)
+    return encoder_path, decoder_path
 
-    logger.info("Complete SAM ONNX export finished successfully!")
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Export Segment Anything Model (SAM) checkpoints to ONNX format."
+    )
+    parser.add_argument(
+        "--variant",
+        type=str,
+        default="vit_b",
+        choices=["all", "vit_b", "vit_l", "vit_h"],
+        help="SAM model variant to export ('vit_b', 'vit_l', 'vit_h', or 'all', default: 'vit_b').",
+    )
+    parser.add_argument(
+        "--checkpoint",
+        type=str,
+        default=None,
+        help="Path to checkpoint file (.pth) (downloaded automatically if omitted).",
+    )
+    parser.add_argument(
+        "--output-folder",
+        type=str,
+        default=str(DEFAULT_OUTPUT_DIR),
+        help="Destination directory for exported .onnx files.",
+    )
+    parser.add_argument(
+        "--opset",
+        type=int,
+        default=17,
+        help="ONNX operator set version (default: 17).",
+    )
+    parser.add_argument(
+        "--return-single-mask",
+        action="store_true",
+        default=True,
+        help="Output only the best mask proposal (default: True).",
+    )
+    args = parser.parse_args()
+
+    variants_to_export = list(MODEL_REGISTRY.keys()) if args.variant == "all" else [args.variant]
+
+    for var_key in variants_to_export:
+        logger.info("Exporting SAM variant: %s", var_key)
+        export_sam_variant(
+            variant=var_key,
+            output_folder=args.output_folder,
+            checkpoint=args.checkpoint,
+            opset=args.opset,
+            return_single_mask=args.return_single_mask,
+        )
+
+    logger.info("All requested SAM models exported successfully.")
 
 
 if __name__ == "__main__":
     main()
-
 

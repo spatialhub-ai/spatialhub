@@ -49,6 +49,7 @@ DEFAULT_WEIGHTS_URL = "https://drive.google.com/file/d/1jFy2JbMKlIp82541TakhQPao
 DEFAULT_CACHE_DIR = PROJECT_ROOT / ".cache"
 DEFAULT_CHECKPOINT_PATH = DEFAULT_CACHE_DIR / "eloftr_outdoor.ckpt"
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "onnx_weight"
+DEVICE = "cpu"
 
 CONFIG_REGISTRY = {
     "full": full_default_cfg,
@@ -102,14 +103,12 @@ def validate_dimensions(width: int, height: int) -> None:
 def load_model(
     weights_path: str | Path,
     variant: str = "full",
-    device: str = "cpu",
 ) -> torch.nn.Module:
     """Load and reparameterize model checkpoint for evaluation.
 
     Args:
         weights_path: Path to pretrained model weights.
         variant: Model configuration variant ('full' or 'opt').
-        device: Target compute device ('cpu' or 'cuda').
 
     Returns:
         torch.nn.Module: Prepared model in evaluation mode.
@@ -125,12 +124,12 @@ def load_model(
     cfg = deepcopy(CONFIG_REGISTRY[variant])
     matcher = LoFTR(config=cfg)
 
-    state = torch.load(str(weights_path), map_location=device, weights_only=False)
+    state = torch.load(str(weights_path), map_location=DEVICE, weights_only=False)
     state_dict = state["state_dict"] if "state_dict" in state else state
     matcher.load_state_dict(state_dict)
 
     matcher = reparameter(matcher)
-    matcher = matcher.to(device).eval()
+    matcher = matcher.to(DEVICE).eval()
 
     return matcher
 
@@ -141,7 +140,6 @@ def export_onnx(
     width: int = 640,
     height: int = 480,
     opset: int = 17,
-    device: str = "cpu",
 ) -> Path:
     """Export model graph to ONNX format with dynamic match dimensions.
 
@@ -151,7 +149,6 @@ def export_onnx(
         width: Input image width in pixels.
         height: Input image height in pixels.
         opset: ONNX operator set version (default: 17).
-        device: Hardware device to use during export tracing.
 
     Returns:
         Path: Path to exported ONNX model file.
@@ -160,8 +157,8 @@ def export_onnx(
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    dummy0 = torch.randn(1, 1, height, width, dtype=torch.float32, device=device)
-    dummy1 = torch.randn(1, 1, height, width, dtype=torch.float32, device=device)
+    dummy0 = torch.randn(1, 1, height, width, dtype=torch.float32, device=DEVICE)
+    dummy1 = torch.randn(1, 1, height, width, dtype=torch.float32, device=DEVICE)
 
     logger.info("Exporting ONNX graph (opset %d, shape %dx%d) -> %s...", opset, width, height, output_path)
     with torch.no_grad():
@@ -226,12 +223,6 @@ def main() -> None:
         default=17,
         help="ONNX operator set version (default: 17).",
     )
-    parser.add_argument(
-        "--device",
-        type=str,
-        default="cpu",
-        help="Hardware device to use during export ('cpu' or 'cuda').",
-    )
     args = parser.parse_args()
 
     validate_dimensions(args.width, args.height)
@@ -243,17 +234,17 @@ def main() -> None:
     for variant in variants_to_export:
         dest_path = output_dir / f"eloftr_outdoor_{variant}.onnx"
 
-        matcher = load_model(weights_path=checkpoint_path, variant=variant, device=args.device)
+        matcher = load_model(weights_path=checkpoint_path, variant=variant)
         exported_file = export_onnx(
             matcher,
             output_path=dest_path,
             width=args.width,
             height=args.height,
             opset=args.opset,
-            device=args.device,
         )
         check_onnx(exported_file)
 
 
 if __name__ == "__main__":
     main()
+

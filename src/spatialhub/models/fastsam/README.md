@@ -47,12 +47,21 @@ Export FastSAM models directly to ONNX format using the centralized export utili
 
 ```bash
 uv run tools/export/export_fastsam.py \
-    --checkpoint FastSAM-x.pt \
-    --output-folder ./weights \
+    --variant x \
+    --output-folder onnx_weight \
     --imgsz 640 \
     --opset 17 \
     --dynamic
 ```
+
+| Parameter | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `--variant` | `str` | `"x"` | Model variant to export (`s`, `x`, or `all`). |
+| `--checkpoint` | `str` | `None` | Path to checkpoint file (`.pt`) (downloaded if omitted). |
+| `--output-folder` | `str` | `onnx_weight` | Destination directory for exported `.onnx` model files. |
+| `--imgsz` | `int` | `640` | Input image spatial dimension. |
+| `--opset` | `int` | `17` | ONNX Operator Set version. |
+| `--dynamic` | `bool` | `True` | Export with dynamic axes for batch dimension. |
 
 ---
 

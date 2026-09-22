@@ -1077,19 +1077,17 @@ uv run tools/export/export_depth_anything_3.py \
     --output-folder onnx_weight \
     --width 504 \
     --height 504 \
-    --opset 18 \
-    --device cpu
+    --opset 18
 ```
 
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `--variant` | `str` | `"all"` | Target model variant (`small`, `base`, `large`, `giant`, `mono_large`, `metric_large`, or `all`). |
-| `--model-name` | `str` | `None` | Optional Hugging Face repo ID or local checkpoint path to export directly. |
+| `--variant` | `str` | `"base"` | Target model variant (`small`, `base`, `large`, `giant`, `mono_large`, `metric_large`, or `all`). |
+| `--checkpoint` | `str` | `None` | Path to pretrained checkpoint directory or Hugging Face repo ID (downloaded if omitted). |
 | `--output-folder` | `str` | `onnx_weight` | Destination directory for exported `.onnx` model files. |
 | `--width` | `int` | `504` | Input image width in pixels (must be a multiple of 14, $\ge 392$). |
 | `--height` | `int` | `504` | Input image height in pixels (must be a multiple of 14, $\ge 392$). |
 | `--opset` | `int` | `18` | ONNX Operator Set version. |
-| `--device` | `str` | `"cpu"` | Tracing device (`cpu` or `cuda`). |
 
 ### Parity Check
 

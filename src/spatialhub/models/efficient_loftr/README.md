@@ -391,8 +391,7 @@ Export PyTorch checkpoint weights to standalone ONNX graphs:
 uv run tools/export/export_efficient_loftr.py \
     --checkpoint weights/eloftr_outdoor.ckpt \
     --output-folder onnx_weight \
-    --opset 17 \
-    --device cpu
+    --opset 17
 ```
 
 | Parameter | Type | Default | Description |
@@ -403,7 +402,6 @@ uv run tools/export/export_efficient_loftr.py \
 | `--width` | `int` | `640` | Input image width in pixels (must be a multiple of 32). |
 | `--height` | `int` | `480` | Input image height in pixels (must be a multiple of 32). |
 | `--opset` | `int` | `17` | ONNX Operator Set version. |
-| `--device` | `str` | `"cpu"` | Hardware device used during export tracing (`cpu` or `cuda`). |
 
 ### Parity Check
 

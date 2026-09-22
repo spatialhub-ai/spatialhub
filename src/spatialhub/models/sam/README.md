@@ -50,11 +50,18 @@ Export Segment Anything (SAM) image encoder and mask decoder directly to ONNX fo
 
 ```bash
 uv run tools/export/export_sam.py \
-    --model-type vit_h \
-    --out-encoder ./weights/sam_image_encoder.onnx \
-    --out-decoder ./weights/sam_mask_decoder.onnx \
+    --variant vit_h \
+    --output-folder onnx_weight \
     --opset 17
 ```
+
+| Parameter | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `--variant` | `str` | `"vit_b"` | SAM model variant to export (`vit_b`, `vit_l`, `vit_h`, or `all`). |
+| `--checkpoint` | `str` | `None` | Path to checkpoint file (`.pth`) (downloaded if omitted). |
+| `--output-folder` | `str` | `onnx_weight` | Destination directory for exported `.onnx` model files. |
+| `--opset` | `int` | `17` | ONNX Operator Set version. |
+| `--return-single-mask` | `bool` | `True` | Output single best mask proposal. |
 
 ---
 

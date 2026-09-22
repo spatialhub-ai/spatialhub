@@ -399,7 +399,6 @@ uv run tools/export/export_dinov2.py \
 | `--height` | `int` | `224` | Input image height in pixels (must be a multiple of 14). |
 | `--image-size` | `int` | `None` | Convenience parameter to set square dimensions (`width = height = image_size`). |
 | `--opset` | `int` | `17` | ONNX Operator Set version. |
-| `--device` | `str` | `"cpu"` | Hardware device to use during export tracing (`cpu` or `cuda`). |
 
 ### Parity Check
 

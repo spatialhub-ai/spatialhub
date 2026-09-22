@@ -59,13 +59,13 @@ CNOS is an orchestration pipeline combining **DINOv2** for template feature extr
 
 ```bash
 # Export DINOv2 descriptor model
-uv run tools/export/export_dinov2.py --model-name dinov2_vitl14 --output-folder ./weights
+uv run tools/export/export_dinov2.py --variant vitl14 --output-folder onnx_weight
 
 # Export FastSAM segmentor model (recommended for real-time)
-uv run tools/export/export_fastsam.py --checkpoint FastSAM-x.pt --output-folder ./weights --imgsz 640
+uv run tools/export/export_fastsam.py --variant x --output-folder onnx_weight --imgsz 640
 
 # (Optional) Export SAM segmentor model (for high precision)
-uv run tools/export/export_sam.py --model-type vit_h --out-encoder ./weights/sam_image_encoder.onnx --out-decoder ./weights/sam_mask_decoder.onnx
+uv run tools/export/export_sam.py --variant vit_h --output-folder onnx_weight
 ```
 
 ---

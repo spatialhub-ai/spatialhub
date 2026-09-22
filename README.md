@@ -124,7 +124,7 @@ seg_res.visualize_mask(save_path="fastsam_masks.png")
 Standalone ONNX export utilities are located under `tools/export/` to export models using PyTorch source repositories under `upstream/`:
 
 ```bash
-uv run tools/export/export_efficient_loftr.py --checkpoint weights/model.ckpt --output-path weights/model.onnx
+uv run tools/export/export_efficient_loftr.py --checkpoint weights/eloftr_outdoor.ckpt --output-folder onnx_weight
 ```
 
 See the [Reproducible ONNX Export Guide](https://spatialhub-ai.github.io/spatialhub/core-and-utils/export/) for complete documentation.

@@ -1,12 +1,12 @@
 # ONNX Export Workflow
 
-SpatialHub provides standalone PyTorch export utilities under `tools/export/` to convert research model architectures into self-contained ONNX model graphs.
+SpatialHub provides standalone export scripts under `tools/export/` to convert supported model architectures into ONNX format.
 
 ---
 
 ## Standalone Execution via `uv`
 
-Export scripts use [PEP 723](https://peps.python.org/pep-0723/) inline script metadata to declare isolated PyTorch and upstream dependencies. This allows models to be traced without installing PyTorch or CUDA training toolkits into your primary SpatialHub runtime environment:
+Export scripts declare isolated dependencies using [PEP 723](https://peps.python.org/pep-0723/) inline script metadata, enabling execution via `uv run` without modifying your primary runtime environment:
 
 ```bash
 uv run tools/export/export_<model>.py [options]
@@ -16,11 +16,11 @@ uv run tools/export/export_<model>.py [options]
 
 ## Standard Export Pipeline
 
-1. **Architecture Initialization**: Instantiates the model architecture from local research definitions or standard model hubs.
-2. **Weight Restoration**: Loads PyTorch checkpoint parameters and sets layers to evaluation mode (`model.eval()`).
+1. **Architecture Initialization**: Instantiates the model architecture from local source definitions or standard model repositories.
+2. **Weight Restoration**: Loads checkpoint weights and sets layers to evaluation mode (`model.eval()`).
 3. **Graph Tracing**: Executes `torch.onnx.export` with configured dynamic batch and spatial dimension axes.
 4. **Graph Validation**: Verifies structural graph integrity using `onnx.checker.check_model`.
-5. **Serialization**: Writes the optimized `.onnx` binary file to disk.
+5. **Serialization**: Writes the `.onnx` model file to disk and unifies external tensor data when applicable.
 
 ---
 
@@ -43,7 +43,6 @@ Most export utilities share the following standard command-line parameters:
 
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `--checkpoint` | `str` | *Contextual* | Path to source `.ckpt`, `.pt`, or `.pth` weights file. |
-| `--output-path` | `str` | *Contextual* | Destination path or directory for exported `.onnx` files. |
+| `--checkpoint` | `str` | *Contextual* | Path to source weights file or model repository ID. |
+| `--output-folder` | `str` | *Contextual* | Destination directory for exported `.onnx` files. |
 | `--opset` | `int` | `17` | ONNX Operator Set version. |
-| `--device` | `str` | `"cpu"` | Hardware device used for graph tracing (`cpu` or `cuda`). |

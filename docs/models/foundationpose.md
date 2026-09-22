@@ -51,9 +51,17 @@ Export FoundationPose **RefineNet** and **ScoreNet** PyTorch models to ONNX form
 ```bash
 uv run tools/export/export_foundationpose.py \
     --weights-dir ./upstream/foundationpose/weights \
-    --output-folder ./weights \
+    --output-folder onnx_weight \
     --opset 18
 ```
+
+| Parameter | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `--weights-dir` | `str` | `"./weights"` | Directory containing model checkpoint folders. |
+| `--refine-run-name` | `str` | `"2023-10-28-18-33-37"` | RefineNet checkpoint directory name. |
+| `--score-run-name` | `str` | `"2024-01-11-20-02-45"` | ScoreNet checkpoint directory name. |
+| `--output-folder` | `str` | `onnx_weight` | Destination directory for exported `.onnx` model files. |
+| `--opset` | `int` | `18` | ONNX Operator Set version. |
 
 ---
 

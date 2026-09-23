@@ -6,7 +6,7 @@
 
 ## Supported Model Presets & Series
 
-The `DepthAnything3Adapter` accepts model presets, filenames, or multi-model sequences for nested pipelines via `model_name`:
+The `DepthAnything3Adapter` accepts official model presets defined in `MODEL_REGISTRY` via `model_name`:
 
 ### DA3 Any-View Foundation Series
 Foundation models supporting single-image and multi-view sequences ($N \ge 1$), joint depth prediction, and relative camera pose estimation:

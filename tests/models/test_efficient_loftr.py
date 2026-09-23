@@ -18,7 +18,7 @@ class TestEfficientLoFTRInit:
 
     def test_init_invalid_variant_raises(self):
         """Test exception when unsupported model_type variant is passed."""
-        with pytest.raises(ValueError, match="model_type must be either 'full' or 'opt'"):
+        with pytest.raises(ValueError, match="Unsupported model_type"):
             EfficientLoFTR(model_type="invalid_variant")
 
     def test_init_missing_local_file_raises(self):

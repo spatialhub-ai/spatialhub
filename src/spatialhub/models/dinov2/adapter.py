@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from typing import Any
 
 import cv2
 import numpy as np
@@ -13,7 +14,28 @@ from spatialhub.utils import load_image, normalize_image
 logger = logging.getLogger(__name__)
 
 
-SUPPORTED_VARIANTS = {"vits14", "vitb14", "vitl14", "vitg14"}
+MODEL_REGISTRY: dict[str, dict[str, Any]] = {
+    "vits14": {
+        "dim": 384,
+        "filename": "dinov2_vits14.onnx",
+        "repo_id": "SpatialHub/dinov2-onnx",
+    },
+    "vitb14": {
+        "dim": 768,
+        "filename": "dinov2_vitb14.onnx",
+        "repo_id": "SpatialHub/dinov2-onnx",
+    },
+    "vitl14": {
+        "dim": 1024,
+        "filename": "dinov2_vitl14.onnx",
+        "repo_id": "SpatialHub/dinov2-onnx",
+    },
+    "vitg14": {
+        "dim": 1536,
+        "filename": "dinov2_vitg14.onnx",
+        "repo_id": "SpatialHub/dinov2-onnx",
+    },
+}
 
 
 class DINOv2Adapter:
@@ -43,7 +65,7 @@ class DINOv2Adapter:
                 Optional explicit path to local model binary. If None, resolves
                 automatically from Hugging Face Hub.
             model_variant:
-                DINOv2 variant ('vits14', 'vitb14', 'vitl14', 'vitg14').
+                DINOv2 variant ('vits14', 'vitb14', 'vitl14', 'vitg14', default: 'vitl14').
             target_size:
                 Target spatial input dimension for square resizing and padding (must be a positive multiple of 14, default: 224).
             providers:
@@ -64,17 +86,19 @@ class DINOv2Adapter:
 
         if model_path is None:
             variant = str(model_variant).lower()
-            if variant not in SUPPORTED_VARIANTS:
+            if variant not in MODEL_REGISTRY:
                 raise ValueError(
-                    f"Unsupported model_variant '{model_variant}'. Supported variants: {sorted(SUPPORTED_VARIANTS)}"
+                    f"Unsupported model_variant '{model_variant}'. Supported variants: {sorted(MODEL_REGISTRY.keys())}"
                 )
-            filename = f"dinov2_{variant}.onnx"
+            filename = MODEL_REGISTRY[variant]["filename"]
+            repo_id = MODEL_REGISTRY[variant]["repo_id"]
         else:
             filename = None
+            repo_id = "SpatialHub/dinov2-onnx"
 
         resolved_path = resolve_model_path(
             model_path=model_path,
-            repo_id="SpatialHub/dinov2-onnx",
+            repo_id=repo_id,
             filename=filename,
         )
 

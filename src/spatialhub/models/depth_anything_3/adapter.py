@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 import logging
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import onnxruntime as ort
@@ -18,6 +21,53 @@ from .utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+MODEL_REGISTRY: dict[str, dict[str, Any]] = {
+    # Any-view models
+    "da3_small": {
+        "files": ["da3_small.onnx"],
+        "is_metric": False,
+    },
+    "da3_base": {
+        "files": ["da3_base.onnx"],
+        "is_metric": False,
+    },
+    "da3_large": {
+        "files": ["da3_large.onnx"],
+        "is_metric": False,
+    },
+    "da3_giant": {
+        "files": ["da3_giant.onnx"],
+        "is_metric": False,
+    },
+    # Monocular relative model
+    "da3mono_large": {
+        "files": ["da3mono_large.onnx"],
+        "is_metric": False,
+    },
+    # Monocular metric model
+    "da3metric_large": {
+        "files": ["da3metric_large.onnx"],
+        "is_metric": True,
+    },
+    # Nested combinations (any-view + metric_large)
+    "da3nested_small_large": {
+        "files": ["da3_small.onnx", "da3metric_large.onnx"],
+        "is_metric": True,
+    },
+    "da3nested_base_large": {
+        "files": ["da3_base.onnx", "da3metric_large.onnx"],
+        "is_metric": True,
+    },
+    "da3nested_large_large": {
+        "files": ["da3_large.onnx", "da3metric_large.onnx"],
+        "is_metric": True,
+    },
+    "da3nested_giant_large": {
+        "files": ["da3_giant.onnx", "da3metric_large.onnx"],
+        "is_metric": True,
+    },
+}
 
 
 class DepthAnything3Adapter:
@@ -75,9 +125,9 @@ class DepthAnything3Adapter:
 
         Raises:
             TypeError:
-                If model_name is not a string or list of strings.
+                If model_name is not a string.
             ValueError:
-                If process_res is invalid or model_variant is unsupported.
+                If model_name is unknown, process_res is invalid, or model_variant is unsupported.
             RuntimeError:
                 If model initialization fails.
         """
@@ -86,38 +136,19 @@ class DepthAnything3Adapter:
                 f"process_res must be a positive multiple of 14, received process_res={process_res}."
             )
 
-        preset_registry: dict[str, list[str]] = {
-            # Any-view models
-            "da3_small": ["da3_small.onnx"],
-            "da3_base": ["da3_base.onnx"],
-            "da3_large": ["da3_large.onnx"],
-            "da3_giant": ["da3_giant.onnx"],
-            # Monocular relative model
-            "da3mono_large": ["da3mono_large.onnx"],
-            # Monocular metric model
-            "da3metric_large": ["da3metric_large.onnx"],
-            # Nested combinations (any-view + metric_large)
-            "da3nested_small_large": ["da3_small.onnx", "da3metric_large.onnx"],
-            "da3nested_base_large": ["da3_base.onnx", "da3metric_large.onnx"],
-            "da3nested_large_large": ["da3_large.onnx", "da3metric_large.onnx"],
-            "da3nested_giant_large": ["da3_giant.onnx", "da3metric_large.onnx"],
-        }
-
-        if isinstance(model_name, (list, tuple)):
-            models_to_load = [str(m) for m in model_name]
-            clean_name = " ".join(models_to_load)
-        elif isinstance(model_name, str):
-            clean_name = model_name.strip().lower().replace("-", "_")
-            if clean_name in preset_registry:
-                models_to_load = preset_registry[clean_name]
-            elif clean_name.endswith(".onnx"):
-                models_to_load = [model_name]
-            else:
-                models_to_load = [f"{clean_name}.onnx"]
-        else:
+        if not isinstance(model_name, str):
             raise TypeError(
-                f"model_name must be a string preset or list of file paths, received {type(model_name).__name__}."
+                f"model_name must be a string preset, received {type(model_name).__name__}."
             )
+
+        if model_name not in MODEL_REGISTRY:
+            presets = ", ".join(sorted(MODEL_REGISTRY.keys()))
+            raise ValueError(
+                f"Unsupported model_name '{model_name}'. Supported presets: {presets}."
+            )
+
+        registry_entry = MODEL_REGISTRY[model_name]
+        models_to_load = registry_entry["files"]
 
         # Resolve model variant ('metric' or 'relative')
         if model_variant is not None:
@@ -125,8 +156,7 @@ class DepthAnything3Adapter:
                 raise ValueError(f"model_variant must be 'relative' or 'metric', got '{model_variant}'.")
             self.model_variant = model_variant
         else:
-            is_metric = len(models_to_load) > 1 or "metric" in clean_name
-            self.model_variant = "metric" if is_metric else "relative"
+            self.model_variant = "metric" if registry_entry["is_metric"] else "relative"
 
         logger.info("Detected DA3 variant: %s", self.model_variant)
 

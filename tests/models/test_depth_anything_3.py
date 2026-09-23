@@ -17,21 +17,14 @@ class TestDepthAnything3Init:
     """Test suite for DepthAnything3 adapter initialization and parameter validation."""
 
     def test_init_invalid_model_name_type_raises(self):
-        """Test exception when an invalid model_name type (int/dict) is passed."""
-        with pytest.raises(TypeError, match="model_name must be a string preset or list of file paths"):
+        """Test exception when an invalid model_name type is passed."""
+        with pytest.raises(TypeError, match="model_name must be a string preset"):
             DepthAnything3(model_name=12345)
 
-    def test_init_list_model_name_accepted(self):
-        """Test that list of model paths is accepted for nested model loading."""
-        with patch("spatialhub.models.depth_anything_3.adapter.resolve_model_path") as mock_resolve, \
-             patch("spatialhub.models.depth_anything_3.adapter.create_ort_session") as mock_session:
-
-            mock_resolve.side_effect = lambda **kwargs: Path(f"/fake/cache/{kwargs['filename']}")
-            mock_session.return_value = MagicMock()
-
-            adapter = DepthAnything3(model_name=["da3_small.onnx", "da3metric_large.onnx"])
-            assert adapter.model_variant == "metric"
-            assert len(adapter.ort_sessions) == 2
+    def test_init_unsupported_model_name_raises(self):
+        """Test exception when an unsupported model_name string is passed."""
+        with pytest.raises(ValueError, match="Unsupported model_name 'unsupported_model'"):
+            DepthAnything3(model_name="unsupported_model")
 
     @pytest.mark.parametrize("invalid_res", [-1, 0, 500, 505, 100])
     def test_init_invalid_process_res_raises(self, invalid_res: int):
@@ -46,24 +39,15 @@ class TestDepthAnything3Init:
 
     @pytest.mark.parametrize("model_input, expected_variant, expected_files", [
         ("da3_base", "relative", ["da3_base.onnx"]),
-        ("da3-base", "relative", ["da3_base.onnx"]),
         ("da3_small", "relative", ["da3_small.onnx"]),
-        ("da3-small", "relative", ["da3_small.onnx"]),
         ("da3_large", "relative", ["da3_large.onnx"]),
-        ("da3-large", "relative", ["da3_large.onnx"]),
         ("da3_giant", "relative", ["da3_giant.onnx"]),
-        ("da3-giant", "relative", ["da3_giant.onnx"]),
         ("da3mono_large", "relative", ["da3mono_large.onnx"]),
-        ("da3mono-large", "relative", ["da3mono_large.onnx"]),
         ("da3metric_large", "metric", ["da3metric_large.onnx"]),
-        ("da3metric-large", "metric", ["da3metric_large.onnx"]),
         ("da3nested_small_large", "metric", ["da3_small.onnx", "da3metric_large.onnx"]),
-        ("da3nested-small-large", "metric", ["da3_small.onnx", "da3metric_large.onnx"]),
         ("da3nested_base_large", "metric", ["da3_base.onnx", "da3metric_large.onnx"]),
         ("da3nested_large_large", "metric", ["da3_large.onnx", "da3metric_large.onnx"]),
         ("da3nested_giant_large", "metric", ["da3_giant.onnx", "da3metric_large.onnx"]),
-        ("da3nested-giant-large", "metric", ["da3_giant.onnx", "da3metric_large.onnx"]),
-        ("custom_model.onnx", "relative", ["custom_model.onnx"]),
     ])
     def test_init_resolves_correct_model_and_files(
         self,

@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 import logging
 from pathlib import Path
+from typing import Any
 
 import cv2
 import numpy as np
@@ -9,6 +12,17 @@ from spatialhub.structures import MatchResult
 from spatialhub.utils import load_image
 
 logger = logging.getLogger(__name__)
+
+MODEL_REGISTRY: dict[str, dict[str, Any]] = {
+    "full": {
+        "filename": "eloftr_outdoor_full.onnx",
+        "repo_id": "SpatialHub/efficient-loftr-onnx",
+    },
+    "opt": {
+        "filename": "eloftr_outdoor_opt.onnx",
+        "repo_id": "SpatialHub/efficient-loftr-onnx",
+    },
+}
 
 
 class EfficientLoFTRAdapter:
@@ -33,28 +47,35 @@ class EfficientLoFTRAdapter:
                 Optional explicit path to local model weights. If None,
                 weights are automatically downloaded from Hugging Face.
             model_type:
-                Model variant, either 'full' (higher accuracy) or 'opt' (faster).
+                Model variant, either 'full' (higher accuracy) or 'opt' (faster, default: 'full').
             providers:
                 Execution providers (e.g. 'CUDAExecutionProvider', 'CPUExecutionProvider').
 
         Raises:
             ValueError:
-                If model_type is not 'full' or 'opt'.
+                If model_path is None and model_type is not 'full' or 'opt'.
             FileNotFoundError:
                 If specified local weights cannot be found.
             RuntimeError:
                 If model initialization fails.
         """
-        if model_type not in ["full", "opt"]:
-            raise ValueError("model_type must be either 'full' or 'opt'")
-
-        filename = "eloftr_outdoor_full.onnx" if model_type == "full" else "eloftr_outdoor_opt.onnx"
+        if model_path is None:
+            variant = str(model_type).lower()
+            if variant not in MODEL_REGISTRY:
+                raise ValueError(
+                    f"Unsupported model_type '{model_type}'. Supported variants: {sorted(MODEL_REGISTRY.keys())}"
+                )
+            filename = MODEL_REGISTRY[variant]["filename"]
+            repo_id = MODEL_REGISTRY[variant]["repo_id"]
+        else:
+            filename = None
+            repo_id = "SpatialHub/efficient-loftr-onnx"
 
         # Resolve model path (local file or automatic download from HF Hub)
         resolved_path = resolve_model_path(
             model_path=model_path,
-            repo_id="SpatialHub/efficient-loftr-onnx",
-            filename=filename if model_path is None else None,
+            repo_id=repo_id,
+            filename=filename,
         )
 
         # Initialize session via core runtime helper

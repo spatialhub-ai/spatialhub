@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 import logging
 from pathlib import Path
+from typing import Any
 
 import cv2
 import numpy as np
@@ -30,17 +33,29 @@ def crop_mask(masks: np.ndarray, boxes: np.ndarray) -> np.ndarray:
     return masks * ((r >= x1) * (r < x2) * (c >= y1) * (c < y2))
 
 
+MODEL_REGISTRY: dict[str, dict[str, Any]] = {
+    "s": {
+        "filename": "FastSAM-s.onnx",
+        "repo_id": "SpatialHub/fastsam-onnx",
+    },
+    "x": {
+        "filename": "FastSAM-x.onnx",
+        "repo_id": "SpatialHub/fastsam-onnx",
+    },
+}
+
+
 class FastSAMAdapter:
     """Instance segmentation and proposal generation pipeline using FastSAM.
 
-    Performs fast proposal generation, bounding box decoding, prototype mask matrix
+    Performs proposal generation, bounding box decoding, prototype mask matrix
     combination, and non-maximum suppression (NMS) over input images.
     """
 
     def __init__(
         self,
         model_path: str | Path | None = None,
-        model_variant: str | None = "FastSAM-x",
+        model_variant: str = "x",
         imgsz: int = 640,
         conf_threshold: float = 0.05,
         iou_threshold: float = 0.7,
@@ -51,9 +66,9 @@ class FastSAMAdapter:
         Args:
             model_path:
                 Optional explicit path to local model binary. If None, resolves
-                automatically from Hugging Face Hub.
+                automatically from Hugging Face Hub using model_variant.
             model_variant:
-                FastSAM model variant ('FastSAM-x' or 'FastSAM-s', or short names 'x' or 's').
+                FastSAM model variant ('s' or 'x', default: 'x').
             imgsz:
                 Target spatial resolution for input tensor.
             conf_threshold:
@@ -62,16 +77,27 @@ class FastSAMAdapter:
                 Default IoU threshold for Non-Maximum Suppression.
             providers:
                 Execution providers.
+
+        Raises:
+            ValueError:
+                If model_path is None and model_variant is not recognized.
         """
-        variant = str(model_variant or "FastSAM-x")
-        if not variant.startswith("FastSAM-") and not variant.endswith(".onnx"):
-            variant = f"FastSAM-{variant}"
-        filename = f"{variant}.onnx" if not variant.endswith(".onnx") else variant
+        if model_path is None:
+            variant = str(model_variant).lower()
+            if variant not in MODEL_REGISTRY:
+                raise ValueError(
+                    f"Unsupported model_variant '{model_variant}'. Supported variants: {sorted(MODEL_REGISTRY.keys())}"
+                )
+            filename = MODEL_REGISTRY[variant]["filename"]
+            repo_id = MODEL_REGISTRY[variant]["repo_id"]
+        else:
+            filename = None
+            repo_id = "SpatialHub/fastsam-onnx"
 
         resolved_path = resolve_model_path(
             model_path=model_path,
-            repo_id="SpatialHub/fastsam-onnx",
-            filename=filename if model_path is None else None,
+            repo_id=repo_id,
+            filename=filename,
         )
 
         self.session = create_ort_session(
@@ -181,45 +207,36 @@ class FastSAMAdapter:
 
         return masks > 0.5
 
-    def generate_masks(
+    def _postprocess(
         self,
-        image: str | Path | np.ndarray,
-        conf_threshold: float | None = None,
-        iou_threshold: float | None = None,
+        image: np.ndarray,
+        outputs: list[np.ndarray],
+        orig_h: int,
+        orig_w: int,
+        letterbox: tuple[float, int, int, int, int],
+        conf_threshold: float,
+        iou_threshold: float,
     ) -> SegmentationResult:
-        """Generate object proposals and instance segmentation masks.
+        """Decode detections, evaluate mask prototypes, and map back to input coordinates.
 
         Args:
-            image: Input image (file path or RGB NumPy array).
-            conf_threshold: Overrides default confidence score threshold.
-            iou_threshold: Overrides default NMS IoU threshold.
+            image: Source RGB image array.
+            outputs: Raw ONNX model inference outputs (detections, prototypes).
+            orig_h: Original image height.
+            orig_w: Original image width.
+            letterbox: Tuple of (scale, pad_top, pad_bottom, pad_left, pad_right).
+            conf_threshold: Confidence score threshold for proposals.
+            iou_threshold: IoU threshold for Non-Maximum Suppression.
 
         Returns:
-            SegmentationResult:
-                Dataclass containing image, bounding boxes, binary masks, and scores.
+            SegmentationResult: Filtered boxes, masks, and confidence scores.
         """
-        conf_thresh = conf_threshold if conf_threshold is not None else self.default_conf_threshold
-        iou_thresh = iou_threshold if iou_threshold is not None else self.default_iou_threshold
-
-        if isinstance(image, (str, Path)):
-            image = load_image(image, color_mode="RGB")
-
-        orig_h, orig_w = image.shape[:2]
-
-        # Preprocessing
-        input_tensor, letterbox = self._preprocess(image, orig_h, orig_w)
-
-        # Model inference
-        outputs = self.session.run(None, {self.input_name: input_tensor})
-
-        # Decode Detections
         boxes, scores, mask_coeffs = self._decode_predictions(
             output=outputs[0],
-            conf_threshold=conf_thresh,
-            iou_threshold=iou_thresh,
+            conf_threshold=conf_threshold,
+            iou_threshold=iou_threshold,
         )
 
-        # Safe return on zero detections
         if len(boxes) == 0:
             return SegmentationResult(
                 image=image,
@@ -228,7 +245,6 @@ class FastSAMAdapter:
                 scores=np.empty((0,), dtype=np.float32),
             )
 
-        # Decode Masks & Scale Boxes
         prototypes = outputs[1][0]
         masks = self._decode_masks(
             mask_coeffs,
@@ -252,4 +268,55 @@ class FastSAMAdapter:
             scores=scores.astype(np.float32),
         )
 
+    def generate_masks(
+        self,
+        image: str | Path | np.ndarray,
+        conf_threshold: float | None = None,
+        iou_threshold: float | None = None,
+    ) -> SegmentationResult:
+        """Generate object proposals and instance segmentation masks.
+
+        Args:
+            image: Input image (file path or RGB NumPy array).
+            conf_threshold: Overrides default confidence score threshold.
+            iou_threshold: Overrides default NMS IoU threshold.
+
+        Returns:
+            SegmentationResult: Dataclass containing image, bounding boxes, binary masks, and scores.
+        """
+        conf_thresh = conf_threshold if conf_threshold is not None else self.default_conf_threshold
+        iou_thresh = iou_threshold if iou_threshold is not None else self.default_iou_threshold
+
+        if isinstance(image, (str, Path)):
+            image = load_image(image, color_mode="RGB")
+
+        orig_h, orig_w = image.shape[:2]
+
+        # Preprocessing
+        input_tensor, letterbox = self._preprocess(image, orig_h, orig_w)
+
+        # Model inference
+        outputs = self.session.run(None, {self.input_name: input_tensor})
+
+        # Postprocessing
+        return self._postprocess(
+            image=image,
+            outputs=outputs,
+            orig_h=orig_h,
+            orig_w=orig_w,
+            letterbox=letterbox,
+            conf_threshold=conf_thresh,
+            iou_threshold=iou_thresh,
+        )
+
+    def __enter__(self) -> FastSAMAdapter:
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        self.close()
+
+    def close(self) -> None:
+        """Release underlying ONNX Runtime inference session and associated resources."""
+        if getattr(self, "session", None) is not None:
+            self.session = None
 

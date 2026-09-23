@@ -8,10 +8,10 @@
 
 `FastSAMAdapter` supports 2 YOLOv8-Seg model variants via `model_variant`:
 
-| Model Variant (`model_variant`) | ONNX File | Description | Target Performance |
-| :--- | :--- | :--- | :--- |
-| `"FastSAM-x"` or `"x"` (Default) | `FastSAM-x.onnx` | Extra Large YOLOv8-Seg backbone. | Highest segmentation proposal quality and fine mask boundary precision. |
-| `"FastSAM-s"` or `"s"` | `FastSAM-s.onnx` | Small YOLOv8-Seg backbone. | Lightweight real-time proposal generation for edge/mobile devices. |
+| Model Variant (`model_variant`) | ONNX File | Description |
+| :--- | :--- | :--- |
+| `"x"` (Default) | `FastSAM-x.onnx` | Extra Large YOLOv8-Seg backbone variant. |
+| `"s"` | `FastSAM-s.onnx` | Small YOLOv8-Seg backbone variant. |
 
 ---
 
@@ -72,7 +72,7 @@ from spatialhub import FastSAM
 
 # Initialize FastSAM adapter
 segmentor = FastSAM(
-    model_variant="FastSAM-x",
+    model_variant="x",
     providers=["CUDAExecutionProvider", "CPUExecutionProvider"]
 )
 

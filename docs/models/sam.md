@@ -10,9 +10,9 @@
 
 | Model Variant (`model_variant`) | Encoder ONNX File | Decoder ONNX File | Description |
 | :--- | :--- | :--- | :--- |
-| `"sam_vit_h"` or `"vit_h"` (Default) | `sam_vit_h_encoder.onnx` | `sam_vit_h_decoder.onnx` | ViT-Huge backbone (highest mask quality & boundary precision). |
-| `"sam_vit_l"` or `"vit_l"` | `sam_vit_l_encoder.onnx` | `sam_vit_l_decoder.onnx` | ViT-Large backbone (balanced memory footprint & speed). |
-| `"sam_vit_b"` or `"vit_b"` | `sam_vit_b_encoder.onnx` | `sam_vit_b_decoder.onnx` | ViT-Base backbone (lightweight execution for fast inference). |
+| `"vit_h"` (Default) | `vit_h_encoder.onnx` | `vit_h_decoder.onnx` | ViT-Huge backbone variant. |
+| `"vit_l"` | `vit_l_encoder.onnx` | `vit_l_decoder.onnx` | ViT-Large backbone variant. |
+| `"vit_b"` | `vit_b_encoder.onnx` | `vit_b_decoder.onnx` | ViT-Base backbone variant. |
 
 ---
 
@@ -72,7 +72,7 @@ from spatialhub import SAM
 
 # Initialize SAM adapter with ViT-H encoder/decoder ONNX sessions
 segmentor = SAM(
-    model_variant="sam_vit_h",
+    model_variant="vit_h",
     providers=["CUDAExecutionProvider", "CPUExecutionProvider"]
 )
 

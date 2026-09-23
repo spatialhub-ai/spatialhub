@@ -56,7 +56,7 @@ cv2.imwrite("depth_output.png", cv2.cvtColor(colorized, cv2.COLOR_RGB2BGR))
 from spatialhub import DINOV2
 
 # Initialize DINOv2 feature extractor
-extractor = DINOV2(model_variant="dinov2_vitl14")
+extractor = DINOV2(model_variant="vitl14")
 
 # Extract global L2-normalized CLS token embedding
 result = extractor.extract_features("object.png", l2_normalize=True)
@@ -72,7 +72,7 @@ print("Embedding shape:", result.features.shape)  # (1, 1024)
 from spatialhub import FastSAM
 
 # Initialize FastSAM proposal segmentor
-segmentor = FastSAM(model_variant="FastSAM-x")
+segmentor = FastSAM(model_variant="x")
 
 # Generate mask proposals
 result = segmentor.generate_masks("scene.png", conf_threshold=0.3)
@@ -89,7 +89,7 @@ result.visualize_mask(save_path="fastsam_output.png")
 from spatialhub import SAM
 
 # Initialize SAM grid segmentor
-segmentor = SAM(model_variant="sam_vit_h")
+segmentor = SAM(model_variant="vit_h")
 
 # Grid-sample point prompts across image
 result = segmentor.generate_masks("image.jpg", points_per_side=32)

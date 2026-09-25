@@ -25,7 +25,13 @@ _MODEL_EXPORTS: dict[str, tuple[str, str]] = {
     "SAM": (".models.sam", "SAMAdapter"),
 }
 
+try:
+    from ._version import __version__
+except ImportError:
+    __version__ = "0.0.0.dev0"
+
 __all__ = [
+    "__version__",
     "CNOS",
     "DINOv2",
     "DepthAnything3",

@@ -32,6 +32,7 @@ class TestFastSAMAdapterInit:
             assert adapter.imgsz == 640
             assert adapter.default_conf_threshold == 0.05
             assert adapter.default_iou_threshold == 0.7
+            assert adapter.default_max_det == 50
             assert adapter.input_name == "images"
             mock_resolve.assert_called_once_with(
                 model_path=None,
@@ -56,11 +57,13 @@ class TestFastSAMAdapterInit:
                 imgsz=320,
                 conf_threshold=0.25,
                 iou_threshold=0.5,
+                max_det=100,
             )
 
             assert adapter.imgsz == 320
             assert adapter.default_conf_threshold == 0.25
             assert adapter.default_iou_threshold == 0.5
+            assert adapter.default_max_det == 100
             assert adapter.input_name == "input_0"
             mock_resolve.assert_called_once_with(
                 model_path=None,
@@ -250,6 +253,27 @@ class TestFastSAMInference:
         assert result.boxes.shape == (0, 4)
         assert result.masks.shape == (0, 480, 640)
         assert result.scores.shape == (0,)
+
+    def test_generate_masks_max_det(self):
+        """Test that max_det parameter constrains total returned detections."""
+        adapter = self._create_mock_adapter(imgsz=640)
+
+        # 5 distinct detections
+        out0 = np.zeros((1, 37, 5), dtype=np.float32)
+        for i in range(5):
+            out0[0, :4, i] = [100 * (i + 1), 100 * (i + 1), 50, 50]
+            out0[0, 4, i] = 0.5 + 0.1 * i
+            out0[0, 5:, i] = 1.0
+
+        out1 = np.ones((1, 32, 160, 160), dtype=np.float32)
+        adapter.session.run.return_value = [out0, out1]
+
+        dummy_img = np.zeros((480, 640, 3), dtype=np.uint8)
+        result = adapter.generate_masks(dummy_img, max_det=2)
+
+        assert len(result.scores) == 2
+        assert result.boxes.shape == (2, 4)
+        assert result.masks.shape == (2, 480, 640)
 
     def test_generate_masks_closed_session_raises(self):
         """Test exception when attempting inference after closing session resources."""

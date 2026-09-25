@@ -223,3 +223,34 @@ class TestCreateOrtSession:
             create_ort_session(fake_model, providers=["CUDAExecutionProvider", "CPUExecutionProvider"])
             assert "Session initialized on provider: CUDAExecutionProvider" in caplog.text
 
+
+class TestLazyModuleImports:
+    """Test PEP 562 dynamic lazy loading of models and utilities."""
+
+    def test_lazy_load_known_models(self):
+        import spatialhub
+        from spatialhub.models.efficient_loftr.adapter import EfficientLoFTRAdapter
+
+        assert spatialhub.EfficientLoFTR is EfficientLoFTRAdapter
+        assert "EfficientLoFTR" in dir(spatialhub)
+
+    def test_lazy_load_invalid_attribute_raises(self):
+        import spatialhub
+
+        with pytest.raises(AttributeError, match="has no attribute 'NonExistentModel'"):
+            _ = spatialhub.NonExistentModel
+
+    def test_lazy_load_models_package(self):
+        import spatialhub.models as models
+        from spatialhub.models.dinov2.adapter import DINOv2Adapter
+
+        assert models.DINOv2 is DINOv2Adapter
+        assert "DINOv2" in dir(models)
+
+    def test_lazy_load_utils_package(self):
+        import spatialhub.utils as utils
+
+        assert hasattr(utils, "load_image")
+        assert "TemplateRenderer" in dir(utils)
+
+

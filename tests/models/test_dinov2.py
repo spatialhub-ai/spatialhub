@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
-from spatialhub import DINOV2
+from spatialhub import DINOv2
 from spatialhub.models.dinov2.adapter import DINOv2Adapter
 from spatialhub.structures import FeatureExtractionResult
 
@@ -63,7 +63,7 @@ class TestDINOv2Init:
 
             mock_session.return_value = mock_session_instance
 
-            adapter = DINOV2(model_variant=variant, target_size=224, providers=["CPUExecutionProvider"])
+            adapter = DINOv2(model_variant=variant, target_size=224, providers=["CPUExecutionProvider"])
 
             mock_resolve.assert_called_once_with(
                 model_path=None,

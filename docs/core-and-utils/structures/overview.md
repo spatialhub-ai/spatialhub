@@ -20,7 +20,7 @@ from spatialhub.structures import (
 | :--- | :--- | :--- | :--- |
 | [**`MatchResult`**](match_result.md) | Semi-dense Feature Matching | [`EfficientLoFTR`](../../models/eloftr.md) | `keypoints_a`, `keypoints_b`, `confidence` |
 | [**`DepthPredictionResult`**](depth_prediction_result.md) | Monocular & Multi-View Depth | [`DepthAnything3`](../../models/depthanything3.md) | `depth`, `conf`, `intrinsics`, `depth_type` |
-| [**`FeatureExtractionResult`**](feature_extraction_result.md) | Feature Extraction & Embeddings | [`DINOV2`](../../models/dinov2.md) | `features`, `embedding_type`, `l2_normalized` |
+| [**`FeatureExtractionResult`**](feature_extraction_result.md) | Feature Extraction & Embeddings | [`DINOv2`](../../models/dinov2.md) | `features`, `embedding_type`, `l2_normalized` |
 | [**`SegmentationResult`**](segmentation_result.md) | Instance Segmentation & AMG | [`FastSAM`](../../models/fastsam.md), [`SAM`](../../models/sam.md), [`CNOS`](../../models/cnos.md) | `boxes`, `masks`, `scores`, `class_ids` |
 | [**`PoseEstimationResult`**](pose_estimation_result.md) | 6D Object Pose Estimation & Tracking | [`FoundationPose`](../../models/foundationpose.md) | `poses`, `best_pose`, `best_score`, `bbox_3d` |
 

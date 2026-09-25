@@ -22,9 +22,9 @@ from spatialhub.structures import FeatureExtractionResult
 ## Usage Example
 
 ```python
-from spatialhub import DINOV2
+from spatialhub import DINOv2
 
-extractor = DINOV2(model_variant="dinov2_vitl14")
+extractor = DINOv2(model_variant="dinov2_vitl14")
 result = extractor.extract_features(["frame_a.png", "frame_b.png"])
 
 print(f"Features shape: {result.features.shape}")  # (2, 1024)

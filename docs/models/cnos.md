@@ -75,12 +75,12 @@ uv run tools/export/export_sam.py --variant vit_h --output-folder onnx_weight
 ### Usage with FastSAM Segmentor (Real-Time)
 
 ```python
-from spatialhub import CNOS, DINOV2, FastSAM
+from spatialhub import CNOS, DINOv2, FastSAM
 
 providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
 
 # Initialize sub-adapters
-descriptor = DINOV2(model_variant="dinov2_vitl14", providers=providers)
+descriptor = DINOv2(model_variant="dinov2_vitl14", providers=providers)
 segmentor = FastSAM(model_variant="FastSAM-x", providers=providers)
 
 # Initialize CNOS with FastSAM segmentor
@@ -99,12 +99,12 @@ result.visualize_mask(save_path="cnos_fastsam_detection.png")
 ### Usage with SAM Segmentor (High-Precision AMG)
 
 ```python
-from spatialhub import CNOS, DINOV2, SAM
+from spatialhub import CNOS, DINOv2, SAM
 
 providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
 
 # Initialize sub-adapters
-descriptor = DINOV2(model_variant="dinov2_vitl14", providers=providers)
+descriptor = DINOv2(model_variant="dinov2_vitl14", providers=providers)
 segmentor = SAM(model_variant="sam_vit_h", providers=providers)
 
 # Initialize CNOS with SAM segmentor

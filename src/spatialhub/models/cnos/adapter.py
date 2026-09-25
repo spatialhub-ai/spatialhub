@@ -14,7 +14,7 @@ from spatialhub.utils import (
     square_crop_and_resize,
 )
 
-from spatialhub.models.dinov2 import DINOv2Adapter as DINOV2
+from spatialhub.models.dinov2 import DINOv2Adapter as DINOv2
 from spatialhub.models.fastsam import FastSAMAdapter as FastSAM
 from spatialhub.models.sam import SAMAdapter as SAM
 
@@ -34,7 +34,7 @@ class CNOSAdapter:
         self,
         model_path: str | Path,
         model_unit: str = "mm",
-        descriptor: DINOV2 | None = None,
+        descriptor: DINOv2 | None = None,
         segmentor: FastSAM | SAM | None = None,
         providers: list[str] | str | None = None,
     ) -> None:
@@ -61,7 +61,7 @@ class CNOSAdapter:
         self.providers = providers or ["CUDAExecutionProvider", "CPUExecutionProvider"]
 
         self.segmentor: FastSAM | SAM = segmentor if segmentor else self._init_segmentor()
-        self.descriptor: DINOV2 = descriptor if descriptor else self._init_descriptor()
+        self.descriptor: DINOv2 = descriptor if descriptor else self._init_descriptor()
 
         self.ref_features: np.ndarray | None = None
         self._initialize_templates_and_features()
@@ -70,9 +70,9 @@ class CNOSAdapter:
         """Initialize default FastSAM segmentor."""
         return FastSAM(providers=self.providers)
 
-    def _init_descriptor(self) -> DINOV2:
+    def _init_descriptor(self) -> DINOv2:
         """Initialize default DINOv2 descriptor."""
-        return DINOV2(providers=self.providers)
+        return DINOv2(providers=self.providers)
 
     def _setup_cache(self) -> None:
         """Create cache directories for object templates and descriptors."""

@@ -10,7 +10,7 @@ SpatialHub provides ONNX Runtime adapters for 7 computer vision model architectu
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **EfficientLoFTR** | Semi-dense Feature Matching | `EfficientLoFTR` | `"full"` (Default), `"opt"` | N/A | [`MatchResult`](../core-and-utils/structures/match_result.md) |
 | **Depth Anything 3** | Monocular & Multi-View Depth | `DepthAnything3` | `"da3_small"`, `"da3_base"` (Default), `"da3_large"`, `"da3_giant"`, `"da3mono_large"`, `"da3metric_large"`, `"da3nested_*_large"` | N/A | [`DepthPredictionResult`](../core-and-utils/structures/depth_prediction_result.md) |
-| **DINOv2** | Image Feature Extraction | `DINOV2` | `"vits14"`, `"vitb14"`, `"vitl14"` (Default), `"vitg14"` | N/A | [`FeatureExtractionResult`](../core-and-utils/structures/feature_extraction_result.md) |
+| **DINOv2** | Image Feature Extraction | `DINOv2` | `"vits14"`, `"vitb14"`, `"vitl14"` (Default), `"vitg14"` | N/A | [`FeatureExtractionResult`](../core-and-utils/structures/feature_extraction_result.md) |
 | **FastSAM** | Real-Time Proposal Segmentation | `FastSAM` | `"x"` (Default), `"s"` | N/A | [`SegmentationResult`](../core-and-utils/structures/segmentation_result.md) |
 | **SAM** | Automatic Mask Generation (AMG) | `SAM` | `"vit_h"` (Default), `"vit_l"`, `"vit_b"` | N/A | [`SegmentationResult`](../core-and-utils/structures/segmentation_result.md) |
 | **CNOS** | CAD Zero-Shot Object Segmentation | `CNOS` | 3D CAD Mesh (`.ply`, `.obj`, `.stl`) | **Segmentors:** `FastSAMAdapter`, `SAMAdapter`<br>**Descriptor:** `DINOv2Adapter` | [`SegmentationResult`](../core-and-utils/structures/segmentation_result.md) |

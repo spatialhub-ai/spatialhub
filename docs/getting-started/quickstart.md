@@ -53,10 +53,10 @@ cv2.imwrite("depth_output.png", cv2.cvtColor(colorized, cv2.COLOR_RGB2BGR))
 ## 3. Image Embeddings (DINOv2)
 
 ```python
-from spatialhub import DINOV2
+from spatialhub import DINOv2
 
 # Initialize DINOv2 feature extractor
-extractor = DINOV2(model_variant="vitl14")
+extractor = DINOv2(model_variant="vitl14")
 
 # Extract global L2-normalized CLS token embedding
 result = extractor.extract_features("object.png", l2_normalize=True)
@@ -103,12 +103,12 @@ result.visualize_mask(save_path="sam_output.png")
 ## 6. CAD Zero-Shot Detection (CNOS)
 
 ```python
-from spatialhub import CNOS, DINOV2, FastSAM
+from spatialhub import CNOS, DINOv2, FastSAM
 
 providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
 
 # Initialize sub-adapters
-descriptor = DINOV2(providers=providers)
+descriptor = DINOv2(providers=providers)
 segmentor = FastSAM(providers=providers)
 
 # Initialize CNOS adapter with 3D CAD mesh file

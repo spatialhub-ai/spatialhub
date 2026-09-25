@@ -24,8 +24,8 @@ Documentation = "https://spatialhub-ai.github.io/spatialhub/"
 Repository = "https://github.com/spatialhub-ai/spatialhub.git"
 
 [project.optional-dependencies]
-cpu = ["onnxruntime>=1.27.0"]
-gpu = ["onnxruntime-gpu>=1.19.2"]
+cpu = ["onnxruntime>=1.19.0"]
+gpu = ["onnxruntime-gpu>=1.19.0"]
 render = [
     "trimesh>=5.0.0", 
     "scipy>=1.13.0",

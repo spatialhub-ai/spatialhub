@@ -5,9 +5,8 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-import onnxruntime as ort
 
-from spatialhub.core.runtime import create_ort_session, resolve_model_path
+from spatialhub.core.runtime import create_ort_session, resolve_model_path, ort
 from spatialhub.structures import DepthPredictionResult
 
 from .input_processor import InputProcessor

@@ -4,7 +4,19 @@ from pathlib import Path
 from typing import Any
 
 from huggingface_hub import hf_hub_download
-import onnxruntime as ort
+
+try:
+    import onnxruntime as ort
+except ImportError:
+    raise ImportError(
+        "SpatialHub requires an ONNX Runtime backend for model inference.\n"
+        "Install the package for your hardware setup:\n"
+        "  - CPU:                       pip install \"spatialhub[cpu]\"\n"
+        "  - NVIDIA GPU (CUDA):         pip install \"spatialhub[gpu]\"\n"
+        "  - CPU with 3D CAD rendering: pip install \"spatialhub[cpu,render]\"\n"
+        "  - GPU with 3D CAD rendering: pip install \"spatialhub[gpu,render]\"\n\n"
+        "Note: Do not install both 'onnxruntime' and 'onnxruntime-gpu' in the same environment."
+    ) from None
 
 logger = logging.getLogger(__name__)
 

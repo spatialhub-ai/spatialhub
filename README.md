@@ -5,44 +5,44 @@
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-A lightweight, PyTorch-free spatial AI and perception library providing unified ONNX Runtime inference adapters for computer vision and 3D spatial computing models.
+A spatial AI and perception library providing unified ONNX Runtime inference adapters for computer vision and 3D spatial computing models.
 
 ---
 
 ## Motivation & Architecture
 
-Modern 3D spatial vision systems (such as 6D object pose estimation, Visual SLAM, and 3D reconstruction) are multi-stage pipelines composed of representation learning, geometric matching, depth prediction, proposal segmentation, and pose optimization.
+3D spatial vision systems (such as 6D object pose estimation, Visual SLAM, and 3D reconstruction) are multi-stage pipelines composed of representation learning, geometric matching, depth prediction, proposal segmentation, and pose optimization.
 
-In practice, integrating research models into these pipelines presents key engineering challenges:
-* **Fragmented Interfaces:** Research models use varying coordinate conventions, custom dictionary formats, and disparate output tensor dimensions.
-* **Dependency Conflicts:** Combining multiple models often introduces conflicting PyTorch versions, CUDA compilation toolkits, and heavy deployment footprints.
+In practice, integrating multiple vision models into a unified pipeline presents practical challenges:
+* **Interface Variations:** Models differ in coordinate conventions, dictionary formats, and output tensor dimensions.
+* **Environment Conflicts:** Combining distinct model implementations often introduces dependency conflicts and heavy runtime footprints.
 
-SpatialHub addresses this by establishing **standardized, modular return contracts** on top of a **zero-PyTorch ONNX Runtime engine**:
+SpatialHub addresses this by providing standardized dataclass returns over a unified ONNX Runtime execution layer:
 
 ```text
-1. Sensor & Asset Inputs                2. Perception Adapters (ONNX)       3. Standardized Contracts
+Sensor & Asset Inputs                   Perception Adapters (ONNX)          Standardized Dataclasses
 ─────────────────────────────────      ─────────────────────────────       ─────────────────────────
 Single RGB Image                  ───►  DINOv2 (Feature Extraction)   ───►  FeatureExtractionResult
 Image Pair                        ───►  EfficientLoFTR (Matching)     ───►  MatchResult
 RGB Images + Intrinsics (K)       ───►  Depth Anything 3 (Depth)      ───►  DepthPredictionResult
 RGB Image + CAD Mesh (.ply)       ───►  FastSAM / SAM / CNOS (Masks)  ───►  SegmentationResult
 RGB-D + Intrinsics (K) + CAD Mesh ───►  FoundationPose (6D Pose)      ───►  PoseEstimationResult
-                                                                                        │
-                                                                                        ▼
-4. Downstream 3D Spatial Systems (Visual SLAM, 3D Reconstruction, Robotics Manipulation)
+                                                                                    │
+                                                                                    ▼
+Downstream Systems (Visual SLAM, 3D Reconstruction, Robotics Manipulation)
 ```
 
-Downstream spatial algorithms operate directly on these standardized dataclasses, allowing individual models to be swapped in a plug-and-play manner without modifying downstream pipeline logic.
+Downstream spatial algorithms operate on these return types, allowing models to be interchanged without modifying downstream pipeline logic.
 
 ---
 
 ## Key Principles
 
-- **Modular Return Contracts:** Standardized dataclass outputs across all model families ([`MatchResult`](https://spatialhub-ai.github.io/spatialhub/core-and-utils/structures/match_result/), [`DepthPredictionResult`](https://spatialhub-ai.github.io/spatialhub/core-and-utils/structures/depth_prediction_result/), [`FeatureExtractionResult`](https://spatialhub-ai.github.io/spatialhub/core-and-utils/structures/feature_extraction_result/), [`SegmentationResult`](https://spatialhub-ai.github.io/spatialhub/core-and-utils/structures/segmentation_result/), [`PoseEstimationResult`](https://spatialhub-ai.github.io/spatialhub/core-and-utils/structures/pose_estimation_result/)).
-- **Zero-PyTorch Inference:** Core runtime paths execute exclusively on **ONNX Runtime** with pure NumPy and OpenCV vector operations.
-- **Automatic Weight Management:** Downloads, verifies, and caches pretrained `.onnx` weight binaries from Hugging Face Hub.
-- **Hardware Acceleration:** Native support for CPU, CUDA, and TensorRT execution providers with runtime fallback verification.
-- **ModernGL GPU Rendering:** Built-in headless offscreen G-buffer and batched atlas renderer for CAD model template matching and 6D pose estimation.
+- **Standardized Return Contracts:** Dataclass structures across model families ([`MatchResult`](https://spatialhub-ai.github.io/spatialhub/core-and-utils/structures/match_result/), [`DepthPredictionResult`](https://spatialhub-ai.github.io/spatialhub/core-and-utils/structures/depth_prediction_result/), [`FeatureExtractionResult`](https://spatialhub-ai.github.io/spatialhub/core-and-utils/structures/feature_extraction_result/), [`SegmentationResult`](https://spatialhub-ai.github.io/spatialhub/core-and-utils/structures/segmentation_result/), [`PoseEstimationResult`](https://spatialhub-ai.github.io/spatialhub/core-and-utils/structures/pose_estimation_result/)).
+- **ONNX Runtime Execution:** Inference executes via ONNX Runtime with NumPy and OpenCV vector operations.
+- **Model Weight Resolution:** Automatically fetches and caches `.onnx` weight files from Hugging Face Hub.
+- **Hardware Acceleration:** Supports CPU, CUDA, and TensorRT execution providers.
+- **Offscreen Rendering Utilities:** Headless G-buffer and batched atlas renderer for CAD mesh template matching and pose estimation.
 
 ---
 
@@ -53,81 +53,94 @@ Downstream spatial algorithms operate directly on these standardized dataclasses
 | **FoundationPose** | 6D Object Pose Estimation & Tracking | 3D CAD Mesh (`.ply`, `.obj`, `.stl`) | [`PoseEstimationResult`](https://spatialhub-ai.github.io/spatialhub/core-and-utils/structures/pose_estimation_result/) | [Docs](https://spatialhub-ai.github.io/spatialhub/models/foundationpose/) • [README](./src/spatialhub/models/foundationpose/README.md) |
 | **EfficientLoFTR** | Semi-dense Feature Matching | `"full"` or `"opt"` | [`MatchResult`](https://spatialhub-ai.github.io/spatialhub/core-and-utils/structures/match_result/) | [Docs](https://spatialhub-ai.github.io/spatialhub/models/eloftr/) • [README](./src/spatialhub/models/efficient_loftr/README.md) |
 | **Depth Anything 3** | Monocular & Multi-View Depth | `"da3_base"` (small/large/giant/metric/nested) | [`DepthPredictionResult`](https://spatialhub-ai.github.io/spatialhub/core-and-utils/structures/depth_prediction_result/) | [Docs](https://spatialhub-ai.github.io/spatialhub/models/depthanything3/) • [README](./src/spatialhub/models/depth_anything_3/README.md) |
-| **DINOv2** | Image Feature Extraction | `"dinov2_vitl14"` (vits14/vitb14/vitg14) | [`FeatureExtractionResult`](https://spatialhub-ai.github.io/spatialhub/core-and-utils/structures/feature_extraction_result/) | [Docs](https://spatialhub-ai.github.io/spatialhub/models/dinov2/) • [README](./src/spatialhub/models/dinov2/README.md) |
-| **FastSAM** | Real-Time Proposal Segmentation | `"FastSAM-x"` or `"FastSAM-s"` | [`SegmentationResult`](https://spatialhub-ai.github.io/spatialhub/core-and-utils/structures/segmentation_result/) | [Docs](https://spatialhub-ai.github.io/spatialhub/models/fastsam/) • [README](./src/spatialhub/models/fastsam/README.md) |
-| **SAM** | Automatic Mask Generation (AMG) | `"sam_vit_h"` (vit_l/vit_b) | [`SegmentationResult`](https://spatialhub-ai.github.io/spatialhub/core-and-utils/structures/segmentation_result/) | [Docs](https://spatialhub-ai.github.io/spatialhub/models/sam/) • [README](./src/spatialhub/models/sam/README.md) |
+| **DINOv2** | Image Feature Extraction | `"vitl14"` (vits14/vitb14/vitg14) | [`FeatureExtractionResult`](https://spatialhub-ai.github.io/spatialhub/core-and-utils/structures/feature_extraction_result/) | [Docs](https://spatialhub-ai.github.io/spatialhub/models/dinov2/) • [README](./src/spatialhub/models/dinov2/README.md) |
+| **FastSAM** | Real-Time Proposal Segmentation | `"x"` or `"s"` | [`SegmentationResult`](https://spatialhub-ai.github.io/spatialhub/core-and-utils/structures/segmentation_result/) | [Docs](https://spatialhub-ai.github.io/spatialhub/models/fastsam/) • [README](./src/spatialhub/models/fastsam/README.md) |
+| **SAM** | Automatic Mask Generation (AMG) | `"vit_h"` (vit_l/vit_b) | [`SegmentationResult`](https://spatialhub-ai.github.io/spatialhub/core-and-utils/structures/segmentation_result/) | [Docs](https://spatialhub-ai.github.io/spatialhub/models/sam/) • [README](./src/spatialhub/models/sam/README.md) |
 | **CNOS** | CAD Zero-Shot Object Detection | 3D CAD Mesh (`.ply`, `.obj`, `.stl`) | [`SegmentationResult`](https://spatialhub-ai.github.io/spatialhub/core-and-utils/structures/segmentation_result/) | [Docs](https://spatialhub-ai.github.io/spatialhub/models/cnos/) • [README](./src/spatialhub/models/cnos/README.md) |
 
 ---
 
 ## Installation
 
-Requires **Python 3.12+**.
+Requires **Python 3.12+**. Choose the installation for your hardware setup:
 
+### Standard Installation
+
+For CPU inference:
 ```bash
-pip install spatialhub
+pip install "spatialhub[cpu]"
 ```
 
-For GPU acceleration (CUDA / TensorRT):
-
+For NVIDIA GPU acceleration (CUDA / TensorRT):
 ```bash
 pip install "spatialhub[gpu]"
 ```
 
-For 3D CAD mesh processing and ModernGL rendering:
+### 3D CAD & Rendering Installation
 
+For workflows requiring 3D CAD mesh loading and template rendering (e.g. FoundationPose, CNOS):
+
+For CPU with rendering:
 ```bash
-pip install "spatialhub[render]"
+pip install "spatialhub[cpu,render]"
 ```
+
+For GPU with rendering:
+```bash
+pip install "spatialhub[gpu,render]"
+```
+
+> [!NOTE]
+> Do not install both `onnxruntime` and `onnxruntime-gpu` in the same Python environment as their binary namespaces conflict.
 
 ---
 
 ## Quickstart
 
 ```python
-from spatialhub import FoundationPose, EfficientLoFTR, DepthAnything3, DINOV2, FastSAM, SAM, CNOS
+from spatialhub import FoundationPose, EfficientLoFTR, DepthAnything3, DINOv2, FastSAM, SAM, CNOS
 
-# 1. 6D Object Pose Estimation (FoundationPose)
+# 6D Object Pose Estimation (FoundationPose)
 est = FoundationPose(
     model_path="mesh.obj",
     model_unit="mm",
     scorer_weights="scorer.onnx",
-    refiner_weights="refiner.onnx"
+    refiner_weights="refiner.onnx",
 )
 pose_res = est.estimate(rgb=rgb_img, depth=depth_img, K=cam_K, mask=obj_mask)
 pose_res.visualize(draw_bbox=True, draw_axes=True, save_path="pose.png")
 
-# 2. Feature Matching (EfficientLoFTR)
+# Feature Matching (EfficientLoFTR)
 matcher = EfficientLoFTR()
 match_res = matcher.match("img1.jpg", "img2.jpg", max_dim=1024)
 match_res.visualize(top_k=50, save_path="matches.png")
 
-# 3. Depth Estimation (Depth Anything 3)
+# Depth Estimation (Depth Anything 3)
 estimator = DepthAnything3(model_name="da3_base")
 depth_res = estimator.estimate_depth(images=["view1.png", "view2.png"])
 depth_viz = estimator.visualize(depth_res.depth[0])
 
-# 4. Feature Embeddings (DINOv2)
-dino = DINOV2(model_variant="dinov2_vitl14")
+# Feature Extraction (DINOv2)
+dino = DINOv2(model_variant="vitl14")
 feat_res = dino.extract_features("image.png", l2_normalize=True)
 
-# 5. Proposal Segmentation (FastSAM)
-fastsam = FastSAM(model_variant="FastSAM-x")
+# Proposal Segmentation (FastSAM)
+fastsam = FastSAM(model_variant="x")
 seg_res = fastsam.generate_masks("scene.png", conf_threshold=0.3)
 seg_res.visualize_mask(save_path="fastsam_masks.png")
 ```
 
 ---
 
-## Reproducible ONNX Export Workflow
+## ONNX Export
 
-Standalone ONNX export utilities are located under `tools/export/` to export models using PyTorch source repositories under `upstream/`:
+Export scripts for generating `.onnx` models from source repositories are located under `tools/export/`:
 
 ```bash
 uv run tools/export/export_efficient_loftr.py --checkpoint weights/eloftr_outdoor.ckpt --output-folder onnx_weight
 ```
 
-See the [Reproducible ONNX Export Guide](https://spatialhub-ai.github.io/spatialhub/core-and-utils/export/) for complete documentation.
+See the [ONNX Export Guide](https://spatialhub-ai.github.io/spatialhub/core-and-utils/export/) for options and details.
 
 ---
 

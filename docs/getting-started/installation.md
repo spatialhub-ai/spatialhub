@@ -4,53 +4,64 @@ SpatialHub requires **Python 3.12+**.
 
 ---
 
-## 1. Installation via PyPI
+## PyPI Installation
 
-Install the lightweight CPU package directly from PyPI:
+Choose the appropriate installation command for your hardware and target tasks:
 
+### Standard Installation
+
+For CPU inference:
 ```bash
-pip install spatialhub
+pip install "spatialhub[cpu]"
 ```
 
-### Optional Hardware & Rendering Extras
-
-For GPU hardware acceleration via CUDA:
-
+For NVIDIA GPU acceleration (CUDA / TensorRT):
 ```bash
 pip install "spatialhub[gpu]"
 ```
 
-For 3D CAD mesh template rendering support:
+### 3D CAD & Rendering Installation
 
+For workflows requiring 3D CAD mesh loading and template rendering (e.g. FoundationPose, CNOS):
+
+For CPU with rendering:
 ```bash
-pip install "spatialhub[render]"
+pip install "spatialhub[cpu,render]"
 ```
+
+For GPU with rendering:
+```bash
+pip install "spatialhub[gpu,render]"
+```
+
+!!! note "Backend Conflict Warning"
+    Do not install both `onnxruntime` and `onnxruntime-gpu` in the same Python virtual environment as their binary C++ namespaces conflict.
 
 ---
 
-## 2. Local Workspace & Development Setup
+## Development Setup
 
-SpatialHub uses **`uv`** for virtual environment management and project synchronization.
+SpatialHub uses `uv` for virtual environment management and project synchronization.
 
-### Step 1: Clone Repository
+### Clone Repository
 ```bash
 git clone https://github.com/spatialhub-ai/spatialhub.git
 cd spatialhub
 ```
 
-### Step 2: Install `uv` & Sync Dependencies
+### Environment Synchronization
 ```bash
 uv sync
 ```
 
-### Step 3: Verify Environment
+### Environment Verification
 ```bash
-uv run python -c "from spatialhub import EfficientLoFTR, DepthAnything3, CNOS, FastSAM, SAM, DINOV2; print('SpatialHub initialized successfully!')"
+uv run python -c "from spatialhub import EfficientLoFTR, DepthAnything3, CNOS, FastSAM, SAM, DINOv2; print('SpatialHub initialized successfully!')"
 ```
 
 ---
 
-## 3. Execution Providers Support Matrix
+## Execution Providers Support Matrix
 
 ONNX Runtime adapters accept execution provider configurations:
 

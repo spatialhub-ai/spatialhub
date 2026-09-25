@@ -2,9 +2,9 @@
 
 `spatialhub.utils.template_renderer.TemplateRenderer` renders 2D RGBA templates and metric depth maps from 3D CAD meshes (`.ply`, `.obj`, `.stl`, `.off`) using `trimesh` and ModernGL batched offscreen atlas rendering.
 
-> [!NOTE]
-> Rendering features require optional dependencies.
-> Install via `uv sync --extra render` or `pip install "spatialhub[render]"`.
+!!! note
+    Rendering features require optional dependencies.
+    Install via `uv sync --extra render` or `pip install "spatialhub[render]"`.
 
 ```python
 from spatialhub.utils import TemplateRenderer

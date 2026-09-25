@@ -164,8 +164,8 @@ Parity was evaluated on 30 image pairs from the [MegaDepth-1500](https://hugging
   </tbody>
 </table>
 
-> [!NOTE]
-> Keypoint coordinate error is $0.0000\text{ px}$ MAE and Max Diff across all tested configurations. Minor confidence variance ($\sim 10^{-4}$ in `full`, $\sim 10^{-3}$ in `opt`) stems from floating-point reduction order in the attention layers. Evaluated up to `max_dim=832`.
+!!! note
+    Keypoint coordinate error is $0.0000\text{ px}$ MAE and Max Diff across all tested configurations. Minor confidence variance ($\sim 10^{-4}$ in `full`, $\sim 10^{-3}$ in `opt`) stems from floating-point reduction order in the attention layers. Evaluated up to `max_dim=832`.
 
 To verify parity on a custom dataset organized into two folders with matching filenames (`folder_a/`, `folder_b/`):
 

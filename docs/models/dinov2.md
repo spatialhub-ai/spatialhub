@@ -230,9 +230,8 @@ Latency, throughput, and memory footprint measured across $10$ unmeasured warmup
       </tbody>
     </table>
 
-    > [!NOTE]
-    > **Hardware Power & Thermal Scaling on `vitg14`**:
-    > On `vitg14` (~1.1B parameters), isolated inference reflects peak GPU boost clocks (~1575 MHz at 140W TGP, ~133.9 ms). Under continuous sequential load across benchmark stages, GPU thermal management and power limits throttle operating clocks to steady-state frequencies (~1110–1200 MHz at ~89W, ~192.7 ms).
+    !!! note "Hardware Power & Thermal Scaling on `vitg14`"
+        On `vitg14` (~1.1B parameters), isolated inference reflects peak GPU boost clocks (~1575 MHz at 140W TGP, ~133.9 ms). Under continuous sequential load across benchmark stages, GPU thermal management and power limits throttle operating clocks to steady-state frequencies (~1110–1200 MHz at ~89W, ~192.7 ms).
 
 === "CPU Execution (`CPUExecutionProvider`)"
 

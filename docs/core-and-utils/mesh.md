@@ -16,9 +16,9 @@ from spatialhub.utils import (
 )
 ```
 
-> [!NOTE]
-> Mesh utilities require optional rendering dependencies.
-> Install via `uv sync --extra render` or `pip install "spatialhub[render]"`.
+!!! note
+    Mesh utilities require optional rendering dependencies.
+    Install via `uv sync --extra render` or `pip install "spatialhub[render]"`.
 
 ---
 

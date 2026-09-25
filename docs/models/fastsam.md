@@ -44,7 +44,7 @@ $$
 Symmetric padding margins form the square canvas of side $S_{\text{img}} \times S_{\text{img}}$:
 
 $$
-\begin{pmatrix} \text{pad}_{\text{top}} \\[6pt] \text{pad}_{\text{left}} \end{pmatrix} = \begin{pmatrix} \left\lfloor \frac{S_{\text{img}} - H_{\text{scaled}}}{2} \right\rfloor \\[6pt] \left\lfloor \frac{S_{\text{img}} - W_{\text{scaled}}}{2} \right\rfloor \end{pmatrix}, \qquad \begin{pmatrix} \text{pad}_{\text{bottom}} \\[6pt] \text{pad}_{\text{right}} \end{pmatrix} = \begin{pmatrix} S_{\text{img}} - H_{\text{scaled}} - \text{pad}_{\text{top}} \\[6pt] S_{\text{img}} - W_{\text{scaled}} - \text{pad}_{\text{left}} \end{pmatrix}
+\begin{pmatrix} \text{pad}_{\text{top}} \\ \text{pad}_{\text{left}} \end{pmatrix} = \begin{pmatrix} \left\lfloor \frac{S_{\text{img}} - H_{\text{scaled}}}{2} \right\rfloor \\ \left\lfloor \frac{S_{\text{img}} - W_{\text{scaled}}}{2} \right\rfloor \end{pmatrix}, \qquad \begin{pmatrix} \text{pad}_{\text{bottom}} \\ \text{pad}_{\text{right}} \end{pmatrix} = \begin{pmatrix} S_{\text{img}} - H_{\text{scaled}} - \text{pad}_{\text{top}} \\ S_{\text{img}} - W_{\text{scaled}} - \text{pad}_{\text{left}} \end{pmatrix}
 $$
 
 ### Bounding Box Decoding & Projection
@@ -52,17 +52,17 @@ $$
 For each anchor with center-format predictions $(cx, cy, w, h)$, corner coordinates are clamped to canvas boundaries $[0, S_{\text{img}}]$:
 
 $$
-\begin{pmatrix} x_1 \\[4pt] y_1 \\[4pt] x_2 \\[4pt] y_2 \end{pmatrix} = \begin{pmatrix} \text{clip}\left(cx - \frac{w}{2},\; 0,\; S_{\text{img}}\right) \\[4pt] \text{clip}\left(cy - \frac{h}{2},\; 0,\; S_{\text{img}}\right) \\[4pt] \text{clip}\left(cx + \frac{w}{2},\; 0,\; S_{\text{img}}\right) \\[4pt] \text{clip}\left(cy + \frac{h}{2},\; 0,\; S_{\text{img}}\right) \end{pmatrix}
+\begin{pmatrix} x_1 \\ y_1 \\ x_2 \\ y_2 \end{pmatrix} = \begin{pmatrix} \operatorname{clip}\left(cx - \frac{w}{2},\; 0,\; S_{\text{img}}\right) \\ \operatorname{clip}\left(cy - \frac{h}{2},\; 0,\; S_{\text{img}}\right) \\ \operatorname{clip}\left(cx + \frac{w}{2},\; 0,\; S_{\text{img}}\right) \\ \operatorname{clip}\left(cy + \frac{h}{2},\; 0,\; S_{\text{img}}\right) \end{pmatrix}
 $$
 
 Candidate boxes passing confidence threshold $s > \tau_{\text{conf}}$ and NMS IoU threshold $\tau_{\text{iou}}$ are projected back to native image dimensions:
 
 $$
 B_{\text{orig}} = \begin{pmatrix}
-\text{clip}\left(\frac{x_1 - \text{pad}_{\text{left}}}{s},\; 0,\; W_{\text{orig}}\right) \\[6pt]
-\text{clip}\left(\frac{y_1 - \text{pad}_{\text{top}}}{s},\; 0,\; H_{\text{orig}}\right) \\[6pt]
-\text{clip}\left(\frac{x_2 - \text{pad}_{\text{left}}}{s},\; 0,\; W_{\text{orig}}\right) \\[6pt]
-\text{clip}\left(\frac{y_2 - \text{pad}_{\text{top}}}{s},\; 0,\; H_{\text{orig}}\right)
+\operatorname{clip}\left(\frac{x_1 - \text{pad}_{\text{left}}}{s},\; 0,\; W_{\text{orig}}\right) \\
+\operatorname{clip}\left(\frac{y_1 - \text{pad}_{\text{top}}}{s},\; 0,\; H_{\text{orig}}\right) \\
+\operatorname{clip}\left(\frac{x_2 - \text{pad}_{\text{left}}}{s},\; 0,\; W_{\text{orig}}\right) \\
+\operatorname{clip}\left(\frac{y_2 - \text{pad}_{\text{top}}}{s},\; 0,\; H_{\text{orig}}\right)
 \end{pmatrix}
 $$
 
@@ -78,7 +78,7 @@ Mask activations are synthesized and zeroed outside proposal bounding boxes via 
 
 $$
 M_{\text{proto}}[i,\, y,\, x] = \begin{cases}
-(C_i \cdot P)_{y, x} & \text{if } x_1 \le x < x_2 \;\land\; y_1 \le y < y_2 \\[6pt]
+(C_i \cdot P)_{y, x} & \text{if } x_1 \le x < x_2 \text{ and } y_1 \le y < y_2 \\
 0 & \text{otherwise}
 \end{cases}
 $$
@@ -88,7 +88,7 @@ $$
 With prototype padding margins:
 
 $$
-\begin{pmatrix} p_{\text{top}} \\[6pt] p_{\text{left}} \end{pmatrix} = \begin{pmatrix} \left\lfloor \frac{\text{pad}_{\text{top}}}{r} \right\rfloor \\[6pt] \left\lfloor \frac{\text{pad}_{\text{left}}}{r} \right\rfloor \end{pmatrix}, \qquad \begin{pmatrix} p_{\text{bottom}} \\[6pt] p_{\text{right}} \end{pmatrix} = \begin{pmatrix} \left\lfloor \frac{\text{pad}_{\text{bottom}}}{r} \right\rfloor \\[6pt] \left\lfloor \frac{\text{pad}_{\text{right}}}{r} \right\rfloor \end{pmatrix}
+\begin{pmatrix} p_{\text{top}} \\ p_{\text{left}} \end{pmatrix} = \begin{pmatrix} \left\lfloor \frac{\text{pad}_{\text{top}}}{r} \right\rfloor \\ \left\lfloor \frac{\text{pad}_{\text{left}}}{r} \right\rfloor \end{pmatrix}, \qquad \begin{pmatrix} p_{\text{bottom}} \\ p_{\text{right}} \end{pmatrix} = \begin{pmatrix} \left\lfloor \frac{\text{pad}_{\text{bottom}}}{r} \right\rfloor \\ \left\lfloor \frac{\text{pad}_{\text{right}}}{r} \right\rfloor \end{pmatrix}
 $$
 
 Unpadded prototype masks are sliced and bilinearly upsampled to native image dimensions:
@@ -99,13 +99,13 @@ $$
 
 $$
 M_{\text{binary}} = \begin{cases}
-1 & \text{if } \text{BilinearResize}\left(M_{\text{unpadded}},\, (W_{\text{orig}}, H_{\text{orig}})\right) > 0.0 \\[6pt]
+1 & \text{if } \operatorname{Resize}\left(M_{\text{unpadded}},\, (W_{\text{orig}}, H_{\text{orig}})\right) > 0.0 \\
 0 & \text{otherwise}
 \end{cases}
 $$
 
-> [!NOTE]
-> Because the sigmoid function $\sigma(z) = \frac{1}{1 + e^{-z}}$ is monotonically strictly increasing with $\sigma(0.0) = 0.5$, evaluating $z > 0.0$ on raw logits is mathematically equivalent to $\sigma(z) > 0.5$ while avoiding floating-point transcendental exponentiation.
+!!! note
+    Because the sigmoid function $\sigma(z) = \frac{1}{1 + e^{-z}}$ is monotonically strictly increasing with $\sigma(0.0) = 0.5$, evaluating $z > 0.0$ on raw logits is mathematically equivalent to $\sigma(z) > 0.5$ while avoiding floating-point transcendental exponentiation.
 
 ---
 
@@ -154,8 +154,8 @@ Latency, throughput, and memory footprint measured across $10$ unmeasured warmup
     | Postprocess | `CPU` | 25.17 +/- 2.57 | 24.84 | 31.22 | **39.7** | +1.7 MB |
     | End-to-End | `CPU` | 1131.42 +/- 37.23 | 1127.19 | 1221.03 | **0.9** | +0.3 MB |
 
-> [!TIP]
-> Setting `max_det = 50` constrains the maximum number of dense mask upsamplings per frame, yielding **$23.4\text{ FPS}$** total throughput on `FastSAM-s` with CUDA execution. For dense scenes (e.g. aerial or microscopic data), `max_det` can be increased up to $300$ via `segmentor.generate_masks(..., max_det=300)`.
+!!! tip
+    Setting `max_det = 50` constrains the maximum number of dense mask upsamplings per frame, yielding **$23.4\text{ FPS}$** total throughput on `FastSAM-s` with CUDA execution. For dense scenes (e.g. aerial or microscopic data), `max_det` can be increased up to $300$ via `segmentor.generate_masks(..., max_det=300)`.
 
 ---
 

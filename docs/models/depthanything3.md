@@ -454,8 +454,8 @@ Evaluates numerical agreement between PyTorch reference checkpoints and the Spat
       </tbody>
     </table>
 
-    > [!NOTE]
-    > For $N=2$ views, the two camera positions define a 1D line segment rather than a full 3D point cloud, so a unique 3D $\mathrm{Sim}(3)$ rotation alignment cannot be geometrically constrained against ground truth. For $N \ge 3$ views, full 3D Umeyama $\mathrm{Sim}(3)$ alignment operates, demonstrating monotonic trajectory recovery improvements as model capacity scales ($4.71^\circ \rightarrow 0.61^\circ$).
+    !!! note
+        For $N=2$ views, the two camera positions define a 1D line segment rather than a full 3D point cloud, so a unique 3D $\mathrm{Sim}(3)$ rotation alignment cannot be geometrically constrained against ground truth. For $N \ge 3$ views, full 3D Umeyama $\mathrm{Sim}(3)$ alignment operates, demonstrating monotonic trajectory recovery improvements as model capacity scales ($4.71^\circ \rightarrow 0.61^\circ$).
 
 ### Specialized Monocular Series
 
@@ -1000,9 +1000,8 @@ Evaluates sequential dual-session forward execution (`main_session` + `da3metric
   </tbody>
 </table>
 
-> [!WARNING]
-> **VRAM Footprint Note on `da3nested_giant_large`**:
-> The concurrent active parameter footprint of ViT-Giant (~5.4 GB weights) and ViT-Large (~1.4 GB weights) along with intermediate attention activation tensors exceeds the 8,192 MB physical VRAM capacity of the test GPU. On Windows WDDM, excess tensors are paged across the PCIe bus into host shared RAM, resulting in elevated inference latency. For dual-model ViT-Giant deployment, a hardware device with $\ge 16\text{ GB}$ dedicated VRAM is recommended.
+!!! warning "VRAM Footprint Note on `da3nested_giant_large`"
+    The concurrent active parameter footprint of ViT-Giant (~5.4 GB weights) and ViT-Large (~1.4 GB weights) along with intermediate attention activation tensors exceeds the 8,192 MB physical VRAM capacity of the test GPU. On Windows WDDM, excess tensors are paged across the PCIe bus into host shared RAM, resulting in elevated inference latency. For dual-model ViT-Giant deployment, a hardware device with $\ge 16\text{ GB}$ dedicated VRAM is recommended.
 
 ---
 

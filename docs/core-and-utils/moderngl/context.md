@@ -10,11 +10,10 @@ from spatialhub.utils import create_moderngl_context
 
 ## User Responsibilities & Requirements
 
-> [!IMPORTANT]
-> **Context Ownership & Lifecycle:**
-> 1. **User Ownership:** The application or caller is responsible for creating, maintaining, and releasing the `moderngl.Context` instance.
-> 2. **Shared Lifecycle:** Downstream utilities (`FullscreenShader`, `BatchedAtlasRenderer`) take an existing context as an argument. They do not close or destroy the shared context when their internal framebuffers are released.
-> 3. **Hardware Requirements:** OpenGL 3.3 Core profile (`require_version=330`) or higher.
+!!! warning "Context Ownership & Lifecycle"
+    1. **User Ownership:** The application or caller is responsible for creating, maintaining, and releasing the `moderngl.Context` instance.
+    2. **Shared Lifecycle:** Downstream utilities (`FullscreenShader`, `BatchedAtlasRenderer`) take an existing context as an argument. They do not close or destroy the shared context when their internal framebuffers are released.
+    3. **Hardware Requirements:** OpenGL 3.3 Core profile (`require_version=330`) or higher.
 
 ---
 

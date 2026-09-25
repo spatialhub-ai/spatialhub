@@ -40,7 +40,11 @@ $$
 Symmetric padding margins form the square canvas of side $S_{\text{img}} \times S_{\text{img}}$:
 
 $$
-\begin{pmatrix} \text{pad}_{\text{top}} \\ \text{pad}_{\text{left}} \end{pmatrix} = \begin{pmatrix} \left\lfloor \frac{S_{\text{img}} - H_{\text{scaled}}}{2} \right\rfloor \\ \left\lfloor \frac{S_{\text{img}} - W_{\text{scaled}}}{2} \right\rfloor \end{pmatrix}, \qquad \begin{pmatrix} \text{pad}_{\text{bottom}} \\ \text{pad}_{\text{right}} \end{pmatrix} = \begin{pmatrix} S_{\text{img}} - H_{\text{scaled}} - \text{pad}_{\text{top}} \\ S_{\text{img}} - W_{\text{scaled}} - \text{pad}_{\text{left}} \end{pmatrix}
+\text{pad}_{\text{top}} = \left\lfloor \frac{S_{\text{img}} - H_{\text{scaled}}}{2} \right\rfloor, \qquad \text{pad}_{\text{bottom}} = S_{\text{img}} - H_{\text{scaled}} - \text{pad}_{\text{top}}
+$$
+
+$$
+\text{pad}_{\text{left}} = \left\lfloor \frac{S_{\text{img}} - W_{\text{scaled}}}{2} \right\rfloor, \qquad \text{pad}_{\text{right}} = S_{\text{img}} - W_{\text{scaled}} - \text{pad}_{\text{left}}
 $$
 
 ### Bounding Box Decoding & Projection
@@ -48,18 +52,21 @@ $$
 For each anchor with center-format predictions $(cx, cy, w, h)$, corner coordinates are clamped to canvas boundaries $[0, S_{\text{img}}]$:
 
 $$
-\begin{pmatrix} x_1 \\ y_1 \\ x_2 \\ y_2 \end{pmatrix} = \begin{pmatrix} \operatorname{clip}\left(cx - \frac{w}{2},\; 0,\; S_{\text{img}}\right) \\ \operatorname{clip}\left(cy - \frac{h}{2},\; 0,\; S_{\text{img}}\right) \\ \operatorname{clip}\left(cx + \frac{w}{2},\; 0,\; S_{\text{img}}\right) \\ \operatorname{clip}\left(cy + \frac{h}{2},\; 0,\; S_{\text{img}}\right) \end{pmatrix}
+x_1 = \text{clip}\left(cx - \frac{w}{2},\ 0,\ S_{\text{img}}\right), \qquad y_1 = \text{clip}\left(cy - \frac{h}{2},\ 0,\ S_{\text{img}}\right)
+$$
+
+$$
+x_2 = \text{clip}\left(cx + \frac{w}{2},\ 0,\ S_{\text{img}}\right), \qquad y_2 = \text{clip}\left(cy + \frac{h}{2},\ 0,\ S_{\text{img}}\right)
 $$
 
 Candidate boxes passing confidence threshold $s > \tau_{\text{conf}}$ and NMS IoU threshold $\tau_{\text{iou}}$ are projected back to native image dimensions:
 
 $$
-B_{\text{orig}} = \begin{pmatrix}
-\operatorname{clip}\left(\frac{x_1 - \text{pad}_{\text{left}}}{s},\; 0,\; W_{\text{orig}}\right) \\
-\operatorname{clip}\left(\frac{y_1 - \text{pad}_{\text{top}}}{s},\; 0,\; H_{\text{orig}}\right) \\
-\operatorname{clip}\left(\frac{x_2 - \text{pad}_{\text{left}}}{s},\; 0,\; W_{\text{orig}}\right) \\
-\operatorname{clip}\left(\frac{y_2 - \text{pad}_{\text{top}}}{s},\; 0,\; H_{\text{orig}}\right)
-\end{pmatrix}
+x_{1}^{\text{orig}} = \text{clip}\left(\frac{x_1 - \text{pad}_{\text{left}}}{s},\ 0,\ W_{\text{orig}}\right), \qquad y_{1}^{\text{orig}} = \text{clip}\left(\frac{y_1 - \text{pad}_{\text{top}}}{s},\ 0,\ H_{\text{orig}}\right)
+$$
+
+$$
+x_{2}^{\text{orig}} = \text{clip}\left(\frac{x_2 - \text{pad}_{\text{left}}}{s},\ 0,\ W_{\text{orig}}\right), \qquad y_{2}^{\text{orig}} = \text{clip}\left(\frac{y_2 - \text{pad}_{\text{top}}}{s},\ 0,\ H_{\text{orig}}\right)
 $$
 
 ### Prototype Mask Synthesis & In-Place Boundary Cropping
@@ -84,7 +91,11 @@ $$
 With prototype padding margins:
 
 $$
-\begin{pmatrix} p_{\text{top}} \\ p_{\text{left}} \end{pmatrix} = \begin{pmatrix} \left\lfloor \frac{\text{pad}_{\text{top}}}{r} \right\rfloor \\ \left\lfloor \frac{\text{pad}_{\text{left}}}{r} \right\rfloor \end{pmatrix}, \qquad \begin{pmatrix} p_{\text{bottom}} \\ p_{\text{right}} \end{pmatrix} = \begin{pmatrix} \left\lfloor \frac{\text{pad}_{\text{bottom}}}{r} \right\rfloor \\ \left\lfloor \frac{\text{pad}_{\text{right}}}{r} \right\rfloor \end{pmatrix}
+p_{\text{top}} = \left\lfloor \frac{\text{pad}_{\text{top}}}{r} \right\rfloor, \qquad p_{\text{bottom}} = \left\lfloor \frac{\text{pad}_{\text{bottom}}}{r} \right\rfloor
+$$
+
+$$
+p_{\text{left}} = \left\lfloor \frac{\text{pad}_{\text{left}}}{r} \right\rfloor, \qquad p_{\text{right}} = \left\lfloor \frac{\text{pad}_{\text{right}}}{r} \right\rfloor
 $$
 
 Unpadded prototype masks are sliced and bilinearly upsampled to native image dimensions:
@@ -95,7 +106,7 @@ $$
 
 $$
 M_{\text{binary}} = \begin{cases}
-1 & \text{if } \operatorname{Resize}\left(M_{\text{unpadded}},\, (W_{\text{orig}}, H_{\text{orig}})\right) > 0.0 \\
+1 & \text{if } \text{Resize}\left(M_{\text{unpadded}},\, (W_{\text{orig}}, H_{\text{orig}})\right) > 0.0 \\
 0 & \text{otherwise}
 \end{cases}
 $$

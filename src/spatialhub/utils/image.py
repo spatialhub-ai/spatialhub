@@ -207,14 +207,14 @@ def non_max_suppression(
     iou_threshold: float,
 ) -> list[int]:
     """Non-Maximum Suppression (NMS) for bounding box filtering.
-    
+
     Args:
         boxes: Array of shape (N, 4) in [x1, y1, x2, y2] format.
         scores: Array of shape (N,) containing confidence scores.
         iou_threshold: Float threshold for overlapping area (0.0 <= iou_threshold <= 1.0).
-        
+
     Returns:
-        List of indices corresponding to the boxes to keep.
+        List of integer indices corresponding to the surviving boxes.
 
     Raises:
         ValueError: If boxes and scores shapes mismatch, if box coordinates are invalid (x1 >= x2, y1 >= y2, or negative),
@@ -248,32 +248,19 @@ def non_max_suppression(
     if np.any(x1 >= x2) or np.any(y1 >= y2):
         raise ValueError("Invalid bounding boxes: all boxes must satisfy x1 < x2 and y1 < y2")
 
-    areas = (x2 - x1) * (y2 - y1)
-    
-    # Sort by descending score
-    order = scores.argsort()[::-1]
+    # Convert coordinates from [x1, y1, x2, y2] to [x, y, w, h] format
+    boxes_xywh = np.stack([x1, y1, x2 - x1, y2 - y1], axis=1)
 
-    keep: list[int] = []
-    while order.size > 0:
-        i = int(order[0])
-        keep.append(i)
-        
-        # Calculate intersection with remaining boxes
-        xx1 = np.maximum(x1[i], x1[order[1:]])
-        yy1 = np.maximum(y1[i], y1[order[1:]])
-        xx2 = np.minimum(x2[i], x2[order[1:]])
-        yy2 = np.minimum(y2[i], y2[order[1:]])
+    # Compute suppressed indices via OpenCV NMSBoxes
+    indices = cv2.dnn.NMSBoxes(
+        bboxes=boxes_xywh,
+        scores=scores,
+        score_threshold=0.0,
+        nms_threshold=float(iou_threshold),
+    )
 
-        w = np.maximum(0.0, xx2 - xx1)
-        h = np.maximum(0.0, yy2 - yy1)
-        inter = w * h
-        
-        # Calculate Intersection over Union (IoU)
-        ovr = inter / (areas[i] + areas[order[1:]] - inter)
+    if len(indices) == 0:
+        return []
 
-        # Keep boxes with IoU less than or equal to the threshold
-        inds = np.where(ovr <= iou_threshold)[0]
-        order = order[inds + 1]
-
-    return keep
+    return [int(i) for i in np.asarray(indices).flatten()]
 

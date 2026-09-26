@@ -19,17 +19,27 @@ SAM_PIXEL_STD = np.array([58.395, 57.12, 57.375], dtype=np.float32).reshape(1, 1
 
 def masks_to_boxes(masks: np.ndarray) -> np.ndarray:
     """Compute bounding boxes [x1, y1, x2, y2] from boolean masks of shape (N, H, W)."""
-    n = masks.shape[0]
-    boxes = np.zeros((n, 4), dtype=np.float32)
-    for i in range(n):
-        m = masks[i]
-        rows = np.any(m, axis=1)
-        cols = np.any(m, axis=0)
-        if not np.any(rows):
-            continue
-        ymin, ymax = np.where(rows)[0][[0, -1]]
-        xmin, xmax = np.where(cols)[0][[0, -1]]
-        boxes[i] = [xmin, ymin, xmax + 1, ymax + 1]
+    if masks.ndim == 2:
+        masks = masks[None, ...]
+
+    n, h, w = masks.shape
+    if n == 0:
+        return np.zeros((0, 4), dtype=np.float32)
+
+    has_row = np.any(masks, axis=2)
+    has_col = np.any(masks, axis=1)
+    valid = np.any(has_row, axis=1)
+
+    if not np.any(valid):
+        return np.zeros((n, 4), dtype=np.float32)
+
+    ymin = np.argmax(has_row, axis=1)
+    ymax = h - 1 - np.argmax(has_row[:, ::-1], axis=1) + 1
+    xmin = np.argmax(has_col, axis=1)
+    xmax = w - 1 - np.argmax(has_col[:, ::-1], axis=1) + 1
+
+    boxes = np.stack([xmin, ymin, xmax, ymax], axis=-1).astype(np.float32)
+    boxes[~valid] = 0.0
     return boxes
 
 
@@ -139,13 +149,24 @@ class SAMAdapter:
         self.pixel_mean = SAM_PIXEL_MEAN
         self.pixel_std = SAM_PIXEL_STD
 
+        self._decoder_native_size_tensor = np.array([256, 256], dtype=np.float32)
+
         # Precompute uniform point grid in relative [0, 1] coordinates
         self.points_rel = self._generate_point_grid(self.points_per_side)
 
-        # Preallocate constant decoder input buffers for full batches
+        # Preallocate constant decoder input buffers
         self._cached_mask_input = np.zeros((self.points_per_batch, 1, 256, 256), dtype=np.float32)
-        self._cached_has_mask_input = np.zeros((self.points_per_batch,), dtype=np.float32)
+        self._cached_has_mask_input = np.zeros((1,), dtype=np.float32)
         self._cached_point_labels = np.ones((self.points_per_batch, 1), dtype=np.float32)
+
+    def _empty_result(self, image: np.ndarray, orig_h: int, orig_w: int) -> SegmentationResult:
+        """Construct empty SegmentationResult instance."""
+        return SegmentationResult(
+            image=image,
+            boxes=np.empty((0, 4), dtype=np.float32),
+            masks=np.empty((0, orig_h, orig_w), dtype=bool),
+            scores=np.empty((0,), dtype=np.float32),
+        )
 
     def _preprocess_image(self, image: np.ndarray) -> tuple[np.ndarray, float, tuple[int, int]]:
         """Preprocess RGB image to padded network input tensor.
@@ -180,7 +201,7 @@ class SAMAdapter:
             input_tensor: Normalized and padded input tensor of shape (1, 3, target_size, target_size).
 
         Returns:
-            np.ndarray: Image embeddings array of shape (1, 256, 64, 64).
+            Image embeddings array of shape (1, 256, 64, 64).
         """
         return self.encoder_session.run(None, {"image": input_tensor})[0]
 
@@ -206,32 +227,26 @@ class SAMAdapter:
         self,
         image_embedding: np.ndarray,
         points_resized: np.ndarray,
-        orig_h: int,
-        orig_w: int,
     ) -> tuple[list[np.ndarray], list[np.ndarray]]:
         """Run batched point prompt inference through mask decoder session.
 
         Args:
             image_embedding: Image features of shape (1, 256, 64, 64).
             points_resized: Point coordinates scaled to encoder input space of shape (N, 2).
-            orig_h: Original image height.
-            orig_w: Original image width.
 
         Returns:
             tuple containing:
-                - all_raw_masks: List of mask logits arrays of shape (B, H, W).
+                - all_raw_masks: List of mask logits arrays of shape (B, 256, 256).
                 - all_iou_preds: List of predicted IoU score arrays of shape (B,).
         """
         all_raw_masks: list[np.ndarray] = []
         all_iou_preds: list[np.ndarray] = []
-        orig_im_size = np.array([orig_h, orig_w], dtype=np.float32)
 
         for i in range(0, len(points_resized), self.points_per_batch):
             batch_pts = points_resized[i : i + self.points_per_batch]
             batch_size = len(batch_pts)
 
             mask_input = self._cached_mask_input if batch_size == self.points_per_batch else self._cached_mask_input[:batch_size]
-            has_mask_input = self._cached_has_mask_input if batch_size == self.points_per_batch else self._cached_has_mask_input[:batch_size]
             point_labels = self._cached_point_labels if batch_size == self.points_per_batch else self._cached_point_labels[:batch_size]
 
             ort_inputs = {
@@ -239,8 +254,8 @@ class SAMAdapter:
                 "point_coords": batch_pts[:, None, :].astype(np.float32),
                 "point_labels": point_labels,
                 "mask_input": mask_input,
-                "has_mask_input": has_mask_input,
-                "orig_im_size": orig_im_size,
+                "has_mask_input": self._cached_has_mask_input,
+                "orig_im_size": self._decoder_native_size_tensor,
             }
 
             masks, iou_preds, _ = self.decoder_session.run(None, ort_inputs)
@@ -260,7 +275,7 @@ class SAMAdapter:
         stability_score_thresh: float,
         box_nms_thresh: float,
     ) -> SegmentationResult:
-        """Filter decoder candidate masks and apply non-maximum suppression.
+        """Filter decoder candidate masks, scale coordinates, and apply non-maximum suppression.
 
         Args:
             image: Source RGB image array of shape (H, W, 3).
@@ -275,49 +290,83 @@ class SAMAdapter:
         Returns:
             SegmentationResult: Filtered boxes, masks, and confidence scores.
         """
-        all_masks, all_scores, all_boxes = [], [], []
+        if not all_raw_masks:
+            return self._empty_result(image, orig_h, orig_w)
 
-        for masks, iou_preds in zip(all_raw_masks, all_iou_preds):
-            keep = iou_preds > pred_iou_thresh
-            masks, iou_preds = masks[keep], iou_preds[keep]
-            if len(masks) == 0:
-                continue
+        masks_cat = np.concatenate(all_raw_masks, axis=0)
+        scores_cat = np.concatenate(all_iou_preds, axis=0)
 
-            intersections = (masks > 1.0).sum(axis=(-1, -2))
-            unions = (masks > -1.0).sum(axis=(-1, -2))
-            stability_scores = intersections / (unions + 1e-6)
+        # IoU Score Thresholding
+        keep_iou = scores_cat > pred_iou_thresh
+        if not np.any(keep_iou):
+            return self._empty_result(image, orig_h, orig_w)
 
-            keep = stability_scores > stability_score_thresh
-            masks, iou_preds = masks[keep], iou_preds[keep]
-            if len(masks) == 0:
-                continue
+        cand_masks = masks_cat[keep_iou]
+        cand_scores = scores_cat[keep_iou]
 
-            masks_binary = masks > 0.0
-            boxes = masks_to_boxes(masks_binary)
+        # Vectorized Stability Scoring (only on candidate masks)
+        intersections = (cand_masks > 1.0).sum(axis=(1, 2))
+        unions = (cand_masks > -1.0).sum(axis=(1, 2))
+        stability = intersections / (unions + 1e-6)
 
-            all_masks.append(masks_binary)
-            all_scores.append(iou_preds)
-            all_boxes.append(boxes)
+        keep_stab = stability > stability_score_thresh
+        if not np.any(keep_stab):
+            return self._empty_result(image, orig_h, orig_w)
 
-        if len(all_boxes) == 0:
-            return SegmentationResult(
-                image=image,
-                boxes=np.empty((0, 4), dtype=np.float32),
-                masks=np.empty((0, orig_h, orig_w), dtype=bool),
-                scores=np.empty((0,), dtype=np.float32),
-            )
+        final_binary = cand_masks[keep_stab] > 0.0
+        final_scores = cand_scores[keep_stab]
 
-        final_boxes = np.concatenate(all_boxes, axis=0)
-        final_scores = np.concatenate(all_scores, axis=0)
-        final_masks = np.concatenate(all_masks, axis=0)
+        # Vectorized Bounding Box Calculation in Decoder Native Space
+        boxes_native = masks_to_boxes(final_binary)
 
-        keep_idx = non_max_suppression(final_boxes, final_scores, box_nms_thresh)
+        # Scale Bounding Boxes to Original Image Resolution
+        dec_h, dec_w = final_binary.shape[1], final_binary.shape[2]
+        scale_x = orig_w / float(dec_w)
+        scale_y = orig_h / float(dec_h)
+
+        boxes = boxes_native.copy()
+        boxes[:, [0, 2]] *= scale_x
+        boxes[:, [1, 3]] *= scale_y
+        boxes[:, [0, 2]] = np.clip(boxes[:, [0, 2]], 0, orig_w)
+        boxes[:, [1, 3]] = np.clip(boxes[:, [1, 3]], 0, orig_h)
+
+        # Non-Maximum Suppression Deduplication
+        keep_nms = non_max_suppression(boxes, final_scores, box_nms_thresh)
+        if len(keep_nms) == 0:
+            return self._empty_result(image, orig_h, orig_w)
+
+        final_boxes = boxes[keep_nms].astype(np.float32)
+        surviving_scores = final_scores[keep_nms].astype(np.float32)
+        surviving_binary = final_binary[keep_nms]
+
+        # Multi-channel batched bilinear interpolation
+        if (orig_h, orig_w) == (dec_h, dec_w):
+            final_masks = surviving_binary
+        else:
+            n_surviving = len(surviving_binary)
+            chunk_size = 64
+            out_masks_list: list[np.ndarray] = []
+
+            for i in range(0, n_surviving, chunk_size):
+                chunk = surviving_binary[i : i + chunk_size].astype(np.uint8) * 255
+                chunk_hwc = chunk.transpose(1, 2, 0)
+                resized_hwc = cv2.resize(
+                    chunk_hwc,
+                    (orig_w, orig_h),
+                    interpolation=cv2.INTER_LINEAR,
+                )
+                if resized_hwc.ndim == 2:
+                    resized_hwc = resized_hwc[:, :, None]
+
+                out_masks_list.append(resized_hwc.transpose(2, 0, 1) > 127)
+
+            final_masks = np.concatenate(out_masks_list, axis=0) if len(out_masks_list) > 1 else out_masks_list[0]
 
         return SegmentationResult(
             image=image,
-            boxes=final_boxes[keep_idx].astype(np.float32),
-            masks=final_masks[keep_idx],
-            scores=final_scores[keep_idx].astype(np.float32),
+            boxes=final_boxes,
+            masks=final_masks,
+            scores=surviving_scores,
         )
 
     def generate_masks(self, image: str | Path | np.ndarray, **kwargs) -> SegmentationResult:
@@ -356,8 +405,6 @@ class SAMAdapter:
         all_raw_masks, all_iou_preds = self._run_decoder_batches(
             image_embedding=image_embedding,
             points_resized=points_resized,
-            orig_h=orig_h,
-            orig_w=orig_w,
         )
 
         # Postprocess

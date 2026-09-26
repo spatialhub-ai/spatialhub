@@ -35,7 +35,7 @@ class TestSAMAdapterInit:
             assert adapter.points_per_batch == 64
             assert adapter.points_rel.shape == (1024, 2)
             assert adapter._cached_mask_input.shape == (64, 1, 256, 256)
-            assert adapter._cached_has_mask_input.shape == (64,)
+            assert adapter._cached_has_mask_input.shape == (1,)
             assert adapter._cached_point_labels.shape == (64, 1)
             np.testing.assert_array_equal(adapter.pixel_mean, SAM_PIXEL_MEAN)
             np.testing.assert_array_equal(adapter.pixel_std, SAM_PIXEL_STD)

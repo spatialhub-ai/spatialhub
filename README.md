@@ -124,10 +124,14 @@ depth_viz = estimator.visualize(depth_res.depth[0])
 dino = DINOv2(model_variant="vitl14")
 feat_res = dino.extract_features("image.png", l2_normalize=True)
 
-# Proposal Segmentation (FastSAM)
+# Proposal Segmentation (FastSAM / SAM)
 fastsam = FastSAM(model_variant="x")
 seg_res = fastsam.generate_masks("scene.png", conf_threshold=0.3)
 seg_res.visualize_mask(save_path="fastsam_masks.png")
+
+sam = SAM(model_variant="vit_b")
+sam_res = sam.generate_masks("scene.png", points_per_side=16)
+sam_res.visualize_mask(save_path="sam_masks.png")
 ```
 
 ---

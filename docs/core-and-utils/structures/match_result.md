@@ -12,11 +12,11 @@ from spatialhub.structures import MatchResult
 
 | Field | Type | Shape | Description |
 | :--- | :--- | :--- | :--- |
-| `image_a` | `str | Path | np.ndarray` | `(H, W, C)` or path | First input image — path or in-memory array. |
-| `image_b` | `str | Path | np.ndarray` | `(H, W, C)` or path | Second input image — path or in-memory array. |
-| `keypoints_a` | `np.ndarray` | `(N, 2)` float32 | Matched keypoint pixel coordinates `[x, y]` in `image_a`. |
-| `keypoints_b` | `np.ndarray` | `(N, 2)` float32 | Matched keypoint pixel coordinates `[x, y]` in `image_b`. |
-| `confidence` | `np.ndarray` | `(N,)` float32 | Per-match confidence scores in `[0.0, 1.0]`. |
+| `image_a` | `str | Path | np.ndarray` | `(H, W, 3)` or path | First input image — path or in-memory array. |
+| `image_b` | `str | Path | np.ndarray` | `(H, W, 3)` or path | Second input image — path or in-memory array. |
+| `keypoints_a` | `Keypoints2D` | `(N, 2)` float32 | Matched keypoint pixel coordinates `[x, y]` in `image_a`. |
+| `keypoints_b` | `Keypoints2D` | `(N, 2)` float32 | Matched keypoint pixel coordinates `[x, y]` in `image_b`. |
+| `confidence` | `Scores` | `(N,)` float32 | Per-match confidence scores in `[0.0, 1.0]`. |
 
 ---
 

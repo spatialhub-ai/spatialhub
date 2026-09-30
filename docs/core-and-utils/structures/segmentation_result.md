@@ -12,10 +12,10 @@ from spatialhub.structures import SegmentationResult
 
 | Field | Type | Shape | Description |
 | :--- | :--- | :--- | :--- |
-| `image` | `np.ndarray` | `(H, W, 3)` uint8 | Input RGB image. |
-| `boxes` | `np.ndarray` | `(N, 4)` float32 | Bounding boxes in `[x1, y1, x2, y2]` pixel coordinate format. |
-| `masks` | `np.ndarray` | `(N, H, W)` bool | Binary spatial masks, one per candidate detection. |
-| `scores` | `np.ndarray` | `(N,)` float32 | Detection or match confidence scores. |
+| `image` | `ImageRGB` | `(H, W, 3)` uint8 | Input RGB image. |
+| `boxes` | `Boxes2D` | `(N, 4)` float32 | Bounding boxes in `[x1, y1, x2, y2]` pixel coordinate format. |
+| `masks` | `BinaryMask` | `(N, H, W)` bool | Binary spatial masks, one per candidate detection. |
+| `scores` | `Scores` | `(N,)` float32 | Detection or match confidence scores. |
 | `class_ids` | `np.ndarray | None` | `(N,)` int | Numeric class indices. `None` for class-agnostic proposals. |
 | `class_names` | `list[str] | None` | Length `N` | String class or CAD object labels. |
 

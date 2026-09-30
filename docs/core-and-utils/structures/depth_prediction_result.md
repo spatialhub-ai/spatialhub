@@ -12,12 +12,12 @@ from spatialhub.structures import DepthPredictionResult
 
 | Field | Type | Shape | Description |
 | :--- | :--- | :--- | :--- |
-| `image` | `np.ndarray` | `(N, H, W, 3)` or `(H, W, 3)` uint8 | Input RGB image array(s). |
-| `depth` | `np.ndarray` | `(N, H, W)` float32 | Predicted depth map array in meters or relative scale. |
-| `conf` | `np.ndarray | None` | `(N, H, W)` float32 | Per-pixel prediction confidence, if provided by the model. |
-| `intrinsics` | `np.ndarray | None` | `(N, 3, 3)` float32 | Estimated camera intrinsic matrices `[[fx, 0, cx], [0, fy, cy], [0, 0, 1]]`. |
-| `extrinsics` | `np.ndarray | None` | `(N, 4, 4)` float32 | Estimated camera extrinsic transformation matrices `[R | t]`. |
-| `depth_type` | `str` | `"metric"` | Depth interpretation scale: `"metric"`, `"relative"`, `"inverse"`, or `"disparity"`. |
+| `image` | `np.ndarray | str | Path | list` | `(N, H, W, 3)`, `(H, W, 3)`, or path | Input RGB image array(s) or file paths. |
+| `depth` | `DepthMap` | `(N, H, W)` float32 | Predicted depth map array in meters or relative scale. Promoted from `(H, W)` if single-image. |
+| `conf` | `ConfidenceMap | None` | `(N, H, W)` float32 | Per-pixel prediction confidence, if provided by the model. |
+| `intrinsics` | `Intrinsics3x3 | None` | `(N, 3, 3)` float32 | Estimated camera intrinsic matrices `[[fx, 0, cx], [0, fy, cy], [0, 0, 1]]`. |
+| `extrinsics` | `CameraToWorld | None` | `(N, 4, 4)` float32 | Estimated rigid camera-to-world transformation matrices. |
+| `depth_type` | `Literal["metric", "relative", "inverse", "disparity"]` | `"metric"` | Depth interpretation scale. |
 
 ---
 

@@ -12,13 +12,13 @@ from spatialhub.structures import PoseEstimationResult
 
 | Field | Type | Shape | Description |
 | :--- | :--- | :--- | :--- |
-| `image` | `np.ndarray` | `(H, W, 3)` uint8 | Input RGB image array. |
-| `poses` | `np.ndarray` | `(N, 4, 4)` float32 | Estimated 4x4 object-to-camera transformation matrices $[R \mid t]$. |
-| `intrinsics` | `np.ndarray` | `(3, 3)` float32 | Camera intrinsic matrix $K$. |
-| `scores` | `np.ndarray | None` | `(N,)` float32 | Pose confidence scores. |
+| `image` | `ImageRGB` | `(H, W, 3)` uint8 | Input RGB image array. |
+| `poses` | `ObjectToCamera` | `(N, 4, 4)` float32 | Estimated 4x4 object-to-camera transformation matrices $[R \mid t]$. Promoted from `(4, 4)` if single pose. |
+| `intrinsics` | `Intrinsics3x3` | `(3, 3)` or `(N, 3, 3)` float32 | Camera intrinsic matrix $K$. |
+| `scores` | `Scores | None` | `(N,)` float32 | Pose confidence scores. |
 | `labels` | `list[str] | None` | Length `N` | Object class or model name identifiers. |
-| `bbox_3d` | `np.ndarray | None` | `(N, 8, 3)` or `(8, 3)` float32 | 3D bounding box corners in canonical centered CAD space. |
-| `to_origin` | `np.ndarray | None` | `(N, 4, 4)` or `(4, 4)` float32 | Centering transform from raw CAD origin to centered frame. |
+| `bbox_3d` | `BoxCorners3D | None` | `(N, 8, 3)` or `(8, 3)` float32 | 3D bounding box corners in canonical centered CAD space. |
+| `to_origin` | `RigidTransform | None` | `(N, 4, 4)` or `(4, 4)` float32 | Centering transform from raw CAD origin to centered frame. |
 
 ---
 

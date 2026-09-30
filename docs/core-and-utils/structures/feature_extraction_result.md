@@ -12,9 +12,9 @@ from spatialhub.structures import FeatureExtractionResult
 
 | Field | Type | Shape | Description |
 | :--- | :--- | :--- | :--- |
-| `images` | `np.ndarray` | `(N, H, W, 3)` uint8 | Preprocessed input image batch. |
-| `features` | `np.ndarray` | `(N, D)` or `(N, C, H, W)` float32 | Extracted feature embedding tensor ($D=1024$ for ViT-L/14). |
-| `embedding_type` | `str` | `"global"` | Embedding resolution: `"global"` (single CLS token per image) or `"dense"` (patch tokens). |
+| `images` | `np.ndarray | list | str | Path` | `(N, H, W, 3)`, `(H, W, 3)`, or path | Preprocessed input image batch or paths. |
+| `features` | `FeatureEmbedding` | `(N, D)` or `(N, H, W, D)` float32 | Extracted feature embedding tensor ($D=1024$ for ViT-L/14). |
+| `embedding_type` | `Literal["global", "dense"]` | `"global"` | Embedding resolution: `"global"` (single CLS token per image) or `"dense"` (patch tokens). |
 | `l2_normalized` | `bool` | `False` | Boolean indicating whether embedding vectors satisfy $\lVert v \rVert_2 = 1.0$. |
 
 ---

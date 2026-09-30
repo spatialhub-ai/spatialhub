@@ -116,10 +116,10 @@ Returns a [`PoseEstimationResult`](https://spatialhub-ai.github.io/spatialhub/co
 
 | Attribute | Type | Shape | Description |
 | :--- | :--- | :--- | :--- |
-| `image` | `np.ndarray` | `(H, W, 3)` uint8 | Input RGB image array. |
-| `poses` | `np.ndarray` | `(N, 4, 4)` float32 | Estimated 4x4 object-to-camera transformation matrices. |
-| `intrinsics` | `np.ndarray` | `(3, 3)` float32 | Camera intrinsic matrix. |
-| `scores` | `np.ndarray \| None` | `(N,)` float32 | Confidence scores associated with candidate poses. |
-| `labels` | `list[str] \| None` | Length `N` | Object model identifiers. |
-| `bbox_3d` | `np.ndarray \| None` | `(N, 8, 3)` or `(8, 3)` float32 | 3D bounding box corners in canonical centered mesh space. |
-| `to_origin` | `np.ndarray \| None` | `(N, 4, 4)` or `(4, 4)` float32 | Centering transform matrix for coordinate axis positioning. |
+| `image` | `ImageRGB` | `(H, W, 3)` uint8 | Input RGB image array. |
+| `poses` | `ObjectToCamera` | `(N, 4, 4)` float32 | Estimated 4x4 object-to-camera rigid transformation matrices $[R \mid t]$. Promoted from `(4, 4)` if single pose. |
+| `intrinsics` | `Intrinsics3x3` | `(3, 3)` or `(N, 3, 3)` float32 | Camera intrinsic matrix $K$. |
+| `scores` | `Scores | None` | `(N,)` float32 | Confidence scores associated with candidate poses. |
+| `labels` | `list[str] | None` | Length `N` | Object model identifiers. |
+| `bbox_3d` | `BoxCorners3D | None` | `(N, 8, 3)` or `(8, 3)` float32 | 3D bounding box corners in canonical centered mesh space. |
+| `to_origin` | `RigidTransform | None` | `(N, 4, 4)` or `(4, 4)` float32 | Centering transform matrix for coordinate axis positioning. |

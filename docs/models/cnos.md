@@ -128,9 +128,9 @@ Returns a [`SegmentationResult`](../core-and-utils/structures/segmentation_resul
 
 | Attribute | Type | Shape | Description |
 | :--- | :--- | :--- | :--- |
-| `image` | `np.ndarray` | `(H, W, 3)` uint8 | Input RGB image array. |
-| `boxes` | `np.ndarray` | `(N, 4)` float32 | Matched bounding box coordinates `[x1, y1, x2, y2]`. |
-| `masks` | `np.ndarray` | `(N, H, W)` bool | Matched binary segment masks. |
-| `scores` | `np.ndarray` | `(N,)` float32 | Top-$k$ aggregated cosine similarity matching scores. |
+| `image` | `ImageRGB` | `(H, W, 3)` uint8 | Input RGB image array. |
+| `boxes` | `Boxes2D` | `(N, 4)` float32 | Matched bounding box coordinates in `[x1, y1, x2, y2]` pixel format. |
+| `masks` | `BinaryMask` | `(N, H, W)` bool | Matched binary segment masks. |
+| `scores` | `Scores` | `(N,)` float32 | Top-$k$ aggregated cosine similarity matching scores in `[0.0, 1.0]`. |
 | `class_ids` | `np.ndarray | None` | `(N,)` int | Numerical class index array. |
 | `class_names` | `list[str] | None` | Length `N` | CAD object name strings. |

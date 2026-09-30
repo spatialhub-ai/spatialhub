@@ -451,7 +451,7 @@ Returns a [`FeatureExtractionResult`](https://spatialhub-ai.github.io/spatialhub
 
 | Attribute | Type | Shape | Description |
 | :--- | :--- | :--- | :--- |
-| `images` | `np.ndarray` | `(H, W, 3)` or `(N, H, W, 3)` | Original input image array or stacked batch array. |
-| `features` | `np.ndarray` | `(N, D)` float32 | Extracted global CLS token feature embedding vectors. |
-| `embedding_type` | `str` | N/A | Feature scope (`"global"`). |
-| `l2_normalized` | `bool` | N/A | Flag indicating whether feature embeddings are unit L2-normalized. |
+| `images` | `np.ndarray | list | str | Path` | `(H, W, 3)` or `(N, H, W, 3)` | Original input image array, path, or stacked batch array. |
+| `features` | `FeatureEmbedding` | `(N, D)` float32 | Extracted global CLS token feature embedding vectors. |
+| `embedding_type` | `Literal["global", "dense"]` | N/A | Feature representation scope (`"global"`). |
+| `l2_normalized` | `bool` | N/A | Flag indicating whether feature embeddings satisfy $\lVert v \rVert_2 = 1.0$. |

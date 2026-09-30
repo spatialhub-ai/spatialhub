@@ -468,8 +468,8 @@ Returns a [`MatchResult`](../core-and-utils/structures/match_result.md) dataclas
 
 | Attribute | Type | Shape | Description |
 | :--- | :--- | :--- | :--- |
-| `image_a` | `str | Path | np.ndarray` | Input | First image reference or NumPy array. |
-| `image_b` | `str | Path | np.ndarray` | Input | Second image reference or NumPy array. |
-| `keypoints_a` | `np.ndarray` | `(N, 2)` float32 | Verified keypoint `[x, y]` coordinates in `image_a`. |
-| `keypoints_b` | `np.ndarray` | `(N, 2)` float32 | Verified keypoint `[x, y]` coordinates in `image_b`. |
-| `confidence` | `np.ndarray` | `(N,)` float32 | Match confidence scores in `[0.0, 1.0]`. |
+| `image_a` | `str | Path | np.ndarray` | `(H, W, 3)` or path | First image reference or RGB array. |
+| `image_b` | `str | Path | np.ndarray` | `(H, W, 3)` or path | Second image reference or RGB array. |
+| `keypoints_a` | `Keypoints2D` | `(N, 2)` float32 | Matched keypoint `[x, y]` coordinates in `image_a`. |
+| `keypoints_b` | `Keypoints2D` | `(N, 2)` float32 | Matched keypoint `[x, y]` coordinates in `image_b`. |
+| `confidence` | `Scores` | `(N,)` float32 | Match confidence scores in `[0.0, 1.0]`. |

@@ -4,11 +4,11 @@
 
 ---
 
-## 1. Supported Sub-Adapter Components
+## Supported Sub-Adapter Components
 
 CNOS operates by coupling 2 pluggable sub-adapter pipelines with a 3D CAD mesh input file (`.ply`, `.obj`, `.stl`):
 
-### 1. Proposal Segmentor Sub-Adapters (`segmentor`)
+### Proposal Segmentor Sub-Adapters (`segmentor`)
 Generates spatial object mask proposals across the scene image:
 
 | Segmentor Adapter Class | Supported Variants | Target Performance |
@@ -16,7 +16,7 @@ Generates spatial object mask proposals across the scene image:
 | `FastSAMAdapter` (Default) | `"FastSAM-x"`, `"FastSAM-s"` | Real-time candidate box & mask proposal generation. |
 | `SAMAdapter` | `"sam_vit_h"`, `"sam_vit_l"`, `"sam_vit_b"` | High-precision Automatic Mask Generation (AMG). |
 
-### 2. Feature Descriptor Sub-Adapter (`descriptor`)
+### Feature Descriptor Sub-Adapter (`descriptor`)
 Extracts L2-normalized feature embeddings from 2D rendered CAD templates and scene mask proposals:
 
 | Descriptor Adapter Class | Supported Variants | Description |
@@ -25,7 +25,7 @@ Extracts L2-normalized feature embeddings from 2D rendered CAD templates and sce
 
 ---
 
-## 2. Overview & Mathematical Preprocessing
+## Overview & Mathematical Preprocessing
 
 CNOS loads a 3D CAD mesh file (`.ply`, `.obj`, `.stl`), renders 2D template views across pre-computed camera poses, extracts DINOv2 feature embeddings for each template, and matches image segment proposals via cosine similarity.
 
@@ -35,7 +35,7 @@ Using `TemplateRenderer`, $M$ template views $I_{rgba} \in \mathbb{U}^{H \times 
 
 ### Bounding Box Cropping & Preprocessing
 
-Each rendered template is cropped to its foreground bounding box $[x_1, y_1, x_2, y_2]$, square-padded, resized to $224 \times 224$, and normalized using ImageNet statistics.
+Each rendered template is cropped to its foreground bounding box $[x1, y1, x2, y2]$, square-padded, resized to $224 \times 224$, and normalized using ImageNet statistics.
 
 ### Cosine Similarity Matching
 
@@ -53,7 +53,7 @@ $$
 
 ---
 
-## 3. ONNX Export Guide
+## ONNX Export Guide
 
 CNOS is an orchestration pipeline combining **DINOv2** for template feature extraction with **FastSAM** or **SAM** for mask proposal generation. To export the required ONNX models, use the centralized export utilities in `tools/export/`:
 
@@ -70,7 +70,7 @@ uv run tools/export/export_sam.py --variant vit_h --output-folder onnx_weight
 
 ---
 
-## 4. SpatialHub Adapter API & Usage
+## SpatialHub Adapter API & Usage
 
 ### Usage with FastSAM Segmentor (Real-Time)
 
@@ -122,15 +122,15 @@ result.visualize_mask(save_path="cnos_sam_detection.png")
 
 ---
 
-## 5. Returned Result Data Structure
+## Returned Result Data Structure
 
 Returns a [`SegmentationResult`](https://spatialhub-ai.github.io/spatialhub/core-and-utils/structures/segmentation_result/) dataclass:
 
 | Attribute | Type | Shape | Description |
 | :--- | :--- | :--- | :--- |
-| `image` | `np.ndarray` | `(H, W, 3)` uint8 | Input RGB image array. |
-| `boxes` | `np.ndarray` | `(N, 4)` float32 | Matched bounding box coordinates `[x1, y1, x2, y2]`. |
-| `masks` | `np.ndarray` | `(N, H, W)` bool | Matched binary segment masks. |
-| `scores` | `np.ndarray` | `(N,)` float32 | Top-$k$ aggregated cosine similarity matching scores. |
-| `class_ids` | `np.ndarray \| None` | `(N,)` int | Numerical class index array. |
-| `class_names` | `list[str] \| None` | Length `N` | CAD object name strings. |
+| `image` | `ImageRGB` | `(H, W, 3)` uint8 | Input RGB image array. |
+| `boxes` | `Boxes2D` | `(N, 4)` float32 | Matched bounding box coordinates in `[x1, y1, x2, y2]` pixel format. |
+| `masks` | `BinaryMask` | `(N, H, W)` bool | Matched binary segment masks. |
+| `scores` | `Scores` | `(N,)` float32 | Top-$k$ aggregated cosine similarity matching scores in `[0.0, 1.0]`. |
+| `class_ids` | `np.ndarray | None` | `(N,)` int | Numerical class index array. |
+| `class_names` | `list[str] | None` | Length `N` | CAD object name strings. |

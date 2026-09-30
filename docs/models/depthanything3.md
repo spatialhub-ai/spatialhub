@@ -1143,10 +1143,10 @@ Returns a [`DepthPredictionResult`](../core-and-utils/structures/depth_predictio
 
 | Attribute | Type | Shape | Description |
 | :--- | :--- | :--- | :--- |
-| `image` | `np.ndarray` | `(N, H, W, 3)` uint8 | Input RGB image batch in native spatial resolution. |
-| `depth` | `np.ndarray` | `(N, H, W)` float32 | Predicted depth maps (in physical meters or relative disparity). |
-| `conf` | `np.ndarray | None` | `(N, H, W)` float32 | Confidence score maps normalized in `[0.0, 1.0]`. |
-| `intrinsics` | `np.ndarray | None` | `(N, 3, 3)` float32 | Predicted or input camera intrinsic calibration matrices. |
-| `extrinsics` | `np.ndarray | None` | `(N, 4, 4)` float32 | Estimated or aligned world-to-camera extrinsic matrices. |
-| `depth_type` | `str` | N/A | Scale identifier (`"metric"` or `"relative"`). |
+| `image` | `np.ndarray | str | Path | list` | `(N, H, W, 3)`, `(H, W, 3)`, or path | Input image array(s) or file paths in native resolution. |
+| `depth` | `DepthMap` | `(N, H, W)` float32 | Predicted depth maps in meters or relative scale. Promoted from `(H, W)` if single-image. |
+| `conf` | `ConfidenceMap | None` | `(N, H, W)` float32 | Per-pixel prediction confidence maps in `[0.0, 1.0]`. |
+| `intrinsics` | `Intrinsics3x3 | None` | `(N, 3, 3)` float32 | Pinhole camera intrinsic calibration matrices `[[fx, 0, cx], [0, fy, cy], [0, 0, 1]]`. |
+| `extrinsics` | `CameraToWorld | None` | `(N, 4, 4)` float32 | Estimated or aligned rigid camera-to-world transformation matrices. |
+| `depth_type` | `Literal["metric", "relative", "inverse", "disparity"]` | N/A | Scale interpretation identifier. |
 

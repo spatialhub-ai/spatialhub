@@ -354,7 +354,7 @@ class DepthAnything3Adapter:
         if n_views == 1:
             # Adopt the input world pose directly
             if self.align_to_input_ext_scale:
-                pred_extrinsics = original_extrinsics[..., :3, :]
+                pred_extrinsics = original_extrinsics
             return depth, pred_extrinsics
 
         if n_views == 2:
@@ -365,7 +365,7 @@ class DepthAnything3Adapter:
             t_pred_dist = float(np.linalg.norm(c2w_pred[1, :3, 3] - c2w_pred[0, :3, 3]))
 
             if self.align_to_input_ext_scale:
-                pred_extrinsics = original_extrinsics[..., :3, :]
+                pred_extrinsics = original_extrinsics
                 if t_gt_dist > 1e-4 and t_pred_dist > 1e-4:
                     scale = t_pred_dist / t_gt_dist
                     if abs(scale) > 1e-6:
@@ -386,7 +386,7 @@ class DepthAnything3Adapter:
             return depth, pred_extrinsics
 
         if self.align_to_input_ext_scale:
-            pred_extrinsics = original_extrinsics[..., :3, :]
+            pred_extrinsics = original_extrinsics
             if scale is not None and abs(scale) > 1e-6:
                 depth = depth / np.float32(scale)
         else:

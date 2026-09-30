@@ -75,7 +75,7 @@ print(format_benchmark_table(stats))
 | `num_iters` | `int` | `50` | Number of timed measurement iterations (must be $> 0$). |
 | `track_ram` | `bool` | `True` | Flag to track host process Resident Set Size (RSS) memory change. |
 | `track_vram` | `bool` | `True` | Flag to track device VRAM memory footprint change on CUDA. |
-| `sync_fn` | `Callable[[], None] \| None` | `None` | Optional hardware sync hook (auto-resolves to `cuCtxSynchronize` if `device="CUDA"`). |
+| `sync_fn` | `Callable[[], None] | None` | `None` | Optional hardware sync hook (auto-resolves to `cuCtxSynchronize` if `device="CUDA"`). |
 | `**kwargs` | `Any` | | Keyword arguments passed to `func`. |
 
 ### Return Value
@@ -148,6 +148,6 @@ table_markdown = format_benchmark_table(
 
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `stats_list` | `list[BenchmarkStats] \| BenchmarkStats` | *Required* | Single `BenchmarkStats` or list of instances to format. |
-| `title` | `str \| None` | `None` | Optional header title displayed above the table. |
+| `stats_list` | `list[BenchmarkStats] | BenchmarkStats` | *Required* | Single `BenchmarkStats` or list of instances to format. |
+| `title` | `str | None` | `None` | Optional header title displayed above the table. |
 | `throughput_unit` | `str` | `"FPS"` | Unit label for the throughput column (e.g. `'FPS'`, `'Pairs/s'`). |

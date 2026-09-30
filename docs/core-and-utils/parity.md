@@ -150,11 +150,11 @@ Parity verification utilities share standard command-line parameters:
 
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `--checkpoint` | `str \| None` | `None` | Path to reference PyTorch checkpoint (`.ckpt`, `.pt`, `.pth`). |
-| `--model-dir` | `str \| None` | `None` | Path to directory containing local `.onnx` files. |
+| `--checkpoint` | `str | None` | `None` | Path to reference PyTorch checkpoint (`.ckpt`, `.pt`, `.pth`). |
+| `--model-dir` | `str | None` | `None` | Path to directory containing local `.onnx` files. |
 | `--variant` | `str` | `"all"` | Model variant or architecture configuration to verify. |
 | `--view-counts` | `list[int]` | `[1, 2, 4]` | List of view counts to evaluate for multi-view models. |
 | `--coord-tol` | `float` | `1e-2` | Maximum allowable coordinate difference in pixels. |
 | `--conf-tol` | `float` | `1e-2` | Maximum allowable confidence score difference. |
-| `--max-pairs` | `int \| None` | `None` | Optional cap on dataset evaluation samples. |
-| `--output-file` | `str \| None` | `None` | Optional path to write formatted Markdown summary report. |
+| `--max-pairs` | `int | None` | `None` | Optional cap on dataset evaluation samples. |
+| `--output-file` | `str | None` | `None` | Optional path to write formatted Markdown summary report. |

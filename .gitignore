@@ -23,3 +23,6 @@ faltu/
 .cache/
 .profile/
 onnx_weight/
+
+.agents/
+GEMINI.md

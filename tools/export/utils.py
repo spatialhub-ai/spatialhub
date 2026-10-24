@@ -15,32 +15,26 @@ from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 
+__all__ = [
+    "DownloadProgressBar",
+    "download_file",
+    "check_onnx",
+    "convert_to_external_data",
+]
+
 
 class DownloadProgressBar(tqdm):
     """Progress bar hook for urllib.request.urlretrieve."""
 
     def update_to(self, block_num: int = 1, block_size: int = 1, total_size: int | None = None) -> None:
-        """Update progress bar based on retrieved chunks.
-
-        Args:
-            block_num: Number of blocks transferred so far.
-            block_size: Size of each block in bytes.
-            total_size: Total size of the file in bytes.
-        """
-        if total_size is not None and total_size > 0:
+        """Update progress bar based on retrieved chunks."""
+        if total_size is not None:
             self.total = total_size
         self.update(block_num * block_size - self.n)
 
 
 def _extract_gdrive_file_id(url_or_id: str) -> str:
-    """Extract Google Drive file ID from a URL or raw ID string.
-
-    Args:
-        url_or_id: Google Drive URL or direct ID.
-
-    Returns:
-        str: Extracted Google Drive file ID.
-    """
+    """Extract Google Drive file ID from a URL or raw ID string."""
     if "/d/" in url_or_id:
         return url_or_id.split("/d/")[1].split("/")[0].split("?")[0]
     if "id=" in url_or_id:
@@ -48,17 +42,13 @@ def _extract_gdrive_file_id(url_or_id: str) -> str:
     return url_or_id
 
 
-def _download_gdrive_file(file_id: str, output_path: Path, chunk_size: int = 1024 * 1024) -> Path:
-    """Download large files hosted on Google Drive using urllib with confirmation handling.
-
-    Args:
-        file_id: Google Drive file identifier.
-        output_path: Local target file path.
-        chunk_size: Byte size of each streaming chunk.
-
-    Returns:
-        Path: Path to the downloaded file.
-    """
+def _download_gdrive_file(
+    file_id: str,
+    output_path: Path,
+    chunk_size: int = 1024 * 1024,
+    desc: str | None = None,
+) -> Path:
+    """Download large files hosted on Google Drive with confirmation token handling."""
     cookie_jar = http.cookiejar.CookieJar()
     opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cookie_jar))
 
@@ -81,7 +71,7 @@ def _download_gdrive_file(file_id: str, output_path: Path, chunk_size: int = 102
         if params:
             final_url = f"{action_url}?{urllib.parse.urlencode(params)}"
         else:
-            token_match = re.search(r'confirm=([0-9A-Za-z_]+)', body)
+            token_match = re.search(r"confirm=([0-9A-Za-z_]+)", body)
             confirm_token = token_match.group(1) if token_match else "t"
             final_url = f"https://drive.usercontent.google.com/download?id={file_id}&export=download&confirm={confirm_token}"
 
@@ -95,7 +85,7 @@ def _download_gdrive_file(file_id: str, output_path: Path, chunk_size: int = 102
         unit="B",
         unit_scale=True,
         unit_divisor=1024,
-        desc=output_path.name,
+        desc=desc or output_path.name,
     ) as progress_bar:
         while True:
             chunk = response.read(chunk_size)
@@ -247,4 +237,3 @@ def convert_to_external_data(
 
     logger.info("Consolidation complete: %s and %s", save_path.name, data_filename)
     return save_path
-

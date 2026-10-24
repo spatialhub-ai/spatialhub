@@ -7,14 +7,14 @@ name = "spatialhub"
 dynamic = ["version"]
 description = "High-performance, zero-PyTorch spatial AI and perception library with unified ONNX Runtime inference."
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.10"
 license = { text = "Apache-2.0" }
 authors = [
     { name = "Pankaj Kaushik" }
 ]
 dependencies = [
     "huggingface-hub>=1.22.0",
-    "numpy>=2.5.1",
+    "numpy>=2.0.0",
     "opencv-python-headless>=5.0.0.93",
 ]
 
@@ -29,7 +29,8 @@ gpu = ["onnxruntime-gpu>=1.19.0"]
 render = [
     "trimesh>=5.0.0", 
     "scipy>=1.13.0",
-    "moderngl>=5.12.0"
+    "moderngl>=5.12.0",
+    "pillow>=10.0.0",
 ]
 
 

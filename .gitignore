@@ -18,11 +18,17 @@ self.md
 # MKdocs build output
 site/
 
-faltu/
-
 .cache/
 .profile/
 onnx_weight/
+
+# Examples generated output directory
+examples/output/
+
+# Large demo sequences and downloaded archives
+examples/assets/mustard0/
+examples/assets/kinect_driller_seq/
+examples/assets/*.zip
 
 .agents/
 GEMINI.md

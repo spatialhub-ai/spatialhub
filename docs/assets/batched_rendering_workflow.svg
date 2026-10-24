@@ -1,0 +1,154 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1060 280" width="100%" height="100%">
+  <defs>
+    <style>
+      .label-title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; fill: #94a3b8; }
+      .label-header { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 12px; font-weight: 700; fill: #f8fafc; }
+      .label-body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 10px; fill: #94a3b8; }
+      .label-dim { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 9.5px; fill: #38bdf8; }
+      .code-text { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 10px; font-weight: 600; fill: #cbd5e1; }
+      .code-green { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 9.5px; fill: #34d399; }
+      .code-amber { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 9.5px; fill: #fbbf24; }
+    </style>
+  </defs>
+
+  <!-- Background Panel -->
+  <rect width="1060" height="280" rx="10" fill="#0f172a" stroke="#1e293b" stroke-width="1.5"/>
+
+  <!-- Diagram Title -->
+  <text x="30" y="28" class="label-title">Batched Multi-View Rendering &#8226; Geometric Pipeline</text>
+
+  <!-- Stage 1: 3D CAD Model (x: 30, w: 205) -->
+  <g transform="translate(30, 46)">
+    <rect width="205" height="210" rx="8" fill="#182234" stroke="#334155" stroke-width="1"/>
+    <rect width="205" height="32" rx="8" fill="#1e293b"/>
+    <rect y="24" width="205" height="8" fill="#1e293b"/>
+    <text x="14" y="20" class="label-header">3D CAD Model</text>
+
+    <!-- Isometric Mesh Illustration -->
+    <g transform="translate(102, 115)">
+      <!-- Origin Axes -->
+      <line x1="0" y1="0" x2="35" y2="18" stroke="#ef4444" stroke-width="1.5"/>
+      <line x1="0" y1="0" x2="-35" y2="18" stroke="#22c55e" stroke-width="1.5"/>
+      <line x1="0" y1="0" x2="0" y2="-40" stroke="#3b82f6" stroke-width="1.5"/>
+      <!-- Bounding Box Wireframe -->
+      <polygon points="0,-35 30,-18 0,0 -30,-18" fill="#0b1120" fill-opacity="0.6" stroke="#60a5fa" stroke-width="1"/>
+      <polygon points="0,0 30,-18 30,22 0,40" fill="#0b1120" fill-opacity="0.8" stroke="#60a5fa" stroke-width="1"/>
+      <polygon points="0,0 -30,-18 -30,22 0,40" fill="#0b1120" fill-opacity="0.7" stroke="#60a5fa" stroke-width="1"/>
+    </g>
+
+    <text x="102" y="190" class="label-dim" text-anchor="middle">scale_mesh &#8226; center_mesh</text>
+    <text x="102" y="204" class="label-body" text-anchor="middle">Origin Centered &#8226; Metric Meters</text>
+  </g>
+
+  <!-- Flow 1 (235 -> 280, center: 257) -->
+  <g transform="translate(257, 151)">
+    <line x1="-10" y1="0" x2="10" y2="0" stroke="#38bdf8" stroke-width="1.8"/>
+    <polygon points="10,-3.5 17,0 10,3.5" fill="#38bdf8"/>
+    <text x="0" y="-10" class="label-body" text-anchor="middle">sample</text>
+  </g>
+
+  <!-- Stage 2: Spherical Camera Rig (x: 280, w: 235) -->
+  <g transform="translate(280, 46)">
+    <rect width="235" height="210" rx="8" fill="#182234" stroke="#334155" stroke-width="1"/>
+    <rect width="235" height="32" rx="8" fill="#1e293b"/>
+    <rect y="24" width="235" height="8" fill="#1e293b"/>
+    <text x="14" y="20" class="label-header">Spherical Camera Rig</text>
+
+    <!-- Sphere with Frustums -->
+    <g transform="translate(117, 115)">
+      <circle cx="0" cy="0" r="46" fill="none" stroke="#334155" stroke-dasharray="3,3" stroke-width="1"/>
+      <circle cx="0" cy="0" r="10" fill="#1e293b" stroke="#60a5fa" stroke-width="1"/>
+
+      <!-- Orbiting Camera Frustums -->
+      <g transform="rotate(0) translate(0, -46)">
+        <polygon points="-8,-10 8,-10 0,0" fill="#38bdf8" fill-opacity="0.3" stroke="#38bdf8" stroke-width="1"/>
+      </g>
+      <g transform="rotate(60) translate(0, -46)">
+        <polygon points="-8,-10 8,-10 0,0" fill="#38bdf8" fill-opacity="0.3" stroke="#38bdf8" stroke-width="1"/>
+      </g>
+      <g transform="rotate(120) translate(0, -46)">
+        <polygon points="-8,-10 8,-10 0,0" fill="#38bdf8" fill-opacity="0.3" stroke="#38bdf8" stroke-width="1"/>
+      </g>
+      <g transform="rotate(180) translate(0, -46)">
+        <polygon points="-8,-10 8,-10 0,0" fill="#38bdf8" fill-opacity="0.3" stroke="#38bdf8" stroke-width="1"/>
+      </g>
+      <g transform="rotate(240) translate(0, -46)">
+        <polygon points="-8,-10 8,-10 0,0" fill="#38bdf8" fill-opacity="0.3" stroke="#38bdf8" stroke-width="1"/>
+      </g>
+      <g transform="rotate(300) translate(0, -46)">
+        <polygon points="-8,-10 8,-10 0,0" fill="#38bdf8" fill-opacity="0.3" stroke="#38bdf8" stroke-width="1"/>
+      </g>
+    </g>
+
+    <text x="117" y="190" class="label-dim" text-anchor="middle">sample_sphere_poses(N)</text>
+    <text x="117" y="204" class="label-body" text-anchor="middle">Fibonacci Lattice &#8226; MVP (N, 16)</text>
+  </g>
+
+  <!-- Flow 2 (515 -> 560, center: 537) -->
+  <g transform="translate(537, 151)">
+    <line x1="-10" y1="0" x2="10" y2="0" stroke="#38bdf8" stroke-width="1.8"/>
+    <polygon points="10,-3.5 17,0 10,3.5" fill="#38bdf8"/>
+    <text x="0" y="-10" class="label-body" text-anchor="middle">render(N)</text>
+  </g>
+
+  <!-- Stage 3: Atlas Framebuffer (x: 560, w: 220) -->
+  <g transform="translate(560, 46)">
+    <rect width="220" height="210" rx="8" fill="#182234" stroke="#2563eb" stroke-width="1.2"/>
+    <rect width="220" height="32" rx="8" fill="#1e3a8a" opacity="0.6"/>
+    <rect y="24" width="220" height="8" fill="#1e3a8a" opacity="0.6"/>
+    <text x="14" y="20" class="label-header">Atlas Framebuffer</text>
+
+    <!-- 4x4 Grid Visualizer -->
+    <g transform="translate(50, 52)">
+      <rect width="120" height="100" fill="#0b1120" stroke="#3b82f6" stroke-width="1"/>
+      <!-- Grid lines -->
+      <line x1="30" y1="0" x2="30" y2="100" stroke="#1e293b" stroke-width="1"/>
+      <line x1="60" y1="0" x2="60" y2="100" stroke="#1e293b" stroke-width="1"/>
+      <line x1="90" y1="0" x2="90" y2="100" stroke="#1e293b" stroke-width="1"/>
+      <line x1="0" y1="25" x2="120" y2="25" stroke="#1e293b" stroke-width="1"/>
+      <line x1="0" y1="50" x2="120" y2="50" stroke="#1e293b" stroke-width="1"/>
+      <line x1="0" y1="75" x2="120" y2="75" stroke="#1e293b" stroke-width="1"/>
+      <!-- Sample tile indicators -->
+      <rect x="2" y="2" width="26" height="21" fill="#38bdf8" fill-opacity="0.15"/>
+      <circle cx="15" cy="12" r="5" fill="#38bdf8" fill-opacity="0.5"/>
+      <rect x="32" y="2" width="26" height="21" fill="#38bdf8" fill-opacity="0.15"/>
+      <circle cx="45" cy="12" r="5" fill="#38bdf8" fill-opacity="0.5"/>
+      <rect x="62" y="2" width="26" height="21" fill="#38bdf8" fill-opacity="0.15"/>
+      <circle cx="75" cy="12" r="5" fill="#38bdf8" fill-opacity="0.5"/>
+      <rect x="92" y="2" width="26" height="21" fill="#38bdf8" fill-opacity="0.15"/>
+      <circle cx="105" cy="12" r="5" fill="#38bdf8" fill-opacity="0.5"/>
+    </g>
+
+    <text x="110" y="176" class="code-amber" text-anchor="middle">Single Instanced Draw</text>
+    <text x="110" y="192" class="label-dim" text-anchor="middle">Atlas: (C&#183;W, R&#183;H) &#8226; MRT</text>
+    <text x="110" y="205" class="label-body" text-anchor="middle">Attachment 0: Color | 1: Normal</text>
+  </g>
+
+  <!-- Flow 3 (780 -> 825, center: 802) -->
+  <g transform="translate(802, 151)">
+    <line x1="-10" y1="0" x2="10" y2="0" stroke="#34d399" stroke-width="1.8"/>
+    <polygon points="10,-3.5 17,0 10,3.5" fill="#34d399"/>
+    <text x="0" y="-10" class="label-body" text-anchor="middle">read_tiles</text>
+  </g>
+
+  <!-- Stage 4: Multi-View Arrays (x: 825, w: 205) -->
+  <g transform="translate(825, 46)">
+    <rect width="205" height="210" rx="8" fill="#182234" stroke="#334155" stroke-width="1"/>
+    <rect width="205" height="32" rx="8" fill="#1e293b"/>
+    <rect y="24" width="205" height="8" fill="#1e293b"/>
+    <text x="14" y="20" class="label-header">Multi-View Arrays</text>
+
+    <!-- Stack of Un-tiled View Arrays -->
+    <g transform="translate(52, 60)">
+      <rect x="16" y="0" width="70" height="70" rx="4" fill="#0b1120" stroke="#334155" stroke-width="1"/>
+      <rect x="8" y="10" width="70" height="70" rx="4" fill="#0f172a" stroke="#2563eb" stroke-width="1"/>
+      <rect x="0" y="20" width="70" height="70" rx="4" fill="#182234" stroke="#34d399" stroke-width="1.2"/>
+      <circle cx="35" cy="55" r="14" fill="#10b981" fill-opacity="0.2" stroke="#34d399" stroke-width="1"/>
+      <text x="35" y="58" class="code-green" text-anchor="middle">View i</text>
+    </g>
+
+    <text x="102" y="180" class="code-green" text-anchor="middle">(N, tile_H, tile_W, 4)</text>
+    <text x="102" y="196" class="label-dim" text-anchor="middle">NumPy Arrays &#8226; float32</text>
+    <text x="102" y="208" class="label-body" text-anchor="middle">Ready for Downstream Vision</text>
+  </g>
+</svg>

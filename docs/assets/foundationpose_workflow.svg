@@ -1,0 +1,143 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 270" width="100%" height="100%">
+  <defs>
+    <style>
+      .label-title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; fill: #94a3b8; }
+      .label-header { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 10.5px; font-weight: 700; fill: #f8fafc; }
+      .label-body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 9px; fill: #94a3b8; }
+      .label-dim { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 8.5px; fill: #38bdf8; }
+      .label-math { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 8.2px; fill: #34d399; }
+      .code-amber { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 8.2px; fill: #fbbf24; }
+    </style>
+  </defs>
+
+  <!-- Background Canvas -->
+  <rect width="1180" height="270" rx="10" fill="#0f172a" stroke="#1e293b" stroke-width="1.5"/>
+
+  <!-- Pipeline Title -->
+  <text x="25" y="27" class="label-title">FoundationPose 6D Object Pose Estimation &amp; Tracking Architecture</text>
+
+  <!-- Stage 1: Pose Initialization & Grid (x: 25, w: 205) -->
+  <g transform="translate(25, 44)">
+    <rect width="205" height="202" rx="8" fill="#182234" stroke="#334155" stroke-width="1"/>
+    <rect width="205" height="30" rx="8" fill="#1e293b"/>
+    <rect y="22" width="205" height="8" fill="#1e293b"/>
+    <text x="12" y="20" class="label-header">Hypothesis Initialization</text>
+
+    <!-- Observation Box -->
+    <g transform="translate(14, 42)">
+      <rect width="177" height="42" rx="4" fill="#0b1120" stroke="#334155" stroke-width="1"/>
+      <text x="8" y="17" class="label-dim">RGB-D + Mask (H, W)</text>
+      <text x="8" y="33" class="label-math">Reproject: K &amp; DepthMap</text>
+    </g>
+
+    <text x="102" y="112" class="label-body" text-anchor="middle">Centroid Translation Guess</text>
+    <text x="102" y="128" class="label-math" text-anchor="middle">t_guess = depth_centroid(K)</text>
+    <text x="102" y="150" class="label-body" text-anchor="middle">Icosphere Rotation Grid</text>
+    <text x="102" y="166" class="label-dim" text-anchor="middle">R_grid: M viewpoints in SO(3)</text>
+    <text x="102" y="186" class="code-amber" text-anchor="middle">Initial Hypotheses: (M, 4, 4)</text>
+  </g>
+
+  <!-- Flow Arrow 1 -->
+  <g transform="translate(236, 145)">
+    <line x1="-3" y1="0" x2="6" y2="0" stroke="#38bdf8" stroke-width="1.5"/>
+    <polygon points="6,-3 12,0 6,3" fill="#38bdf8"/>
+  </g>
+
+  <!-- Stage 2: Headless G-Buffer Rendering (x: 254, w: 205) -->
+  <g transform="translate(254, 44)">
+    <rect width="205" height="202" rx="8" fill="#182234" stroke="#334155" stroke-width="1"/>
+    <rect width="205" height="30" rx="8" fill="#1e293b"/>
+    <rect y="22" width="205" height="8" fill="#1e293b"/>
+    <text x="12" y="20" class="label-header">ModernGL Rendering</text>
+
+    <g transform="translate(14, 42)">
+      <rect width="177" height="42" rx="4" fill="#0b1120" stroke="#334155" stroke-width="1"/>
+      <text x="8" y="17" class="label-dim">3D CAD (.obj / .ply)</text>
+      <text x="8" y="33" class="label-math">Centered Mesh Buffers (VBO)</text>
+    </g>
+
+    <text x="102" y="112" class="label-body" text-anchor="middle">Instanced Atlas Rasterization</text>
+    <text x="102" y="128" class="label-dim" text-anchor="middle">Target A: Rendered (RGB + XYZ)</text>
+    <text x="102" y="150" class="label-body" text-anchor="middle">Affine Perspective Warping</text>
+    <text x="102" y="166" class="label-dim" text-anchor="middle">Target B: Observed (RGB + XYZ)</text>
+    <text x="102" y="186" class="label-math" text-anchor="middle">Tensors (A, B): (M, 6, 160, 160)</text>
+  </g>
+
+  <!-- Flow Arrow 2 -->
+  <g transform="translate(465, 145)">
+    <line x1="-3" y1="0" x2="6" y2="0" stroke="#38bdf8" stroke-width="1.5"/>
+    <polygon points="6,-3 12,0 6,3" fill="#38bdf8"/>
+  </g>
+
+  <!-- Stage 3: RefineNet (x: 483, w: 215) -->
+  <g transform="translate(483, 44)">
+    <rect width="215" height="202" rx="8" fill="#182234" stroke="#2563eb" stroke-width="1.2"/>
+    <rect width="215" height="30" rx="8" fill="#1e3a8a" opacity="0.6"/>
+    <rect y="22" width="215" height="8" fill="#1e3a8a" opacity="0.6"/>
+    <text x="12" y="20" class="label-header">RefineNet (Pose Refinement)</text>
+
+    <g transform="translate(14, 42)">
+      <rect width="187" height="42" rx="4" fill="#0b1120" stroke="#2563eb" stroke-width="0.8"/>
+      <text x="8" y="17" class="label-dim">ONNX: refine_net.onnx</text>
+      <text x="8" y="33" class="label-math">Input: [A, B] concatenated</text>
+    </g>
+
+    <text x="107" y="112" class="label-body" text-anchor="middle">Iterative Delta Regression</text>
+    <text x="107" y="128" class="label-math" text-anchor="middle">&#916;T = [ rotvec(&#916;r) | &#916;t ]</text>
+    <text x="107" y="150" class="label-body" text-anchor="middle">Egocentric Transformation</text>
+    <text x="107" y="166" class="label-math" text-anchor="middle">T_(k+1) = &#916;T &#183; T_(k)</text>
+    <text x="107" y="186" class="label-dim" text-anchor="middle">Refined Hypotheses: (M, 4, 4)</text>
+  </g>
+
+  <!-- Flow Arrow 3 -->
+  <g transform="translate(704, 145)">
+    <line x1="-3" y1="0" x2="6" y2="0" stroke="#38bdf8" stroke-width="1.5"/>
+    <polygon points="6,-3 12,0 6,3" fill="#38bdf8"/>
+  </g>
+
+  <!-- Stage 4: ScoreNet (x: 722, w: 215) -->
+  <g transform="translate(722, 44)">
+    <rect width="215" height="202" rx="8" fill="#182234" stroke="#2563eb" stroke-width="1.2"/>
+    <rect width="215" height="30" rx="8" fill="#1e3a8a" opacity="0.6"/>
+    <rect y="22" width="215" height="8" fill="#1e3a8a" opacity="0.6"/>
+    <text x="12" y="20" class="label-header">ScoreNet (Tournament Selection)</text>
+
+    <g transform="translate(14, 42)">
+      <rect width="187" height="42" rx="4" fill="#0b1120" stroke="#2563eb" stroke-width="0.8"/>
+      <text x="8" y="17" class="label-dim">ONNX: score_net.onnx</text>
+      <text x="8" y="33" class="label-math">Input: Multi-pair (A_i, B_i, A_j)</text>
+    </g>
+
+    <text x="107" y="112" class="label-body" text-anchor="middle">Pairwise Comparison Scoring</text>
+    <text x="107" y="128" class="label-math" text-anchor="middle">Logits = ScoreNet(A_i, B_i, A_j)</text>
+    <text x="107" y="150" class="label-body" text-anchor="middle">Progressive Elimination</text>
+    <text x="107" y="166" class="label-math" text-anchor="middle">Winner = argmax(Scores)</text>
+    <text x="107" y="186" class="code-amber" text-anchor="middle">Top Candidate Selection</text>
+  </g>
+
+  <!-- Flow Arrow 4 -->
+  <g transform="translate(943, 145)">
+    <line x1="-3" y1="0" x2="6" y2="0" stroke="#34d399" stroke-width="1.5"/>
+    <polygon points="6,-3 12,0 6,3" fill="#34d399"/>
+  </g>
+
+  <!-- Stage 5: Output Data Contract (x: 961, w: 194) -->
+  <g transform="translate(961, 44)">
+    <rect width="194" height="202" rx="8" fill="#182234" stroke="#059669" stroke-width="1.2"/>
+    <rect width="194" height="30" rx="8" fill="#064e3b" opacity="0.6"/>
+    <rect y="22" width="194" height="8" fill="#064e3b" opacity="0.6"/>
+    <text x="12" y="20" class="label-header">ObjectPose6D Contract</text>
+
+    <g transform="translate(12, 42)">
+      <rect width="170" height="42" rx="4" fill="#0b1120" stroke="#059669" stroke-width="0.8"/>
+      <text x="8" y="17" class="label-dim">pose: (1, 4, 4) float32</text>
+      <text x="8" y="33" class="label-math">SE(3) in OpenCV Frame</text>
+    </g>
+
+    <text x="97" y="110" class="label-body" text-anchor="middle">Confidence Score Array</text>
+    <text x="97" y="125" class="label-dim" text-anchor="middle">scores: (1,) float32</text>
+    <text x="97" y="146" class="label-body" text-anchor="middle">Object Class Name</text>
+    <text x="97" y="161" class="label-dim" text-anchor="middle">names: ["mustard"]</text>
+    <text x="97" y="184" class="label-math" text-anchor="middle">Sequential Tracking State</text>
+  </g>
+</svg>

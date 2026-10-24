@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 480" width="100%" height="100%">
+  <defs>
+    <!-- Radial Gradients -->
+    <radialGradient id="ringBg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#1e3a8a" stop-opacity="0.3"/>
+      <stop offset="70%" stop-color="#0f172a" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#020617" stop-opacity="1"/>
+    </radialGradient>
+    <linearGradient id="hubCore" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="50%" stop-color="#2563eb"/>
+      <stop offset="100%" stop-color="#1e40af"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="960" height="480" rx="14" fill="url(#ringBg)" stroke="#1e293b" stroke-width="2"/>
+
+  <!-- Concentric Orbit Guides -->
+  <circle cx="480" cy="240" r="130" fill="none" stroke="#3b82f6" stroke-width="1.2" stroke-dasharray="4 3" opacity="0.4"/>
+  <circle cx="480" cy="240" r="195" fill="none" stroke="#60a5fa" stroke-width="1.2" stroke-dasharray="6 4" opacity="0.3"/>
+
+  <!-- Radial Spoke Lines connecting Subsystems to Core Hub -->
+  <!-- Spoke 1: Top (Neural Adapters) -->
+  <line x1="480" y1="240" x2="480" y2="85" stroke="#818cf8" stroke-width="2" opacity="0.7"/>
+  <!-- Spoke 2: Top Right (Solvers) -->
+  <line x1="480" y1="240" x2="710" y2="120" stroke="#38bdf8" stroke-width="2" opacity="0.7"/>
+  <!-- Spoke 3: Bottom Right (Rendering) -->
+  <line x1="480" y1="240" x2="710" y2="360" stroke="#38bdf8" stroke-width="2" opacity="0.7"/>
+  <!-- Spoke 4: Bottom (Runtime & Providers) -->
+  <line x1="480" y1="240" x2="480" y2="400" stroke="#64748b" stroke-width="2" opacity="0.7"/>
+  <!-- Spoke 5: Bottom Left (Application Workflows) -->
+  <line x1="480" y1="240" x2="250" y2="360" stroke="#3b82f6" stroke-width="2" opacity="0.7"/>
+  <!-- Spoke 6: Top Left (Sensory Inputs) -->
+  <line x1="480" y1="240" x2="250" y2="120" stroke="#818cf8" stroke-width="2" opacity="0.7"/>
+
+  <!-- Outer Satellite Subsystem Nodes -->
+  <!-- Node 1: Neural Inference Adapters (Top) -->
+  <g transform="translate(480, 80)">
+    <rect x="-130" y="-32" width="260" height="64" rx="8" fill="#0f172a" stroke="#818cf8" stroke-width="1.5"/>
+    <text x="0" y="-8" fill="#c7d2fe" font-size="11" font-weight="700" letter-spacing="0.06em" font-family="sans-serif" text-anchor="middle">NEURAL INFERENCE ADAPTERS</text>
+    <text x="0" y="14" fill="#94a3b8" font-size="10.5" font-family="sans-serif" text-anchor="middle">Depth • Segmentation • Matches • Poses</text>
+  </g>
+
+  <!-- Node 2: Geometric Solvers & Operators (Top Right) -->
+  <g transform="translate(730, 130)">
+    <rect x="-110" y="-32" width="220" height="64" rx="8" fill="#0f172a" stroke="#38bdf8" stroke-width="1.5"/>
+    <text x="0" y="-8" fill="#bae6fd" font-size="11" font-weight="700" letter-spacing="0.06em" font-family="sans-serif" text-anchor="middle">GEOMETRIC SOLVERS</text>
+    <text x="0" y="14" fill="#94a3b8" font-size="10.5" font-family="sans-serif" text-anchor="middle">SE(3) Algebra • PnP • Epipolar</text>
+  </g>
+
+  <!-- Node 3: Offscreen Rendering Engine (Bottom Right) -->
+  <g transform="translate(730, 350)">
+    <rect x="-110" y="-32" width="220" height="64" rx="8" fill="#0f172a" stroke="#38bdf8" stroke-width="1.5"/>
+    <text x="0" y="-8" fill="#bae6fd" font-size="11" font-weight="700" letter-spacing="0.06em" font-family="sans-serif" text-anchor="middle">OFFSCREEN RENDERING</text>
+    <text x="0" y="14" fill="#94a3b8" font-size="10.5" font-family="sans-serif" text-anchor="middle">Batched Rasterizer • Quad Shaders</text>
+  </g>
+
+  <!-- Node 4: Foundational Standards (Bottom) -->
+  <g transform="translate(480, 400)">
+    <rect x="-130" y="-24" width="260" height="48" rx="6" fill="#0f172a" stroke="#64748b" stroke-width="1.2" stroke-dasharray="4 2"/>
+    <text x="0" y="6" fill="#94a3b8" font-size="11" font-family="sans-serif" text-anchor="middle">OpenCV Coordinate Standards • CUDA / CPU</text>
+  </g>
+
+  <!-- Node 5: User Applications (Bottom Left) -->
+  <g transform="translate(230, 350)">
+    <rect x="-110" y="-32" width="220" height="64" rx="8" fill="#0f172a" stroke="#3b82f6" stroke-width="1.5"/>
+    <text x="0" y="-8" fill="#bfdbfe" font-size="11" font-weight="700" letter-spacing="0.06em" font-family="sans-serif" text-anchor="middle">COMPOSITE PIPELINES</text>
+    <text x="0" y="14" fill="#94a3b8" font-size="10.5" font-family="sans-serif" text-anchor="middle">Visual Odometry • Pose • Reconstruction</text>
+  </g>
+
+  <!-- Node 6: Raw Inputs (Top Left) -->
+  <g transform="translate(230, 130)">
+    <rect x="-110" y="-32" width="220" height="64" rx="8" fill="#0f172a" stroke="#818cf8" stroke-width="1.5"/>
+    <text x="0" y="-8" fill="#c7d2fe" font-size="11" font-weight="700" letter-spacing="0.06em" font-family="sans-serif" text-anchor="middle">RAW SENSORY DATA</text>
+    <text x="0" y="14" fill="#94a3b8" font-size="10.5" font-family="sans-serif" text-anchor="middle">RGB • Metric Depth • CAD Meshes</text>
+  </g>
+
+  <!-- Central Hub: Standardized Spatial Structures -->
+  <g transform="translate(480, 240)">
+    <circle cx="0" cy="0" r="68" fill="url(#hubCore)" stroke="#ffffff" stroke-width="3" filter="drop-shadow(0 4px 16px rgba(37, 99, 235, 0.5))"/>
+    <text x="0" y="-18" fill="#ffffff" font-size="11" font-weight="800" letter-spacing="0.08em" font-family="sans-serif" text-anchor="middle">SPATIAL DATA</text>
+    <text x="0" y="-2" fill="#ffffff" font-size="11" font-weight="800" letter-spacing="0.08em" font-family="sans-serif" text-anchor="middle">CONTRACTS</text>
+    <text x="0" y="20" fill="#e0f2fe" font-size="9" font-family="sans-serif" text-anchor="middle">OpenCV SE(3) Convention</text>
+    <text x="0" y="34" fill="#e0f2fe" font-size="8.5" font-family="monospace" text-anchor="middle">Poses • Matches • Bounds</text>
+  </g>
+</svg>

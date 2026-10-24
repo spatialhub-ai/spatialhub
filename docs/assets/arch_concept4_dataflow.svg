@@ -1,0 +1,177 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 492" width="100%" height="100%">
+  <defs>
+    <style>
+      .sys-title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; fill: #64748b; }
+      .layer-title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+      .node-title  { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 10.5px; font-weight: 600; fill: #f8fafc; }
+      .node-sub    { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 9px; font-weight: 400; fill: #94a3b8; }
+      .bus-title   { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; fill: #ffffff; }
+      .bus-sub     { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 9.5px; fill: #93c5fd; }
+    </style>
+
+    <!-- Arrow Marker -->
+    <marker id="arr" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 1 1 L 8 5 L 1 9 z" fill="#475569"/>
+    </marker>
+  </defs>
+
+  <!-- Background Canvas -->
+  <rect width="960" height="492" rx="12" fill="#090d16" stroke="#1e293b" stroke-width="1.5"/>
+
+  <!-- Top System Header -->
+  <text x="480" y="30" text-anchor="middle" class="sys-title">SpatialHub &#8226; Perception to 3D Geometry Dataflow</text>
+
+  <!-- =========================================================================
+       STAGE 1: INPUT DATA (y=46, h=48)
+       ========================================================================= -->
+  <g transform="translate(80, 46)">
+    <rect width="800" height="48" rx="7" fill="#0f172a" stroke="#334155" stroke-width="1"/>
+    
+    <!-- 3 Symmetrical Input Boxes (w=244, gap=18, left=17) -->
+    <!-- Input 1 -->
+    <g transform="translate(17, 10)">
+      <rect width="244" height="28" rx="5" fill="#1e293b" stroke="#334155" stroke-width="0.8"/>
+      <text x="122" y="14" text-anchor="middle" dominant-baseline="central" class="node-title">RGB Images &amp; Video Streams</text>
+    </g>
+
+    <!-- Input 2 -->
+    <g transform="translate(279, 10)">
+      <rect width="244" height="28" rx="5" fill="#1e293b" stroke="#334155" stroke-width="0.8"/>
+      <text x="122" y="14" text-anchor="middle" dominant-baseline="central" class="node-title">Camera Intrinsics &amp; Depth Maps</text>
+    </g>
+
+    <!-- Input 3 -->
+    <g transform="translate(541, 10)">
+      <rect width="244" height="28" rx="5" fill="#1e293b" stroke="#334155" stroke-width="0.8"/>
+      <text x="122" y="14" text-anchor="middle" dominant-baseline="central" class="node-title">3D CAD Models &amp; Meshes</text>
+    </g>
+  </g>
+
+  <!-- Flow Arrow: Stage 1 -> Stage 2 -->
+  <line x1="480" y1="94" x2="480" y2="114" stroke="#475569" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- =========================================================================
+       STAGE 2: INFERENCE (y=116, h=94)
+       ========================================================================= -->
+  <g transform="translate(80, 116)">
+    <!-- Container -->
+    <rect width="800" height="94" rx="8" fill="#0f172a" stroke="#4338ca" stroke-width="1.2"/>
+    
+    <!-- Header Banner -->
+    <text x="18" y="20" dominant-baseline="central" class="layer-title" fill="#a5b4fc">Inference</text>
+    <text x="782" y="20" text-anchor="end" dominant-baseline="central" class="node-sub" fill="#818cf8">ONNX Runtime &#8226; Hardware Acceleration (CUDA / TensorRT / CPU)</text>
+
+    <!-- 5 Symmetrical Task Nodes (w=144, gap=12, left=16) -->
+    <g transform="translate(16, 34)">
+      <!-- Task 1 -->
+      <g transform="translate(0, 0)">
+        <rect width="144" height="48" rx="6" fill="#1e1b4b" stroke="#3730a3" stroke-width="1"/>
+        <text x="72" y="18" text-anchor="middle" dominant-baseline="central" class="node-title">Depth Estimation</text>
+        <text x="72" y="32" text-anchor="middle" dominant-baseline="central" class="node-sub">Metric &amp; Relative</text>
+      </g>
+
+      <!-- Task 2 -->
+      <g transform="translate(156, 0)">
+        <rect width="144" height="48" rx="6" fill="#1e1b4b" stroke="#3730a3" stroke-width="1"/>
+        <text x="72" y="18" text-anchor="middle" dominant-baseline="central" class="node-title">Segmentation</text>
+        <text x="72" y="32" text-anchor="middle" dominant-baseline="central" class="node-sub">Masks &amp; Proposals</text>
+      </g>
+
+      <!-- Task 3 -->
+      <g transform="translate(312, 0)">
+        <rect width="144" height="48" rx="6" fill="#1e1b4b" stroke="#3730a3" stroke-width="1"/>
+        <text x="72" y="18" text-anchor="middle" dominant-baseline="central" class="node-title">Feature Extraction</text>
+        <text x="72" y="32" text-anchor="middle" dominant-baseline="central" class="node-sub">Visual Embeddings</text>
+      </g>
+
+      <!-- Task 4 -->
+      <g transform="translate(468, 0)">
+        <rect width="144" height="48" rx="6" fill="#1e1b4b" stroke="#3730a3" stroke-width="1"/>
+        <text x="72" y="18" text-anchor="middle" dominant-baseline="central" class="node-title">Keypoint Matching</text>
+        <text x="72" y="32" text-anchor="middle" dominant-baseline="central" class="node-sub">Correspondences</text>
+      </g>
+
+      <!-- Task 5 -->
+      <g transform="translate(624, 0)">
+        <rect width="144" height="48" rx="6" fill="#1e1b4b" stroke="#3730a3" stroke-width="1"/>
+        <text x="72" y="18" text-anchor="middle" dominant-baseline="central" class="node-title">6D Object Pose</text>
+        <text x="72" y="32" text-anchor="middle" dominant-baseline="central" class="node-sub">CAD Hypotheses</text>
+      </g>
+    </g>
+  </g>
+
+  <!-- Flow Arrow: Stage 2 -> Stage 3 -->
+  <line x1="480" y1="210" x2="480" y2="230" stroke="#475569" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- =========================================================================
+       STAGE 3: STANDARDIZED DATA STRUCTURES (y=232, h=72)
+       ========================================================================= -->
+  <g transform="translate(80, 232)">
+    <!-- Container -->
+    <rect width="800" height="72" rx="8" fill="#1e3a8a" fill-opacity="0.25" stroke="#2563eb" stroke-width="1.8"/>
+    
+    <text x="400" y="21" text-anchor="middle" dominant-baseline="central" class="bus-title">STANDARDIZED DATA STRUCTURES</text>
+    <text x="400" y="40" text-anchor="middle" dominant-baseline="central" class="bus-sub">Pure NumPy Containers &#8226; Unified Batch Dimension (N, ...) &#8226; OpenCV Camera Conventions (+X Right, +Y Down, +Z Forward)</text>
+    <text x="400" y="56" text-anchor="middle" dominant-baseline="central" class="node-sub" fill="#60a5fa">Synchronized Multi-Array Slicing &#8226; Dimensional Validation &#8226; Framework Agnostic</text>
+  </g>
+
+  <!-- Diverging Flow Arrows: Stage 3 -> Stage 4A & 4B -->
+  <line x1="275" y1="304" x2="275" y2="324" stroke="#475569" stroke-width="1.5" marker-end="url(#arr)"/>
+  <line x1="685" y1="304" x2="685" y2="324" stroke="#475569" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- =========================================================================
+       STAGE 4: GEOMETRIC UTILITIES & HARDWARE RENDERING (y=326, h=66)
+       ========================================================================= -->
+  <g transform="translate(80, 326)">
+    <!-- Left: Geometric Utilities (w=390) -->
+    <g transform="translate(0, 0)">
+      <rect width="390" height="66" rx="7" fill="#0f172a" stroke="#0284c7" stroke-width="1.2"/>
+      <text x="20" y="24" dominant-baseline="central" class="node-title" fill="#38bdf8">Geometric &amp; Spatial Utilities</text>
+      <text x="20" y="44" dominant-baseline="central" class="node-sub">Coordinate Projections &#8226; Rigid SE(3) Transformations &#8226; Depth Range Mapping &amp; Overlays</text>
+    </g>
+
+    <!-- Right: Offscreen Rendering (w=390, x=410) -->
+    <g transform="translate(410, 0)">
+      <rect width="390" height="66" rx="7" fill="#0f172a" stroke="#059669" stroke-width="1.2"/>
+      <text x="20" y="24" dominant-baseline="central" class="node-title" fill="#34d399">Hardware Offscreen Rendering</text>
+      <text x="20" y="44" dominant-baseline="central" class="node-sub">Headless ModernGL Contexts &#8226; Batched CAD Mesh Rasterization &#8226; Fullscreen Shaders</text>
+    </g>
+  </g>
+
+  <!-- Converging Flow Arrows: Stage 4 -> Stage 5 -->
+  <path d="M 275 392 L 275 408 L 465 408" fill="none" stroke="#475569" stroke-width="1.5"/>
+  <path d="M 685 392 L 685 408 L 495 408" fill="none" stroke="#475569" stroke-width="1.5"/>
+  <line x1="480" y1="402" x2="480" y2="416" stroke="#475569" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- =========================================================================
+       STAGE 5: DOWNSTREAM APPLICATIONS (y=418, h=48)
+       ========================================================================= -->
+  <g transform="translate(80, 418)">
+    <rect width="800" height="48" rx="7" fill="#0f172a" stroke="#be185d" stroke-width="1.2"/>
+    
+    <!-- 4 Symmetrical Pipeline Boxes (w=180, gap=16, left=16) -->
+    <!-- App 1 -->
+    <g transform="translate(16, 10)">
+      <rect width="180" height="28" rx="5" fill="#831843" fill-opacity="0.25" stroke="#be185d" stroke-width="0.8"/>
+      <text x="90" y="14" text-anchor="middle" dominant-baseline="central" class="node-title">6D Object Pose Tracking</text>
+    </g>
+
+    <!-- App 2 -->
+    <g transform="translate(212, 10)">
+      <rect width="180" height="28" rx="5" fill="#831843" fill-opacity="0.25" stroke="#be185d" stroke-width="0.8"/>
+      <text x="90" y="14" text-anchor="middle" dominant-baseline="central" class="node-title">Zero-Shot CAD Detection</text>
+    </g>
+
+    <!-- App 3 -->
+    <g transform="translate(408, 10)">
+      <rect width="180" height="28" rx="5" fill="#831843" fill-opacity="0.25" stroke="#be185d" stroke-width="0.8"/>
+      <text x="90" y="14" text-anchor="middle" dominant-baseline="central" class="node-title">Dense 3D Reconstruction</text>
+    </g>
+
+    <!-- App 4 -->
+    <g transform="translate(604, 10)">
+      <rect width="180" height="28" rx="5" fill="#831843" fill-opacity="0.25" stroke="#be185d" stroke-width="0.8"/>
+      <text x="90" y="14" text-anchor="middle" dominant-baseline="central" class="node-title">Two-View Geometry</text>
+    </g>
+  </g>
+</svg>

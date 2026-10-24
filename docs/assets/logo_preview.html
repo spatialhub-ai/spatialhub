@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>SpatialHub Logo Concepts</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0f172a;
+      color: #f8fafc;
+      margin: 0;
+      padding: 40px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    header {
+      text-align: center;
+      max-width: 800px;
+      margin-bottom: 36px;
+    }
+    h1 {
+      margin: 0 0 8px 0;
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    p.subtitle {
+      color: #94a3b8;
+      font-size: 14.5px;
+      line-height: 1.5;
+      margin: 0;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 22px;
+      max-width: 1200px;
+      width: 100%;
+    }
+    .card {
+      background: #1e293b;
+      border: 1px solid rgba(148, 163, 184, 0.15);
+      border-radius: 12px;
+      padding: 22px 18px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+    }
+    .card:hover {
+      border-color: #3b82f6;
+      transform: translateY(-3px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    }
+    .preview-box {
+      width: 120px;
+      height: 120px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #0b0f19;
+      border-radius: 10px;
+      margin-bottom: 16px;
+      padding: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .preview-box img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+    .title {
+      font-size: 15.5px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: #f1f5f9;
+      text-align: center;
+    }
+    .desc {
+      font-size: 12.5px;
+      color: #94a3b8;
+      text-align: center;
+      line-height: 1.5;
+      flex-grow: 1;
+    }
+    .tag {
+      margin-top: 14px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 3px 8px;
+      background: rgba(59, 130, 246, 0.15);
+      color: #60a5fa;
+      border-radius: 4px;
+    }
+    .tag.green {
+      background: rgba(34, 197, 94, 0.15);
+      color: #4ade80;
+    }
+    .tag.cyan {
+      background: rgba(56, 189, 248, 0.15);
+      color: #38bdf8;
+    }
+    .tag.purple {
+      background: rgba(168, 85, 247, 0.15);
+      color: #c084fc;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>SpatialHub Visual Identity Concepts</h1>
+    <p class="subtitle">Scalable vector logos crafted around Spatial AI: Visual SLAM, Camera Tracking, 6D Object Pose, 3D Reconstruction, and Factor Graphs.</p>
+  </header>
+
+  <div class="grid">
+    <!-- Concept 5: SLAM & Trajectory -->
+    <div class="card">
+      <div class="preview-box">
+        <img src="logo_concept5_slam.svg" alt="Concept 5: Visual SLAM & Trajectory">
+      </div>
+      <div class="title">5. Visual SLAM & Trajectory</div>
+      <div class="desc">A camera keyframe trajectory path with epipolar triangulation rays resolving a sparse 3D landmark point cloud map.</div>
+      <div class="tag green">SLAM & Tracking</div>
+    </div>
+
+    <!-- Concept 6: 3D Surface Reconstruction -->
+    <div class="card">
+      <div class="preview-box">
+        <img src="logo_concept6_reconstruction.svg" alt="Concept 6: 3D Surface Reconstruction">
+      </div>
+      <div class="title">6. 3D Scene Reconstruction</div>
+      <div class="desc">Triangulated surface mesh geometry with projective ray casting from a camera center and surface normal orientation vectors.</div>
+      <div class="tag cyan">Mesh & Depth Rays</div>
+    </div>
+
+    <!-- Concept 7: 6D Pose Tracking -->
+    <div class="card">
+      <div class="preview-box">
+        <img src="logo_concept7_posetracking.svg" alt="Concept 7: 6D Pose Tracking">
+      </div>
+      <div class="title">7. 6D Pose Tracking</div>
+      <div class="desc">Oriented 3D object bounding box observed from a camera viewpoint with an SE(3) centroid coordinate frame and rotation arc.</div>
+      <div class="tag purple">6D Object Pose</div>
+    </div>
+
+    <!-- Concept 8: Factor Graph & Optimization Hub -->
+    <div class="card">
+      <div class="preview-box">
+        <img src="logo_concept8_graphhub.svg" alt="Concept 8: Factor Graph Hub">
+      </div>
+      <div class="title">8. Perception Graph & Hub</div>
+      <div class="desc">Factor graph optimization network connecting multi-view camera sensors, depth fields, keyframes, and CAD models to a central spatial hub.</div>
+      <div class="tag">Graph & Fusion</div>
+    </div>
+
+    <!-- Concept 1: Frustum -->
+    <div class="card">
+      <div class="preview-box">
+        <img src="logo_concept1_frustum.svg" alt="Concept 1: Camera Frustum">
+      </div>
+      <div class="title">1. Camera Frustum</div>
+      <div class="desc">A pinhole camera center casting projection rays into an image plane quad with an orthogonal OpenCV (X, Y, Z) coordinate triad.</div>
+      <div class="tag">Vision & Projection</div>
+    </div>
+
+    <!-- Concept 2: Isometric Cube -->
+    <div class="card">
+      <div class="preview-box">
+        <img src="logo_concept2_isometric.svg" alt="Concept 2: Isometric Cube">
+      </div>
+      <div class="title">2. Isometric Spatial Cube</div>
+      <div class="desc">Isometric 3D bounding box / voxel with an inscribed coordinate triad hub and vertex nodes.</div>
+      <div class="tag">3D Bounds & Voxels</div>
+    </div>
+
+    <!-- Concept 3: Monogram S -->
+    <div class="card">
+      <div class="preview-box">
+        <img src="logo_concept3_monogram.svg" alt="Concept 3: S Monogram">
+      </div>
+      <div class="title">3. Geometric 'S' Monogram</div>
+      <div class="desc">A minimalist lettermark 'S' constructed from calibrated coordinate planes and keypoint landmark nodes.</div>
+      <div class="tag">Brand Lettermark</div>
+    </div>
+
+    <!-- Concept 4: Gimbal -->
+    <div class="card">
+      <div class="preview-box">
+        <img src="logo_concept4_gimbal.svg" alt="Concept 4: Optical Gimbal">
+      </div>
+      <div class="title">4. SE(3) Pose Gimbal</div>
+      <div class="desc">Spherical viewpoint orbit rings surrounding a 3D coordinate reticle with epipolar ray triangulation.</div>
+      <div class="tag">SE(3) Orbit & Viewpoints</div>
+    </div>
+  </div>
+</body>
+</html>

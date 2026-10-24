@@ -1,0 +1,160 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 270" width="100%" height="100%">
+  <defs>
+    <style>
+      .label-title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; fill: #94a3b8; }
+      .label-header { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 10.5px; font-weight: 700; fill: #f8fafc; }
+      .label-body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 9px; fill: #94a3b8; }
+      .label-dim { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 8.5px; fill: #38bdf8; }
+      .label-math { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 8.2px; fill: #34d399; }
+      .code-amber { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 8.2px; fill: #fbbf24; }
+    </style>
+  </defs>
+
+  <!-- Background Canvas -->
+  <rect width="1180" height="270" rx="10" fill="#0f172a" stroke="#1e293b" stroke-width="1.5"/>
+
+  <!-- Pipeline Title -->
+  <text x="25" y="27" class="label-title">FastSAM Processing Flow</text>
+
+  <!-- Stage 1: Isotropic Letterboxing (x: 25, w: 180) -->
+  <g transform="translate(25, 44)">
+    <rect width="180" height="202" rx="8" fill="#182234" stroke="#334155" stroke-width="1"/>
+    <rect width="180" height="30" rx="8" fill="#1e293b"/>
+    <rect y="22" width="180" height="8" fill="#1e293b"/>
+    <text x="12" y="20" class="label-header">Isotropic Letterboxing</text>
+
+    <!-- Visual: Aspect Ratio Letterbox -->
+    <g transform="translate(45, 44)">
+      <rect x="0" y="0" width="90" height="90" rx="3" fill="#0b1120" stroke="#475569" stroke-width="1" stroke-dasharray="2,2"/>
+      <rect x="0" y="15" width="90" height="60" rx="2" fill="#0369a1" fill-opacity="0.25" stroke="#38bdf8" stroke-width="1.2"/>
+      <text x="45" y="48" class="label-body" text-anchor="middle">Input (H, W)</text>
+    </g>
+
+    <text x="90" y="152" class="label-body" text-anchor="middle">Preserves aspect ratio</text>
+    <text x="90" y="168" class="label-dim" text-anchor="middle">s = min(640/H, 640/W)</text>
+    <text x="90" y="184" class="label-math" text-anchor="middle">Border pad (114, 114, 114)</text>
+    <text x="90" y="200" class="label-dim" text-anchor="middle">Tensor: (1, 3, 640, 640)</text>
+  </g>
+
+  <!-- Flow Arrow 1 -->
+  <g transform="translate(216, 145)">
+    <line x1="-7" y1="0" x2="7" y2="0" stroke="#38bdf8" stroke-width="1.5"/>
+    <polygon points="7,-3 13,0 7,3" fill="#38bdf8"/>
+  </g>
+
+  <!-- Stage 2: ONNX Runtime Inference (x: 230, w: 200) -->
+  <g transform="translate(230, 44)">
+    <rect width="200" height="202" rx="8" fill="#182234" stroke="#2563eb" stroke-width="1.2"/>
+    <rect width="200" height="30" rx="8" fill="#1e3a8a" opacity="0.6"/>
+    <rect y="22" width="200" height="8" fill="#1e3a8a" opacity="0.6"/>
+    <text x="12" y="20" class="label-header">ONNX Runtime Forward Pass</text>
+
+    <!-- Session Box -->
+    <g transform="translate(20, 44)">
+      <rect x="0" y="0" width="160" height="48" rx="4" fill="#0b1120" stroke="#38bdf8" stroke-width="1.2"/>
+      <text x="80" y="21" class="label-header" text-anchor="middle" fill="#38bdf8">session.run()</text>
+      <text x="80" y="38" class="label-dim" text-anchor="middle">FastSAM-s | FastSAM-x</text>
+    </g>
+
+    <text x="100" y="116" class="label-body" text-anchor="middle">YOLOv8-Seg Backbone</text>
+    <text x="100" y="136" class="label-math" text-anchor="middle">Output 0: (1, 37, 8400)</text>
+    <text x="100" y="152" class="label-dim" text-anchor="middle">4 box + 1 score + 32 proto</text>
+    <text x="100" y="174" class="label-math" text-anchor="middle">Output 1: (1, 32, 160, 160)</text>
+    <text x="100" y="190" class="label-dim" text-anchor="middle">Prototype Mask Tensor</text>
+  </g>
+
+  <!-- Flow Split 2: Top to Box Decoding, Bottom to Prototype Synthesis -->
+  <!-- Upper Branch -> Stage 3 (y: 110) -->
+  <path d="M 430 135 L 445 135 L 445 105 L 458 105" fill="none" stroke="#38bdf8" stroke-width="1.5"/>
+  <polygon points="458,102 464,105 458,108" fill="#38bdf8"/>
+
+  <!-- Lower Branch -> Stage 4 (y: 185) -->
+  <path d="M 430 155 L 445 155 L 445 185 L 458 185" fill="none" stroke="#34d399" stroke-width="1.5"/>
+  <polygon points="458,182 464,185 458,188" fill="#34d399"/>
+
+  <!-- Stage 3: Box Decoding & NMS (x: 464, w: 230) -->
+  <g transform="translate(464, 44)">
+    <rect width="230" height="96" rx="6" fill="#182234" stroke="#38bdf8" stroke-width="1"/>
+    <rect width="230" height="24" rx="6" fill="#1e293b"/>
+    <rect y="16" width="230" height="8" fill="#1e293b"/>
+    <text x="10" y="16" class="label-header">Box Decoding &amp; NMS</text>
+
+    <text x="12" y="38" class="label-dim">Center [cx, cy, w, h] &#8594; Corner [x1, y1, x2, y2]</text>
+    <text x="12" y="54" class="label-math">nms_boxes(boxes, scores, iou_threshold)</text>
+    <text x="12" y="70" class="label-body">Filter degenerate &amp; border boxes</text>
+    <text x="12" y="86" class="code-amber">Retain top max_det proposals (default: 50)</text>
+  </g>
+
+  <!-- Stage 4: Prototype Mask Synthesis (x: 464, y: 150, w: 230) -->
+  <g transform="translate(464, 150)">
+    <rect width="230" height="96" rx="6" fill="#182234" stroke="#34d399" stroke-width="1"/>
+    <rect width="230" height="24" rx="6" fill="#064e3b" opacity="0.6"/>
+    <rect y="16" width="230" height="8" fill="#064e3b" opacity="0.6"/>
+    <text x="10" y="16" class="label-header">Prototype Mask Synthesis</text>
+
+    <text x="12" y="38" class="label-dim">(N, 32) &#64; (32, 160&#183;160) &#8594; (N, 160, 160)</text>
+    <text x="12" y="54" class="label-math">crop_mask(masks, boxes / 4.0)</text>
+    <text x="12" y="70" class="label-body">In-place zeroing outside boxes</text>
+    <text x="12" y="86" class="code-amber">Remove letterbox margins in proto space</text>
+  </g>
+
+  <!-- Flow Converge -> Stage 5 (x: 708) -->
+  <path d="M 694 92 L 710 92 L 710 145 L 720 145" fill="none" stroke="#38bdf8" stroke-width="1.5"/>
+  <path d="M 694 198 L 710 198 L 710 145 L 720 145" fill="none" stroke="#34d399" stroke-width="1.5"/>
+  <polygon points="720,142 726,145 720,148" fill="#38bdf8"/>
+
+  <!-- Stage 5: Unpadding & Projection (x: 726, w: 215) -->
+  <g transform="translate(726, 44)">
+    <rect width="215" height="202" rx="8" fill="#182234" stroke="#334155" stroke-width="1"/>
+    <rect width="215" height="30" rx="8" fill="#1e293b"/>
+    <rect y="22" width="215" height="8" fill="#1e293b"/>
+    <text x="12" y="20" class="label-header">Upsampling &amp; Projection</text>
+
+    <g transform="translate(14, 46)">
+      <rect width="187" height="42" rx="4" fill="#0b1120" stroke="#334155" stroke-width="1"/>
+      <text x="10" y="18" class="label-math">cv2.resize(INTER_LINEAR)</text>
+      <text x="10" y="34" class="label-dim">(N, proto_h, proto_w) &#8594; (N, H, W)</text>
+    </g>
+
+    <text x="107" y="112" class="label-body" text-anchor="middle">Logit Binarization</text>
+    <text x="107" y="128" class="label-math" text-anchor="middle">M_binary = (logits &gt; 0.0)</text>
+    <text x="107" y="144" class="label-dim" text-anchor="middle">&#8660; sigmoid(logit) &gt; 0.5</text>
+    <text x="107" y="168" class="label-body" text-anchor="middle">Box Coordinate Inversion</text>
+    <text x="107" y="184" class="label-math" text-anchor="middle">box_orig = (box - pad) / scale</text>
+    <text x="107" y="200" class="label-dim" text-anchor="middle">Clamped to native image [0, W], [0, H]</text>
+  </g>
+
+  <!-- Flow Arrow 4 -->
+  <g transform="translate(953, 145)">
+    <line x1="-7" y1="0" x2="7" y2="0" stroke="#38bdf8" stroke-width="1.5"/>
+    <polygon points="7,-3 13,0 7,3" fill="#38bdf8"/>
+  </g>
+
+  <!-- Stage 6: Output Data Contract (x: 967, w: 188) -->
+  <g transform="translate(967, 44)">
+    <rect width="188" height="202" rx="8" fill="#182234" stroke="#38bdf8" stroke-width="1.2"/>
+    <rect width="188" height="30" rx="8" fill="#1e293b"/>
+    <rect y="22" width="188" height="8" fill="#1e293b"/>
+    <text x="12" y="20" class="label-header">Output Data Contract</text>
+
+    <!-- Dataclass box -->
+    <g transform="translate(14, 44)">
+      <rect width="160" height="26" rx="4" fill="#0b1120" stroke="#38bdf8" stroke-width="1"/>
+      <text x="80" y="17" class="label-dim" text-anchor="middle">InstanceSegmentation</text>
+    </g>
+
+    <!-- Field Descriptions -->
+    <g transform="translate(16, 88)">
+      <text x="0" y="0" class="label-header" fill="#f8fafc">Fields:</text>
+
+      <text x="0" y="18" class="label-dim">&#8226; masks</text>
+      <text x="10" y="32" class="label-body">(N, H, W) bool</text>
+
+      <text x="0" y="52" class="label-dim">&#8226; boxes</text>
+      <text x="10" y="66" class="label-body">(N, 4) float32</text>
+
+      <text x="0" y="86" class="label-dim">&#8226; scores</text>
+      <text x="10" y="100" class="label-body">(N,) float32 in [0, 1]</text>
+    </g>
+  </g>
+</svg>

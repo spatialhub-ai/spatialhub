@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%">
+  <defs>
+    <!-- Spatial Node Gradient -->
+    <linearGradient id="hubGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="50%" stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#1d4ed8"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background Epipolar Constraint & Co-visibility Graph Edges -->
+  <line x1="22" y1="32" x2="50" y2="18" stroke="#3b82f6" stroke-width="1.2" stroke-dasharray="2 2" opacity="0.45"/>
+  <line x1="50" y1="18" x2="78" y2="32" stroke="#3b82f6" stroke-width="1.2" stroke-dasharray="2 2" opacity="0.45"/>
+  <line x1="78" y1="32" x2="78" y2="68" stroke="#3b82f6" stroke-width="1.2" stroke-dasharray="2 2" opacity="0.45"/>
+  <line x1="78" y1="68" x2="50" y2="82" stroke="#3b82f6" stroke-width="1.2" stroke-dasharray="2 2" opacity="0.45"/>
+  <line x1="50" y1="82" x2="22" y2="68" stroke="#3b82f6" stroke-width="1.2" stroke-dasharray="2 2" opacity="0.45"/>
+  <line x1="22" y1="68" x2="22" y2="32" stroke="#3b82f6" stroke-width="1.2" stroke-dasharray="2 2" opacity="0.45"/>
+
+  <!-- Core Graph Connections radiating to Center Hub -->
+  <line x1="22" y1="32" x2="50" y2="50" stroke="#38bdf8" stroke-width="2" opacity="0.8"/>
+  <line x1="50" y1="18" x2="50" y2="50" stroke="#60a5fa" stroke-width="2" opacity="0.8"/>
+  <line x1="78" y1="32" x2="50" y2="50" stroke="#3b82f6" stroke-width="2" opacity="0.8"/>
+  <line x1="78" y1="68" x2="50" y2="50" stroke="#2563eb" stroke-width="2" opacity="0.8"/>
+  <line x1="50" y1="82" x2="50" y2="50" stroke="#1d4ed8" stroke-width="2" opacity="0.8"/>
+  <line x1="22" y1="68" x2="50" y2="50" stroke="#2563eb" stroke-width="2" opacity="0.8"/>
+
+  <!-- Satellite Nodes: Multi-View Perception Sensors / Keyframe Nodes -->
+  <!-- Top Node (RGB Camera) -->
+  <circle cx="50" cy="18" r="4.5" fill="#0284c7" stroke="#ffffff" stroke-width="1.5"/>
+  <!-- Top Left Node (Depth Sensor) -->
+  <circle cx="22" cy="32" r="4.5" fill="#38bdf8" stroke="#ffffff" stroke-width="1.5"/>
+  <!-- Top Right Node (Pose Keyframe) -->
+  <circle cx="78" cy="32" r="4.5" fill="#3b82f6" stroke="#ffffff" stroke-width="1.5"/>
+  <!-- Bottom Right Node (3D Landmark Map) -->
+  <circle cx="78" cy="68" r="4.5" fill="#22c55e" stroke="#ffffff" stroke-width="1.5"/>
+  <!-- Bottom Node (CAD / Mesh Model) -->
+  <circle cx="50" cy="82" r="4.5" fill="#1d4ed8" stroke="#ffffff" stroke-width="1.5"/>
+  <!-- Bottom Left Node (Optical Flow / Feature Match) -->
+  <circle cx="22" cy="68" r="4.5" fill="#6366f1" stroke="#ffffff" stroke-width="1.5"/>
+
+  <!-- Center Hub: Spatial Optimization Engine (Factor Graph / Bundle Adjustment) -->
+  <circle cx="50" cy="50" r="10" fill="url(#hubGrad)" stroke="#ffffff" stroke-width="2"/>
+  
+  <!-- Inscribed OpenCV Coordinate Cross at Hub -->
+  <line x1="50" y1="44" x2="50" y2="56" stroke="#ffffff" stroke-width="2" stroke-linecap="round"/>
+  <line x1="44" y1="50" x2="56" y2="50" stroke="#ffffff" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="50" cy="50" r="2" fill="#ef4444"/>
+</svg>

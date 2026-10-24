@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%">
+  <defs>
+    <!-- Object 3D Box Volume Gradient -->
+    <linearGradient id="boxTop" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#1d4ed8" stop-opacity="0.3"/>
+    </linearGradient>
+    <linearGradient id="boxFront" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2563eb" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#1e40af" stop-opacity="0.4"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Camera Optical Viewpoint Frame (Top Left) -->
+  <circle cx="18" cy="22" r="3.5" fill="#38bdf8" stroke="#ffffff" stroke-width="1.5"/>
+
+  <!-- Tracking Rays connecting Camera Center to Object Box Vertices -->
+  <line x1="18" y1="22" x2="38" y2="46" stroke="#38bdf8" stroke-width="1.2" stroke-dasharray="3 2" opacity="0.6"/>
+  <line x1="18" y1="22" x2="72" y2="40" stroke="#38bdf8" stroke-width="1.2" stroke-dasharray="3 2" opacity="0.6"/>
+  <line x1="18" y1="22" x2="38" y2="82" stroke="#38bdf8" stroke-width="1.2" stroke-dasharray="3 2" opacity="0.4"/>
+
+  <!-- Oriented 3D Bounding Box (6D Object Pose) -->
+  <!-- Top Face -->
+  <polygon points="54,30 84,36 68,52 38,46" fill="url(#boxTop)" stroke="#60a5fa" stroke-width="1.8" stroke-linejoin="round"/>
+  <!-- Front Face -->
+  <polygon points="38,46 68,52 68,88 38,82" fill="url(#boxFront)" stroke="#3b82f6" stroke-width="1.8" stroke-linejoin="round"/>
+  <!-- Right Face -->
+  <polygon points="68,52 84,36 84,72 68,88" fill="url(#boxTop)" stroke="#2563eb" stroke-width="1.8" stroke-linejoin="round"/>
+
+  <!-- Object Centroid & 6D Pose Coordinate Frame -->
+  <!-- Pose Centroid Origin (58, 62) -->
+  <circle cx="58" cy="62" r="4.5" fill="#ffffff" stroke="#1d4ed8" stroke-width="2"/>
+
+  <!-- 6D Coordinate Axes at Centroid -->
+  <!-- +X Axis (Right): Red -->
+  <line x1="58" y1="62" x2="76" y2="65" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- +Y Axis (Down): Green -->
+  <line x1="58" y1="62" x2="58" y2="82" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- +Z Axis (Optical/Forward): Blue -->
+  <line x1="58" y1="62" x2="44" y2="50" stroke="#3b82f6" stroke-width="2.5" stroke-linecap="round"/>
+
+  <!-- 3D Rotation Arc Arrow (SE(3) Rotation SO(3)) -->
+  <path d="M 44 68 A 14 14 0 0 1 68 48" fill="none" stroke="#f59e0b" stroke-width="1.8" stroke-linecap="round" stroke-dasharray="3 2"/>
+  <polygon points="69,45 73,50 66,51" fill="#f59e0b"/>
+</svg>

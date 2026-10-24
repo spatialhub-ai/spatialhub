@@ -1,0 +1,156 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 270" width="100%" height="100%">
+  <defs>
+    <style>
+      .label-title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; fill: #94a3b8; }
+      .label-header { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 10.5px; font-weight: 700; fill: #f8fafc; }
+      .label-body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 9px; fill: #94a3b8; }
+      .label-dim { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 8.5px; fill: #38bdf8; }
+      .label-math { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 8.2px; fill: #34d399; }
+      .code-amber { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 8.2px; fill: #fbbf24; }
+    </style>
+  </defs>
+
+  <!-- Background Canvas -->
+  <rect width="1180" height="270" rx="10" fill="#0f172a" stroke="#1e293b" stroke-width="1.5"/>
+
+  <!-- Pipeline Title -->
+  <text x="25" y="27" class="label-title">Segment Anything (SAM) Processing Flow</text>
+
+  <!-- Stage 1: Isotropic Scaling & Padding (x: 25, w: 180) -->
+  <g transform="translate(25, 44)">
+    <rect width="180" height="202" rx="8" fill="#182234" stroke="#334155" stroke-width="1"/>
+    <rect width="180" height="30" rx="8" fill="#1e293b"/>
+    <rect y="22" width="180" height="8" fill="#1e293b"/>
+    <text x="12" y="20" class="label-header">Isotropic Scaling &amp; Padding</text>
+
+    <!-- Visual: Aspect Ratio Letterbox -->
+    <g transform="translate(45, 44)">
+      <rect x="0" y="0" width="90" height="90" rx="3" fill="#0b1120" stroke="#475569" stroke-width="1" stroke-dasharray="2,2"/>
+      <rect x="0" y="15" width="90" height="60" rx="2" fill="#0369a1" fill-opacity="0.25" stroke="#38bdf8" stroke-width="1.2"/>
+      <text x="45" y="48" class="label-body" text-anchor="middle">Input (H, W)</text>
+    </g>
+
+    <text x="90" y="152" class="label-body" text-anchor="middle">Longest-side isotropic scale</text>
+    <text x="90" y="168" class="label-dim" text-anchor="middle">s = 1024 / max(H, W)</text>
+    <text x="90" y="184" class="label-math" text-anchor="middle">ImageNet mean/std norm</text>
+    <text x="90" y="200" class="label-dim" text-anchor="middle">Tensor: (1, 3, 1024, 1024)</text>
+  </g>
+
+  <!-- Flow Arrow 1 -->
+  <g transform="translate(216, 145)">
+    <line x1="-7" y1="0" x2="7" y2="0" stroke="#38bdf8" stroke-width="1.5"/>
+    <polygon points="7,-3 13,0 7,3" fill="#38bdf8"/>
+  </g>
+
+  <!-- Stage 2: Image Encoder (x: 230, w: 195) -->
+  <g transform="translate(230, 44)">
+    <rect width="195" height="202" rx="8" fill="#182234" stroke="#2563eb" stroke-width="1.2"/>
+    <rect width="195" height="30" rx="8" fill="#1e3a8a" opacity="0.6"/>
+    <rect y="22" width="195" height="8" fill="#1e3a8a" opacity="0.6"/>
+    <text x="12" y="20" class="label-header">Image Encoder Session</text>
+
+    <!-- Session Box -->
+    <g transform="translate(18, 44)">
+      <rect x="0" y="0" width="159" height="48" rx="4" fill="#0b1120" stroke="#38bdf8" stroke-width="1.2"/>
+      <text x="80" y="21" class="label-header" text-anchor="middle" fill="#38bdf8">encoder.run()</text>
+      <text x="80" y="38" class="label-dim" text-anchor="middle">ViT-B | ViT-L | ViT-H</text>
+    </g>
+
+    <text x="98" y="116" class="label-body" text-anchor="middle">1x execution per frame</text>
+    <text x="98" y="136" class="label-dim" text-anchor="middle">Patch Embedding (16x16)</text>
+    <text x="98" y="152" class="label-math" text-anchor="middle">Global + Window Attention</text>
+    <text x="98" y="174" class="label-body" text-anchor="middle">Output Embedding:</text>
+    <text x="98" y="192" class="label-dim" text-anchor="middle">(1, 256, 64, 64)</text>
+  </g>
+
+  <!-- Flow Split 2: Top to Point Grid, Center from Image Embedding -->
+  <path d="M 425 145 L 452 145" fill="none" stroke="#38bdf8" stroke-width="1.5"/>
+  <polygon points="452,142 458,145 452,148" fill="#38bdf8"/>
+
+  <!-- Stage 3: Prompt Grid & Batched Decoder (x: 458, w: 245) -->
+  <g transform="translate(458, 44)">
+    <rect width="245" height="202" rx="8" fill="#182234" stroke="#38bdf8" stroke-width="1"/>
+    <rect width="245" height="30" rx="8" fill="#1e293b"/>
+    <rect y="22" width="245" height="8" fill="#1e293b"/>
+    <text x="12" y="20" class="label-header">Prompt Grid &amp; Mask Decoder</text>
+
+    <!-- Grid box -->
+    <g transform="translate(14, 42)">
+      <rect width="217" height="42" rx="4" fill="#0b1120" stroke="#334155" stroke-width="1"/>
+      <text x="10" y="17" class="label-dim">G x G Point Grid: (N_pts, 2)</text>
+      <text x="10" y="33" class="label-math">Batch Chunking: B = points_per_batch</text>
+    </g>
+
+    <!-- Decoder run box -->
+    <g transform="translate(14, 94)">
+      <rect width="217" height="46" rx="4" fill="#0b1120" stroke="#34d399" stroke-width="1"/>
+      <text x="10" y="18" class="label-header" fill="#34d399">decoder.run() (Batched)</text>
+      <text x="10" y="34" class="label-dim">2-way cross-attention transformer</text>
+    </g>
+
+    <text x="122" y="162" class="label-body" text-anchor="middle">Outputs in Native 256x256 Space:</text>
+    <text x="122" y="178" class="label-math" text-anchor="middle">Mask Logits: (B, 1, 256, 256)</text>
+    <text x="122" y="194" class="label-dim" text-anchor="middle">IoU Predictions: (B, 1)</text>
+  </g>
+
+  <!-- Flow Arrow 3 -->
+  <g transform="translate(714, 145)">
+    <line x1="-8" y1="0" x2="8" y2="0" stroke="#38bdf8" stroke-width="1.5"/>
+    <polygon points="8,-3 14,0 8,3" fill="#38bdf8"/>
+  </g>
+
+  <!-- Stage 4: Filtering & NMS (x: 728, w: 220) -->
+  <g transform="translate(728, 44)">
+    <rect width="220" height="202" rx="8" fill="#182234" stroke="#334155" stroke-width="1"/>
+    <rect width="220" height="30" rx="8" fill="#1e293b"/>
+    <rect y="22" width="220" height="8" fill="#1e293b"/>
+    <text x="12" y="20" class="label-header">Filtering &amp; NMS Deduplication</text>
+
+    <text x="12" y="48" class="label-dim">1. IoU Score Cutoff</text>
+    <text x="20" y="64" class="label-math">keep = (pred_iou &gt; tau_iou)</text>
+
+    <text x="12" y="86" class="label-dim">2. Stability Scoring</text>
+    <text x="20" y="102" class="label-math">sum(M &gt; +1.0) / sum(M &gt; -1.0)</text>
+
+    <text x="12" y="124" class="label-dim">3. Box Extraction &amp; Scale</text>
+    <text x="20" y="140" class="label-body">Vectorized bounding box [xyxy]</text>
+    <text x="20" y="154" class="label-dim">Scaled from 256x256 to (W, H)</text>
+
+    <text x="12" y="176" class="label-dim">4. Bounding Box NMS</text>
+    <text x="20" y="192" class="code-amber">nms_boxes(boxes, scores, tau_nms)</text>
+  </g>
+
+  <!-- Flow Arrow 4 -->
+  <g transform="translate(958, 145)">
+    <line x1="-7" y1="0" x2="7" y2="0" stroke="#38bdf8" stroke-width="1.5"/>
+    <polygon points="7,-3 13,0 7,3" fill="#38bdf8"/>
+  </g>
+
+  <!-- Stage 5: Output Data Contract (x: 972, w: 183) -->
+  <g transform="translate(972, 44)">
+    <rect width="183" height="202" rx="8" fill="#182234" stroke="#38bdf8" stroke-width="1.2"/>
+    <rect width="183" height="30" rx="8" fill="#1e293b"/>
+    <rect y="22" width="183" height="8" fill="#1e293b"/>
+    <text x="12" y="20" class="label-header">Output Data Contract</text>
+
+    <!-- Dataclass box -->
+    <g transform="translate(12, 44)">
+      <rect width="159" height="26" rx="4" fill="#0b1120" stroke="#38bdf8" stroke-width="1"/>
+      <text x="80" y="17" class="label-dim" text-anchor="middle">InstanceSegmentation</text>
+    </g>
+
+    <!-- Field Descriptions -->
+    <g transform="translate(14, 88)">
+      <text x="0" y="0" class="label-header" fill="#f8fafc">Fields:</text>
+
+      <text x="0" y="18" class="label-dim">&#8226; masks</text>
+      <text x="10" y="32" class="label-body">(N, H_orig, W_orig) bool</text>
+
+      <text x="0" y="52" class="label-dim">&#8226; boxes</text>
+      <text x="10" y="66" class="label-body">(N, 4) float32</text>
+
+      <text x="0" y="86" class="label-dim">&#8226; scores</text>
+      <text x="10" y="100" class="label-body">(N,) float32 in [0, 1]</text>
+    </g>
+  </g>
+</svg>

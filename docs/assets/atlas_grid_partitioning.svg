@@ -1,0 +1,162 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1060 420" width="100%" height="100%">
+  <defs>
+    <style>
+      .label-title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; fill: #94a3b8; }
+      .label-header { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 12px; font-weight: 700; fill: #f8fafc; }
+      .label-body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 10px; fill: #94a3b8; }
+      .label-dim { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 9.5px; fill: #60a5fa; }
+      .tile-text { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 10px; font-weight: 600; fill: #cbd5e1; }
+    </style>
+  </defs>
+
+  <!-- Background Panel -->
+  <rect width="1060" height="420" rx="10" fill="#0f172a" stroke="#1e293b" stroke-width="1.5"/>
+
+  <!-- Diagram Title -->
+  <text x="30" y="28" class="label-title">Batched Atlas Rasterization &#8226; Instanced Viewpoint Tiling &amp; Un-Tiling</text>
+
+  <!-- Left: Instanced Input Poses -->
+  <g transform="translate(30, 48)">
+    <rect width="200" height="340" rx="8" fill="#182234" stroke="#334155" stroke-width="1"/>
+    <rect width="200" height="34" rx="8" fill="#1e293b"/>
+    <rect y="26" width="200" height="8" fill="#1e293b"/>
+    <text x="16" y="21" class="label-header">Viewpoint Poses</text>
+
+    <!-- Pose Stack Cards -->
+    <g transform="translate(16, 44)">
+      <rect x="0" y="0" width="168" height="44" rx="5" fill="#0b1120" stroke="#2563eb" stroke-width="1"/>
+      <text x="12" y="18" class="tile-text">Pose [R | t]</text>
+      <text x="12" y="34" class="label-body">SE(3) viewpoint transform</text>
+
+      <rect x="0" y="54" width="168" height="44" rx="5" fill="#0b1120" stroke="#2563eb" stroke-width="1"/>
+      <text x="12" y="72" class="tile-text">Pose [R | t]</text>
+      <text x="12" y="88" class="label-body">SE(3) viewpoint transform</text>
+
+      <text x="84" y="126" fill="#64748b" font-size="16" font-family="monospace" text-anchor="middle">&#8226;&#8226;&#8226;</text>
+
+      <rect x="0" y="146" width="168" height="44" rx="5" fill="#0b1120" stroke="#2563eb" stroke-width="1"/>
+      <text x="12" y="164" class="tile-text">Pose [R | t]</text>
+      <text x="12" y="180" class="label-body">SE(3) viewpoint transform</text>
+
+      <rect x="0" y="210" width="168" height="56" rx="5" fill="#0c1d37" stroke="#3b82f6" stroke-width="1"/>
+      <text x="84" y="232" class="label-body" text-anchor="middle">Viewpoint Transforms</text>
+      <text x="84" y="250" class="label-dim" text-anchor="middle">(N, 4, 4) in SE(3)</text>
+    </g>
+  </g>
+
+  <!-- Arrow: Instanced Draw Call (Wide 100px Gap) -->
+  <g transform="translate(280, 212)">
+    <line x1="-22" y1="0" x2="16" y2="0" stroke="#3b82f6" stroke-width="2"/>
+    <polygon points="16,-4 24,0 16,4" fill="#3b82f6"/>
+    <text x="0" y="-14" class="label-body" text-anchor="middle">Instanced</text>
+    <text x="0" y="18" class="label-dim" text-anchor="middle">Draw Call</text>
+  </g>
+
+  <!-- Center: 2D Grid Atlas Framebuffer -->
+  <g transform="translate(330, 48)">
+    <rect width="380" height="340" rx="8" fill="#182234" stroke="#2563eb" stroke-width="1.5"/>
+    <rect width="380" height="34" rx="8" fill="#1e3a8a" opacity="0.6"/>
+    <rect y="26" width="380" height="8" fill="#1e3a8a" opacity="0.6"/>
+    <text x="16" y="21" class="label-header">Atlas Framebuffer (R &#215; C Grid)</text>
+    <text x="364" y="21" class="label-dim" text-anchor="end">C&#183;W &#215; R&#183;H</text>
+
+    <!-- Grid Cells -->
+    <g transform="translate(16, 44)">
+      <!-- Row 0 -->
+      <rect x="0" y="0" width="78" height="50" rx="4" fill="#0b1120" stroke="#334155" stroke-width="1"/>
+      <text x="39" y="22" class="tile-text" text-anchor="middle">Tile (0, 0)</text>
+      <text x="39" y="38" class="label-dim" text-anchor="middle">W &#215; H</text>
+
+      <rect x="90" y="0" width="78" height="50" rx="4" fill="#0b1120" stroke="#334155" stroke-width="1"/>
+      <text x="129" y="22" class="tile-text" text-anchor="middle">Tile (0, 1)</text>
+      <text x="129" y="38" class="label-dim" text-anchor="middle">W &#215; H</text>
+
+      <rect x="180" y="0" width="78" height="50" rx="4" fill="#0b1120" stroke="#334155" stroke-width="1"/>
+      <text x="219" y="22" class="tile-text" text-anchor="middle">Tile (0, 2)</text>
+      <text x="219" y="38" class="label-dim" text-anchor="middle">W &#215; H</text>
+
+      <rect x="270" y="0" width="78" height="50" rx="4" fill="#0b1120" stroke="#334155" stroke-width="1"/>
+      <text x="309" y="22" class="tile-text" text-anchor="middle">Tile (0, C-1)</text>
+      <text x="309" y="38" class="label-dim" text-anchor="middle">W &#215; H</text>
+
+      <!-- Row 1 -->
+      <rect x="0" y="58" width="78" height="50" rx="4" fill="#0b1120" stroke="#334155" stroke-width="1"/>
+      <text x="39" y="80" class="tile-text" text-anchor="middle">Tile (1, 0)</text>
+      <text x="39" y="96" class="label-dim" text-anchor="middle">W &#215; H</text>
+
+      <rect x="90" y="58" width="78" height="50" rx="4" fill="#0b1120" stroke="#334155" stroke-width="1"/>
+      <text x="129" y="80" class="tile-text" text-anchor="middle">Tile (1, 1)</text>
+      <text x="129" y="96" class="label-dim" text-anchor="middle">W &#215; H</text>
+
+      <rect x="180" y="58" width="78" height="50" rx="4" fill="#0b1120" stroke="#334155" stroke-width="1"/>
+      <text x="219" y="80" class="tile-text" text-anchor="middle">Tile (1, 2)</text>
+      <text x="219" y="96" class="label-dim" text-anchor="middle">W &#215; H</text>
+
+      <rect x="270" y="58" width="78" height="50" rx="4" fill="#0b1120" stroke="#334155" stroke-width="1"/>
+      <text x="309" y="80" class="tile-text" text-anchor="middle">Tile (1, C-1)</text>
+      <text x="309" y="96" class="label-dim" text-anchor="middle">W &#215; H</text>
+
+      <!-- Dots for more rows -->
+      <text x="174" y="132" fill="#64748b" font-size="16" font-family="monospace" text-anchor="middle">&#8226;&#8226;&#8226;</text>
+
+      <!-- Last Row -->
+      <rect x="0" y="146" width="78" height="50" rx="4" fill="#0b1120" stroke="#334155" stroke-width="1"/>
+      <text x="39" y="168" class="tile-text" text-anchor="middle">Tile (R-1, 0)</text>
+      <text x="39" y="184" class="label-dim" text-anchor="middle">W &#215; H</text>
+
+      <rect x="90" y="146" width="78" height="50" rx="4" fill="#0b1120" stroke="#334155" stroke-width="1"/>
+      <text x="129" y="168" class="tile-text" text-anchor="middle">Tile (R-1, 1)</text>
+      <text x="129" y="184" class="label-dim" text-anchor="middle">W &#215; H</text>
+
+      <rect x="180" y="146" width="78" height="50" rx="4" fill="#0b1120" stroke="#334155" stroke-width="1"/>
+      <text x="219" y="174" class="tile-text" text-anchor="middle">&#8226;&#8226;&#8226;</text>
+
+      <rect x="270" y="146" width="78" height="50" rx="4" fill="#0b1120" stroke="#22c55e" stroke-width="1"/>
+      <text x="309" y="168" class="tile-text" text-anchor="middle">Tile (R-1, C-1)</text>
+      <text x="309" y="184" class="label-dim" text-anchor="middle">W &#215; H</text>
+
+      <!-- Multi-Target Framebuffer Attachments Box -->
+      <rect x="0" y="210" width="348" height="56" rx="5" fill="#0c1d37" stroke="#1d4ed8" stroke-width="1"/>
+      <text x="14" y="232" class="label-body">Multi-Target Framebuffer Attachments</text>
+      <text x="14" y="250" class="label-dim">Configured via layout=[(components, dtype), ...]</text>
+    </g>
+  </g>
+
+  <!-- Arrow: Un-tiling Readback (Wide 100px Gap) -->
+  <g transform="translate(760, 212)">
+    <line x1="-22" y1="0" x2="16" y2="0" stroke="#38bdf8" stroke-width="2"/>
+    <polygon points="16,-4 24,0 16,4" fill="#38bdf8"/>
+    <text x="0" y="-14" class="label-body" text-anchor="middle">read_tiles()</text>
+    <text x="0" y="18" class="label-dim" text-anchor="middle">Un-tiling</text>
+  </g>
+
+  <!-- Right: Un-tiled 4D Output Tensor -->
+  <g transform="translate(810, 48)">
+    <rect width="220" height="340" rx="8" fill="#182234" stroke="#334155" stroke-width="1"/>
+    <rect width="220" height="34" rx="8" fill="#1e293b"/>
+    <rect y="26" width="220" height="8" fill="#1e293b"/>
+    <text x="16" y="21" class="label-header">Un-tiled 4D Output</text>
+
+    <!-- 4D Tensor Stack -->
+    <g transform="translate(16, 44)">
+      <rect x="0" y="0" width="188" height="44" rx="5" fill="#0b1120" stroke="#0284c7" stroke-width="1"/>
+      <text x="12" y="18" class="tile-text">views[0]</text>
+      <text x="12" y="34" class="label-dim">(tile_h, tile_w, components)</text>
+
+      <rect x="0" y="54" width="188" height="44" rx="5" fill="#0b1120" stroke="#0284c7" stroke-width="1"/>
+      <text x="12" y="72" class="tile-text">views[1]</text>
+      <text x="12" y="88" class="label-dim">(tile_h, tile_w, components)</text>
+
+      <text x="94" y="126" fill="#64748b" font-size="16" font-family="monospace" text-anchor="middle">&#8226;&#8226;&#8226;</text>
+
+      <rect x="0" y="146" width="188" height="44" rx="5" fill="#0b1120" stroke="#0284c7" stroke-width="1"/>
+      <text x="12" y="164" class="tile-text">views[N-1]</text>
+      <text x="12" y="180" class="label-dim">(tile_h, tile_w, components)</text>
+
+      <!-- Tensor Shape Summary -->
+      <rect x="0" y="210" width="188" height="56" rx="5" fill="#064e3b" stroke="#059669" stroke-width="1"/>
+      <text x="12" y="232" fill="#34d399" font-size="10" font-weight="700" font-family="sans-serif">NUMPY ARRAY SHAPE</text>
+      <text x="12" y="250" class="tile-text">(N, tile_h, tile_w, comp)</text>
+    </g>
+  </g>
+</svg>

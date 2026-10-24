@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>SpatialHub System Architecture Concepts</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0f172a;
+      color: #f8fafc;
+      margin: 0;
+      padding: 40px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    header {
+      text-align: center;
+      max-width: 900px;
+      margin-bottom: 40px;
+    }
+    h1 {
+      margin: 0 0 10px 0;
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    p.subtitle {
+      color: #94a3b8;
+      font-size: 14.5px;
+      line-height: 1.5;
+      margin: 0;
+    }
+    .container {
+      display: flex;
+      flex-direction: column;
+      gap: 40px;
+      max-width: 1040px;
+      width: 100%;
+    }
+    .concept-card {
+      background: #1e293b;
+      border: 1px solid rgba(148, 163, 184, 0.15);
+      border-radius: 14px;
+      padding: 26px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+      transition: border-color 0.2s;
+    }
+    .concept-card:hover {
+      border-color: #3b82f6;
+    }
+    .meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .title {
+      font-size: 18px;
+      font-weight: 700;
+      color: #f1f5f9;
+    }
+    .tag {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 4px 10px;
+      border-radius: 6px;
+      background: rgba(59, 130, 246, 0.18);
+      color: #60a5fa;
+    }
+    .tag.green {
+      background: rgba(34, 197, 94, 0.18);
+      color: #4ade80;
+    }
+    .tag.cyan {
+      background: rgba(56, 189, 248, 0.18);
+      color: #38bdf8;
+    }
+    .desc {
+      font-size: 13.5px;
+      color: #94a3b8;
+      line-height: 1.5;
+      margin-bottom: 18px;
+    }
+    .svg-wrapper {
+      width: 100%;
+      border-radius: 10px;
+      overflow: hidden;
+      background: #0b0f19;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .svg-wrapper img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>SpatialHub Architecture Concepts</h1>
+    <p class="subtitle">Custom architectural vector diagrams (SVG) detailing model inference, standardized spatial data contracts, geometric solvers, and custom 3D perception pipeline synthesis.</p>
+  </header>
+
+  <div class="container">
+    <!-- Perception Data Contract Flow -->
+    <div class="concept-card">
+      <div class="meta">
+        <div class="title">Perception Data Contract Flow (Inference &rarr; Contracts &rarr; Custom 3D Pipelines)</div>
+        <div class="tag green">Refined Architecture</div>
+      </div>
+      <div class="desc">A decoupled architecture: Isolated ONNX inference sessions &rarr; Typed spatial data contracts (RigidTransform3D, CameraIntrinsics, PointCloud3D) adhering to OpenCV standards &rarr; Composite 3D vision pipelines (SLAM, 6D Object Pose, Depth Fusion, CAD Matching) powered by geometric solvers and offscreen rendering. Clean typography with no overlapping text.</div>
+      <div class="svg-wrapper">
+        <img src="arch_concept4_dataflow.svg" alt="Architecture Concept 4: Dataflow">
+      </div>
+    </div>
+
+    <!-- Concept 5: Standardized Spatial Data Bus -->
+    <div class="concept-card">
+      <div class="meta">
+        <div class="title">5. Standardized Spatial Data Bus &amp; Pipeline Synthesis</div>
+        <div class="tag cyan">Data Backbone</div>
+      </div>
+      <div class="desc">Highlights the central architectural backbone of SpatialHub: A standardized, typed spatial data bus connecting the Model Adapter layer above (depth, segmentation, matching, pose) with the Pure Geometric Utilities &amp; Hardware Rendering layer below.</div>
+      <div class="svg-wrapper">
+        <img src="arch_concept5_databus.svg" alt="Architecture Concept 5: Data Bus">
+      </div>
+    </div>
+
+    <!-- Concept 1: Modern Layered Stack -->
+    <div class="concept-card">
+      <div class="meta">
+        <div class="title">1. Layered Architectural Stack (Horizontal Tiers)</div>
+        <div class="tag">Hierarchical Stack</div>
+      </div>
+      <div class="desc">A clear top-to-bottom stack separating Foundations (CUDA/OpenCV standards) &rarr; Neural Inference &rarr; Spatial Contracts &rarr; Utilities/Rendering &rarr; Application Workflows. Uses structured horizontal tiers with zero flowchart arrow clutter.</div>
+      <div class="svg-wrapper">
+        <img src="arch_concept1_stack.svg" alt="Architecture Concept 1: Stack">
+      </div>
+    </div>
+
+    <!-- Concept 2: Tri-Pillar Architecture -->
+    <div class="concept-card">
+      <div class="meta">
+        <div class="title">2. Tri-Pillar Component Architecture (Neural &bull; Contracts &bull; Solvers)</div>
+        <div class="tag">Modular Columns</div>
+      </div>
+      <div class="desc">Three architectural pillars emphasizing the core decoupling of SpatialHub: Neural Inference (left) emits standardized Spatial Data Contracts (center), which are consumed by Geometric Solvers and Offscreen Rendering (right).</div>
+      <div class="svg-wrapper">
+        <img src="arch_concept2_pillars.svg" alt="Architecture Concept 2: Pillars">
+      </div>
+    </div>
+
+    <!-- Concept 3: Hub-and-Spoke System -->
+    <div class="concept-card">
+      <div class="meta">
+        <div class="title">3. Hub-and-Spoke System Architecture (Radial Fusion)</div>
+        <div class="tag">Radial Hub</div>
+      </div>
+      <div class="desc">A radial topology where the central SpatialHub Data Contracts hub unifies sensory inputs, neural adapters, geometric solvers, offscreen rendering, and user applications in concentric orbits. Directly reinforces the "Hub" identity.</div>
+      <div class="svg-wrapper">
+        <img src="arch_concept3_hub.svg" alt="Architecture Concept 3: Hub">
+      </div>
+    </div>
+  </div>
+</body>
+</html>

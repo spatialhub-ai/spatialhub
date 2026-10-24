@@ -1,0 +1,174 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1060 400" width="100%" height="100%">
+  <defs>
+    <style>
+      .label-title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; fill: #94a3b8; }
+      .label-header { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 12px; font-weight: 700; fill: #f8fafc; }
+      .label-body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 10px; fill: #94a3b8; }
+      .label-dim { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 9.5px; fill: #60a5fa; }
+      .code-text { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 10px; font-weight: 600; fill: #cbd5e1; }
+      .code-green { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 9.5px; fill: #34d399; }
+      .code-amber { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 9.5px; fill: #fbbf24; }
+    </style>
+  </defs>
+
+  <!-- Background Panel -->
+  <rect width="1060" height="400" rx="10" fill="#0f172a" stroke="#1e293b" stroke-width="1.5"/>
+
+  <!-- Diagram Title -->
+  <text x="30" y="28" class="label-title">Fullscreen Shader Pipeline &#8226; Quad Rasterization &amp; Ping-Pong Buffering</text>
+
+  <!-- Stage 1: Host Memory (x: 30, w: 140) -->
+  <g transform="translate(30, 48)">
+    <rect width="140" height="320" rx="8" fill="#182234" stroke="#334155" stroke-width="1"/>
+    <rect width="140" height="34" rx="8" fill="#1e293b"/>
+    <rect y="26" width="140" height="8" fill="#1e293b"/>
+    <text x="14" y="21" class="label-header">Host Memory</text>
+
+    <g transform="translate(12, 50)">
+      <rect width="116" height="96" rx="5" fill="#0b1120" stroke="#3b82f6" stroke-width="1"/>
+      <text x="10" y="22" class="code-text">input_data</text>
+      <text x="10" y="44" class="label-body">NumPy Array</text>
+      <text x="10" y="64" class="label-dim">(H, W, C)</text>
+      <text x="10" y="82" class="code-green">float32</text>
+    </g>
+
+    <g transform="translate(12, 180)">
+      <rect width="116" height="90" rx="5" fill="#0b1120" stroke="#334155" stroke-width="1"/>
+      <text x="10" y="22" class="label-header">Components</text>
+      <text x="10" y="42" class="label-dim">C &#8712; {1, 2, 3, 4}</text>
+      <text x="10" y="60" class="label-body">Grayscale, RGB,</text>
+      <text x="10" y="76" class="label-body">or RGBA</text>
+    </g>
+  </g>
+
+  <!-- Gap 1: upload() Arrow (170 -> 245, center: 207) -->
+  <g transform="translate(207, 195)">
+    <line x1="-14" y1="0" x2="14" y2="0" stroke="#3b82f6" stroke-width="2"/>
+    <polygon points="14,-4 22,0 14,4" fill="#3b82f6"/>
+    <text x="0" y="-12" class="code-green" text-anchor="middle">upload()</text>
+    <text x="0" y="16" class="label-dim" text-anchor="middle">Host &#8594; GPU</text>
+  </g>
+
+  <!-- Stage 2: Input Texture (x: 245, w: 145) -->
+  <g transform="translate(245, 48)">
+    <rect width="145" height="320" rx="8" fill="#182234" stroke="#334155" stroke-width="1"/>
+    <rect width="145" height="34" rx="8" fill="#1e293b"/>
+    <rect y="26" width="145" height="8" fill="#1e293b"/>
+    <text x="14" y="21" class="label-header">Input Texture</text>
+
+    <g transform="translate(12, 50)">
+      <rect width="121" height="110" rx="5" fill="#0b1120" stroke="#2563eb" stroke-width="1"/>
+      <text x="10" y="22" class="code-text">tex_in</text>
+      <text x="10" y="44" class="label-body">Texture Unit 0</text>
+      <text x="10" y="64" class="code-text">sampler2D</text>
+      <text x="10" y="84" class="label-dim">Size: (W, H)</text>
+      <text x="10" y="100" class="label-dim">Channels: C</text>
+    </g>
+
+    <g transform="translate(12, 180)">
+      <rect width="121" height="90" rx="5" fill="#0b1120" stroke="#f59e0b" stroke-dasharray="3,3" stroke-width="1"/>
+      <text x="10" y="22" class="code-amber">Buffer Swap</text>
+      <text x="10" y="42" class="label-body">Receives output</text>
+      <text x="10" y="58" class="label-body">texture handle in</text>
+      <text x="10" y="74" class="label-dim">multi-pass loops</text>
+    </g>
+  </g>
+
+  <!-- Gap 2: Sample Arrow (390 -> 460, center: 425) -->
+  <g transform="translate(425, 195)">
+    <line x1="-12" y1="0" x2="12" y2="0" stroke="#3b82f6" stroke-width="2"/>
+    <polygon points="12,-4 20,0 12,4" fill="#3b82f6"/>
+    <text x="0" y="-12" class="label-body" text-anchor="middle">Sample</text>
+    <text x="0" y="16" class="label-dim" text-anchor="middle">v_uv</text>
+  </g>
+
+  <!-- Stage 3: Fullscreen Quad (x: 460, w: 195) -->
+  <g transform="translate(460, 48)">
+    <rect width="195" height="320" rx="8" fill="#182234" stroke="#2563eb" stroke-width="1.5"/>
+    <rect width="195" height="34" rx="8" fill="#1e3a8a" opacity="0.6"/>
+    <rect y="26" width="195" height="8" fill="#1e3a8a" opacity="0.6"/>
+    <text x="14" y="21" class="label-header">render_pass(prog)</text>
+
+    <!-- Quad Visualizer -->
+    <g transform="translate(12, 50)">
+      <rect width="171" height="120" rx="5" fill="#0b1120" stroke="#3b82f6" stroke-width="1"/>
+      <rect x="20" y="12" width="131" height="96" fill="none" stroke="#60a5fa" stroke-width="1"/>
+      <line x1="20" y1="108" x2="151" y2="12" stroke="#1e3a8a" stroke-dasharray="3,3" stroke-width="1.5"/>
+
+      <text x="24" y="24" class="label-dim">(-1, 1)</text>
+      <text x="147" y="24" class="label-dim" text-anchor="end">(1, 1)</text>
+      <text x="24" y="102" class="label-dim">(-1, -1)</text>
+      <text x="147" y="102" class="label-dim" text-anchor="end">(1, -1)</text>
+      <text x="85" y="63" class="code-text" text-anchor="middle">NDC Quad [-1, 1]&#178;</text>
+    </g>
+
+    <!-- Shaders -->
+    <g transform="translate(12, 185)">
+      <rect width="171" height="95" rx="5" fill="#0b1120" stroke="#334155" stroke-width="1"/>
+      <text x="10" y="20" class="code-green">Vertex Shader</text>
+      <text x="10" y="36" class="label-dim">v_uv = pos*0.5 + 0.5</text>
+      <text x="10" y="58" class="code-amber">Fragment Shader</text>
+      <text x="10" y="74" class="label-dim">Per-pixel kernel</text>
+      <text x="10" y="88" class="label-body">Renders into target FBO</text>
+    </g>
+  </g>
+
+  <!-- Gap 3: Draw Arrow (655 -> 725, center: 690) -->
+  <g transform="translate(690, 195)">
+    <line x1="-12" y1="0" x2="12" y2="0" stroke="#3b82f6" stroke-width="2"/>
+    <polygon points="12,-4 20,0 12,4" fill="#3b82f6"/>
+    <text x="0" y="-12" class="label-body" text-anchor="middle">Draw</text>
+    <text x="0" y="16" class="label-dim" text-anchor="middle">FBO</text>
+  </g>
+
+  <!-- Stage 4: Output Texture & Ping-Pong (x: 725, w: 145) -->
+  <g transform="translate(725, 48)">
+    <rect width="145" height="320" rx="8" fill="#182234" stroke="#334155" stroke-width="1"/>
+    <rect width="145" height="34" rx="8" fill="#1e293b"/>
+    <rect y="26" width="145" height="8" fill="#1e293b"/>
+    <text x="14" y="21" class="label-header">Output Texture</text>
+
+    <g transform="translate(12, 50)">
+      <rect width="121" height="110" rx="5" fill="#0b1120" stroke="#2563eb" stroke-width="1"/>
+      <text x="10" y="22" class="code-text">tex_out</text>
+      <text x="10" y="44" class="label-body">FBO Attachment 0</text>
+      <text x="10" y="64" class="label-body">Render Target</text>
+      <text x="10" y="84" class="label-dim">Size: (W, H)</text>
+      <text x="10" y="100" class="label-dim">Channels: C</text>
+    </g>
+
+    <g transform="translate(12, 180)">
+      <rect width="121" height="95" rx="5" fill="#0b1120" stroke="#f59e0b" stroke-width="1"/>
+      <text x="10" y="22" class="code-amber">swap_buffers()</text>
+      <text x="10" y="42" class="label-body">Swaps handles:</text>
+      <text x="10" y="60" class="code-text">tex_in &#8596; tex_out</text>
+      <text x="10" y="78" class="code-green">0 CPU transfers</text>
+    </g>
+  </g>
+
+  <!-- Gap 4: to_numpy() Arrow (870 -> 950, center: 910) -->
+  <g transform="translate(910, 195)">
+    <line x1="-14" y1="0" x2="14" y2="0" stroke="#3b82f6" stroke-width="2"/>
+    <polygon points="14,-4 22,0 14,4" fill="#3b82f6"/>
+    <text x="0" y="-12" class="code-green" text-anchor="middle">to_numpy()</text>
+    <text x="0" y="16" class="label-dim" text-anchor="middle">GPU &#8594; Host</text>
+  </g>
+
+  <!-- Stage 5: Host Output (x: 950, w: 80) -->
+  <g transform="translate(950, 48)">
+    <rect width="80" height="320" rx="8" fill="#182234" stroke="#334155" stroke-width="1"/>
+    <rect width="80" height="34" rx="8" fill="#1e293b"/>
+    <rect y="26" width="80" height="8" fill="#1e293b"/>
+    <text x="10" y="21" class="label-header">Output</text>
+
+    <g transform="translate(10, 50)">
+      <rect width="60" height="175" rx="5" fill="#0b1120" stroke="#10b981" stroke-width="1"/>
+      <text x="30" y="26" class="code-text" text-anchor="middle">Array</text>
+      <text x="30" y="52" class="label-body" text-anchor="middle">NumPy</text>
+      <text x="30" y="78" class="label-dim" text-anchor="middle">(H, W)</text>
+      <text x="30" y="98" class="label-body" text-anchor="middle">or</text>
+      <text x="30" y="118" class="label-dim" text-anchor="middle">(H,W,C)</text>
+      <text x="30" y="146" class="code-green" text-anchor="middle">float32</text>
+    </g>
+  </g>
+</svg>

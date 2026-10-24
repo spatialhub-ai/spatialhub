@@ -1,0 +1,114 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 520" width="100%" height="100%">
+  <defs>
+    <!-- Background Gradient -->
+    <linearGradient id="bg5" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#090d16"/>
+      <stop offset="100%" stop-color="#02040a"/>
+    </linearGradient>
+    <!-- Core Hub Gradient -->
+    <linearGradient id="hubGradient5" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e3a8a"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background Canvas -->
+  <rect width="960" height="520" rx="14" fill="url(#bg5)" stroke="#1e293b" stroke-width="2"/>
+
+  <!-- Top-Level System Title / Architecture Badge -->
+  <g transform="translate(40, 32)">
+    <text x="0" y="0" fill="#94a3b8" font-size="10.5" font-weight="700" letter-spacing="0.1em" font-family="sans-serif">SPATIALHUB CORE ARCHITECTURE</text>
+    <text x="0" y="20" fill="#f8fafc" font-size="16" font-weight="700" letter-spacing="-0.01em" font-family="sans-serif">Standardized Spatial Data Bus &amp; Modular 3D Pipeline Synthesis</text>
+  </g>
+
+  <!-- Central Standardized Spatial Data Bus (The Backbone) -->
+  <g transform="translate(40, 220)">
+    <!-- Bus Container -->
+    <rect width="880" height="96" rx="8" fill="url(#hubGradient5)" stroke="#3b82f6" stroke-width="2" filter="drop-shadow(0 4px 16px rgba(37, 99, 235, 0.25))"/>
+    
+    <!-- Bus Label / Standard -->
+    <g transform="translate(24, 28)">
+      <text x="0" y="0" fill="#60a5fa" font-size="11" font-weight="700" letter-spacing="0.08em" font-family="sans-serif">SPATIAL DATA BUS (OPENCV COORDINATE STANDARDS)</text>
+      <text x="0" y="18" fill="#94a3b8" font-size="10" font-family="sans-serif">Typed Dataclasses • Synchronized Batch Slicing • Strict Array Shape Validation • Zero-Copy NumPy Handshake</text>
+    </g>
+
+    <!-- Contract Pills inside the Data Bus -->
+    <g transform="translate(24, 56)">
+      <!-- Pill 1 -->
+      <rect x="0" y="0" width="195" height="28" rx="4" fill="#0f172a" stroke="#2563eb" stroke-width="1"/>
+      <text x="97" y="18" fill="#f1f5f9" font-size="11" font-family="monospace" text-anchor="middle">CameraIntrinsics</text>
+
+      <!-- Pill 2 -->
+      <rect x="210" y="0" width="195" height="28" rx="4" fill="#0f172a" stroke="#2563eb" stroke-width="1"/>
+      <text x="307" y="18" fill="#f1f5f9" font-size="11" font-family="monospace" text-anchor="middle">RigidTransform3D [SE3]</text>
+
+      <!-- Pill 3 -->
+      <rect x="420" y="0" width="205" height="28" rx="4" fill="#0f172a" stroke="#2563eb" stroke-width="1"/>
+      <text x="522" y="18" fill="#f1f5f9" font-size="11" font-family="monospace" text-anchor="middle">SegmentProposals</text>
+
+      <!-- Pill 4 -->
+      <rect x="640" y="0" width="192" height="28" rx="4" fill="#0f172a" stroke="#2563eb" stroke-width="1"/>
+      <text x="736" y="18" fill="#f1f5f9" font-size="11" font-family="monospace" text-anchor="middle">KeypointMatches</text>
+    </g>
+  </g>
+
+  <!-- Top Ingestion Tier: Model Adapters & Sensor Inputs -->
+  <g transform="translate(40, 80)">
+    <rect width="880" height="110" rx="8" fill="#1e293b" stroke="#334155" stroke-width="1.5"/>
+    <text x="24" y="24" fill="#a78bfa" font-size="11" font-weight="700" letter-spacing="0.08em" font-family="sans-serif">NEURAL ADAPTER LAYER (ONNX RUNTIME EXECUTION SESSIONS)</text>
+    
+    <g transform="translate(24, 38)">
+      <!-- Domain 1 -->
+      <rect x="0" y="0" width="195" height="58" rx="6" fill="#0f172a" stroke="#4f46e5" stroke-width="1"/>
+      <text x="14" y="22" fill="#e2e8f0" font-size="11.5" font-weight="600" font-family="sans-serif">Depth Adapters</text>
+      <text x="14" y="42" fill="#94a3b8" font-size="10" font-family="sans-serif">Metric &amp; Relative Depth Fields</text>
+
+      <!-- Domain 2 -->
+      <rect x="210" y="0" width="195" height="58" rx="6" fill="#0f172a" stroke="#4f46e5" stroke-width="1"/>
+      <text x="14" y="22" fill="#e2e8f0" font-size="11.5" font-weight="600" font-family="sans-serif">Matching Adapters</text>
+      <text x="14" y="42" fill="#94a3b8" font-size="10" font-family="sans-serif">Dense &amp; Semi-Dense Points</text>
+
+      <!-- Domain 3 -->
+      <rect x="420" y="0" width="205" height="58" rx="6" fill="#0f172a" stroke="#4f46e5" stroke-width="1"/>
+      <text x="14" y="22" fill="#e2e8f0" font-size="11.5" font-weight="600" font-family="sans-serif">Segmentation Adapters</text>
+      <text x="14" y="42" fill="#94a3b8" font-size="10" font-family="sans-serif">Zero-Shot Mask Proposals</text>
+
+      <!-- Domain 4 -->
+      <rect x="640" y="0" width="192" height="58" rx="6" fill="#0f172a" stroke="#4f46e5" stroke-width="1"/>
+      <text x="14" y="22" fill="#e2e8f0" font-size="11.5" font-weight="600" font-family="sans-serif">Pose Adapters</text>
+      <text x="14" y="42" fill="#94a3b8" font-size="10" font-family="sans-serif">6D Rigid Pose Hypotheses</text>
+    </g>
+  </g>
+
+  <!-- Connective Arrows Top Tier -> Bus -->
+  <line x1="137" y1="190" x2="137" y2="220" stroke="#3b82f6" stroke-width="2" stroke-dasharray="3 2"/>
+  <line x1="347" y1="190" x2="347" y2="220" stroke="#3b82f6" stroke-width="2" stroke-dasharray="3 2"/>
+  <line x1="562" y1="190" x2="562" y2="220" stroke="#3b82f6" stroke-width="2" stroke-dasharray="3 2"/>
+  <line x1="776" y1="190" x2="776" y2="220" stroke="#3b82f6" stroke-width="2" stroke-dasharray="3 2"/>
+
+  <!-- Bottom Synthesis Tier: Algorithms, Rendering & Custom 3D Vision Pipelines -->
+  <g transform="translate(40, 345)">
+    <rect width="880" height="145" rx="8" fill="#1e293b" stroke="#334155" stroke-width="1.5"/>
+    <text x="24" y="24" fill="#38bdf8" font-size="11" font-weight="700" letter-spacing="0.08em" font-family="sans-serif">COMPOSABLE 3D SPATIAL PIPELINES (SPATIALHUB UTILITIES &amp; RENDERING)</text>
+    
+    <g transform="translate(24, 38)">
+      <!-- Left: Pure Geometric Algorithms -->
+      <rect x="0" y="0" width="410" height="92" rx="6" fill="#0f172a" stroke="#0284c7" stroke-width="1"/>
+      <text x="16" y="22" fill="#38bdf8" font-size="11.5" font-weight="600" font-family="sans-serif">Pure Geometric Solvers (`spatialhub.utils`)</text>
+      <text x="16" y="42" fill="#94a3b8" font-size="10.5" font-family="sans-serif">• SE(3) Transformations &amp; Matrix Exponential / Log</text>
+      <text x="16" y="60" fill="#94a3b8" font-size="10.5" font-family="sans-serif">• Perspective-n-Point (PnP) &amp; Epipolar Essential Matrix</text>
+      <text x="16" y="78" fill="#94a3b8" font-size="10.5" font-family="sans-serif">• Pinhole Backprojection &amp; Depth-to-PointCloud Extraction</text>
+
+      <!-- Right: Hardware Headless Rendering -->
+      <rect x="422" y="0" width="410" height="92" rx="6" fill="#0f172a" stroke="#0284c7" stroke-width="1"/>
+      <text x="16" y="22" fill="#38bdf8" font-size="11.5" font-weight="600" font-family="sans-serif">Hardware Offscreen Rendering (`ModernGL`)</text>
+      <text x="16" y="42" fill="#94a3b8" font-size="10.5" font-family="sans-serif">• Batched Atlas Renderer for 3D CAD Template Rasterization</text>
+      <text x="16" y="60" fill="#94a3b8" font-size="10.5" font-family="sans-serif">• Fullscreen GLSL Shaders (Surface Normals, Depth Filtering)</text>
+      <text x="16" y="78" fill="#94a3b8" font-size="10.5" font-family="sans-serif">• Headless Contexts (EGL, OSMesa) for Server &amp; Docker Execution</text>
+    </g>
+  </g>
+
+  <!-- Connective Arrows Bus -> Bottom Tier -->
+  <line x1="245" y1="316" x2="245" y2="345" stroke="#38bdf8" stroke-width="2" stroke-dasharray="3 2"/>
+  <line x1="667" y1="316" x2="667" y2="345" stroke="#38bdf8" stroke-width="2" stroke-dasharray="3 2"/>
+</svg>

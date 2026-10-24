@@ -1,0 +1,105 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 480" width="100%" height="100%">
+  <defs>
+    <!-- Gradients -->
+    <linearGradient id="bgGrad2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#020617"/>
+    </linearGradient>
+    <linearGradient id="coreGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e3a8a" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#1e1b4b" stop-opacity="0.9"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="960" height="480" rx="14" fill="url(#bgGrad2)" stroke="#1e293b" stroke-width="2"/>
+
+  <!-- Left Pillar: Sensory Inputs & Neural Inference Adapters -->
+  <g transform="translate(40, 40)">
+    <rect width="250" height="400" rx="10" fill="#1e293b" stroke="#334155" stroke-width="1.5"/>
+    <rect x="0" y="0" width="250" height="42" rx="10" fill="#0f172a" stroke="#334155" stroke-width="1.5"/>
+    <text x="125" y="26" fill="#a78bfa" font-size="12" font-weight="700" letter-spacing="0.06em" font-family="sans-serif" text-anchor="middle">NEURAL INFERENCE</text>
+
+    <!-- Sub-blocks -->
+    <g transform="translate(18, 60)">
+      <rect x="0" y="0" width="214" height="64" rx="6" fill="#0f172a" stroke="#4f46e5" stroke-width="1"/>
+      <text x="16" y="26" fill="#f8fafc" font-size="12" font-weight="600" font-family="sans-serif">Depth Estimation</text>
+      <text x="16" y="46" fill="#94a3b8" font-size="10.5" font-family="sans-serif">Metric &amp; Relative Fields</text>
+
+      <rect x="0" y="80" width="214" height="64" rx="6" fill="#0f172a" stroke="#4f46e5" stroke-width="1"/>
+      <text x="16" y="26" fill="#f8fafc" font-size="12" font-weight="600" font-family="sans-serif">Feature Matching</text>
+      <text x="16" y="46" fill="#94a3b8" font-size="10.5" font-family="sans-serif">Dense &amp; Sparse Correspondence</text>
+
+      <rect x="0" y="160" width="214" height="64" rx="6" fill="#0f172a" stroke="#4f46e5" stroke-width="1"/>
+      <text x="16" y="26" fill="#f8fafc" font-size="12" font-weight="600" font-family="sans-serif">Instance Segmentation</text>
+      <text x="16" y="46" fill="#94a3b8" font-size="10.5" font-family="sans-serif">Zero-Shot &amp; Class Masks</text>
+
+      <rect x="0" y="240" width="214" height="64" rx="6" fill="#0f172a" stroke="#4f46e5" stroke-width="1"/>
+      <text x="16" y="26" fill="#f8fafc" font-size="12" font-weight="600" font-family="sans-serif">Pose &amp; Keypoint Estimation</text>
+      <text x="16" y="46" fill="#94a3b8" font-size="10.5" font-family="sans-serif">SE(3) Coordinate Hypotheses</text>
+    </g>
+  </g>
+
+  <!-- Central Pillar: Standardized Spatial Structures & Contracts -->
+  <g transform="translate(340, 40)">
+    <rect width="280" height="400" rx="10" fill="url(#coreGlow)" stroke="#3b82f6" stroke-width="2"/>
+    <rect x="0" y="0" width="280" height="42" rx="10" fill="#1d4ed8" opacity="0.3"/>
+    <text x="140" y="26" fill="#ffffff" font-size="12.5" font-weight="700" letter-spacing="0.06em" font-family="sans-serif" text-anchor="middle">SPATIAL DATA CONTRACTS</text>
+
+    <!-- Data Containers -->
+    <g transform="translate(18, 60)">
+      <rect x="0" y="0" width="244" height="96" rx="6" fill="#0f172a" stroke="#3b82f6" stroke-width="1.2"/>
+      <text x="16" y="26" fill="#60a5fa" font-size="12" font-weight="600" font-family="sans-serif">Camera &amp; Rigid Poses</text>
+      <text x="16" y="48" fill="#e2e8f0" font-size="11" font-family="monospace">CameraIntrinsics</text>
+      <text x="16" y="68" fill="#e2e8f0" font-size="11" font-family="monospace">RigidTransform3D [SE(3)]</text>
+      <text x="16" y="86" fill="#94a3b8" font-size="9.5" font-family="sans-serif">OpenCV convention (+X, +Y, +Z)</text>
+
+      <rect x="0" y="112" width="244" height="96" rx="6" fill="#0f172a" stroke="#3b82f6" stroke-width="1.2"/>
+      <text x="16" y="26" fill="#60a5fa" font-size="12" font-weight="600" font-family="sans-serif">Perception Primitives</text>
+      <text x="16" y="48" fill="#e2e8f0" font-size="11" font-family="monospace">SegmentProposals</text>
+      <text x="16" y="68" fill="#e2e8f0" font-size="11" font-family="monospace">KeypointMatches</text>
+      <text x="16" y="86" fill="#94a3b8" font-size="9.5" font-family="sans-serif">Synchronized batch indexing</text>
+
+      <rect x="0" y="224" width="244" height="96" rx="6" fill="#0f172a" stroke="#3b82f6" stroke-width="1.2"/>
+      <text x="16" y="26" fill="#60a5fa" font-size="12" font-weight="600" font-family="sans-serif">3D Scene Buffers</text>
+      <text x="16" y="48" fill="#e2e8f0" font-size="11" font-family="monospace">PointCloud3D</text>
+      <text x="16" y="68" fill="#e2e8f0" font-size="11" font-family="monospace">BoundingBox3D</text>
+      <text x="16" y="86" fill="#94a3b8" font-size="9.5" font-family="sans-serif">Metric point &amp; box arrays</text>
+    </g>
+  </g>
+
+  <!-- Right Pillar: Geometric Algorithms & Offscreen Rendering -->
+  <g transform="translate(670, 40)">
+    <rect width="250" height="400" rx="10" fill="#1e293b" stroke="#334155" stroke-width="1.5"/>
+    <rect x="0" y="0" width="250" height="42" rx="10" fill="#0f172a" stroke="#334155" stroke-width="1.5"/>
+    <text x="125" y="26" fill="#38bdf8" font-size="12" font-weight="700" letter-spacing="0.06em" font-family="sans-serif" text-anchor="middle">SOLVERS &amp; RENDERING</text>
+
+    <!-- Sub-blocks -->
+    <g transform="translate(18, 60)">
+      <rect x="0" y="0" width="214" height="84" rx="6" fill="#0f172a" stroke="#0284c7" stroke-width="1"/>
+      <text x="16" y="26" fill="#f8fafc" font-size="12" font-weight="600" font-family="sans-serif">Geometric Solvers</text>
+      <text x="16" y="46" fill="#94a3b8" font-size="10.5" font-family="sans-serif">SE(3) Algebra &amp; Lie Groups</text>
+      <text x="16" y="64" fill="#94a3b8" font-size="10.5" font-family="sans-serif">PnP &amp; Essential Matrix</text>
+
+      <rect x="0" y="100" width="214" height="84" rx="6" fill="#0f172a" stroke="#0284c7" stroke-width="1"/>
+      <text x="16" y="26" fill="#f8fafc" font-size="12" font-weight="600" font-family="sans-serif">Projective Geometry</text>
+      <text x="16" y="46" fill="#94a3b8" font-size="10.5" font-family="sans-serif">Pinhole Camera Projection</text>
+      <text x="16" y="64" fill="#94a3b8" font-size="10.5" font-family="sans-serif">Depth Map Unprojection</text>
+
+      <rect x="0" y="200" width="214" height="104" rx="6" fill="#0f172a" stroke="#0284c7" stroke-width="1"/>
+      <text x="16" y="26" fill="#f8fafc" font-size="12" font-weight="600" font-family="sans-serif">Offscreen GPU Rendering</text>
+      <text x="16" y="46" fill="#94a3b8" font-size="10.5" font-family="sans-serif">Batched Atlas Rasterizer</text>
+      <text x="16" y="64" fill="#94a3b8" font-size="10.5" font-family="sans-serif">Fullscreen Fragment Shaders</text>
+      <text x="16" y="82" fill="#94a3b8" font-size="10.5" font-family="sans-serif">Headless Context (EGL / Mesa)</text>
+    </g>
+  </g>
+
+  <!-- Subtle Connecting Bus Bars between Pillars -->
+  <!-- Left to Center Connector -->
+  <line x1="290" y1="240" x2="340" y2="240" stroke="#3b82f6" stroke-width="2" stroke-dasharray="4 2"/>
+  <circle cx="315" cy="240" r="3" fill="#60a5fa"/>
+
+  <!-- Center to Right Connector -->
+  <line x1="620" y1="240" x2="670" y2="240" stroke="#38bdf8" stroke-width="2" stroke-dasharray="4 2"/>
+  <circle cx="645" cy="240" r="3" fill="#38bdf8"/>
+</svg>

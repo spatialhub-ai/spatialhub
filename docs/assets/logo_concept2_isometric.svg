@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%">
+  <defs>
+    <!-- Isometric Face Gradients -->
+    <linearGradient id="topFace" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#60a5fa" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#3b82f6" stop-opacity="0.75"/>
+    </linearGradient>
+    <linearGradient id="leftFace" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2563eb" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#1d4ed8" stop-opacity="0.8"/>
+    </linearGradient>
+    <linearGradient id="rightFace" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e40af" stop-opacity="0.95"/>
+      <stop offset="100%" stop-color="#0f172a" stop-opacity="0.85"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Outer Isometric Hexagonal Cube -->
+  <!-- Top Face -->
+  <polygon points="50,14 82,32 50,50 18,32" fill="url(#topFace)" stroke="#1d4ed8" stroke-width="1.5" stroke-linejoin="round"/>
+  <!-- Left Face -->
+  <polygon points="18,32 50,50 50,86 18,68" fill="url(#leftFace)" stroke="#1d4ed8" stroke-width="1.5" stroke-linejoin="round"/>
+  <!-- Right Face -->
+  <polygon points="50,50 82,32 82,68 50,86" fill="url(#rightFace)" stroke="#1d4ed8" stroke-width="1.5" stroke-linejoin="round"/>
+
+  <!-- Inscribed Coordinate Hub Triad at Center (50, 50) -->
+  <!-- Z Axis (Up/Depth Projection) -->
+  <line x1="50" y1="50" x2="50" y2="24" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/>
+  <!-- X Axis (Right Projection) -->
+  <line x1="50" y1="50" x2="74" y2="64" stroke="#f87171" stroke-width="3" stroke-linecap="round"/>
+  <!-- Y Axis (Left Projection) -->
+  <line x1="50" y1="50" x2="26" y2="64" stroke="#4ade80" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- Center Hub Sphere -->
+  <circle cx="50" cy="50" r="5" fill="#ffffff" stroke="#2563eb" stroke-width="2"/>
+
+  <!-- Axis Endpoint Nodes -->
+  <circle cx="50" cy="24" r="3" fill="#ffffff"/>
+  <circle cx="74" cy="64" r="3" fill="#f87171"/>
+  <circle cx="26" cy="64" r="3" fill="#4ade80"/>
+</svg>

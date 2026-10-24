@@ -1,0 +1,158 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 270" width="100%" height="100%">
+  <defs>
+    <style>
+      .label-title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; fill: #94a3b8; }
+      .label-header { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 10.5px; font-weight: 700; fill: #f8fafc; }
+      .label-body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 9px; fill: #94a3b8; }
+      .label-dim { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 8.5px; fill: #38bdf8; }
+      .label-math { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 8.2px; fill: #34d399; }
+      .code-amber { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 8.2px; fill: #fbbf24; }
+    </style>
+  </defs>
+
+  <!-- Background Canvas -->
+  <rect width="1180" height="270" rx="10" fill="#0f172a" stroke="#1e293b" stroke-width="1.5"/>
+
+  <!-- Pipeline Title -->
+  <text x="25" y="27" class="label-title">DINOv2 Processing Flow</text>
+
+  <!-- Stage 1: Square Padding (x: 25, w: 180) -->
+  <g transform="translate(25, 44)">
+    <rect width="180" height="202" rx="8" fill="#182234" stroke="#334155" stroke-width="1"/>
+    <rect width="180" height="30" rx="8" fill="#1e293b"/>
+    <rect y="22" width="180" height="8" fill="#1e293b"/>
+    <text x="12" y="20" class="label-header">Square Padding</text>
+
+    <!-- Visual: Aspect Ratio Padding -->
+    <g transform="translate(45, 44)">
+      <!-- Outer Square Canvas -->
+      <rect x="0" y="0" width="90" height="90" rx="3" fill="#0b1120" stroke="#475569" stroke-width="1" stroke-dasharray="2,2"/>
+      <!-- Inner Image (Padded horizontally or vertically) -->
+      <rect x="0" y="15" width="90" height="60" rx="2" fill="#0369a1" fill-opacity="0.25" stroke="#38bdf8" stroke-width="1.2"/>
+      <text x="45" y="48" class="label-body" text-anchor="middle">Input (W, H)</text>
+    </g>
+
+    <text x="90" y="152" class="label-body" text-anchor="middle">Preserves native aspect ratio</text>
+    <text x="90" y="168" class="label-dim" text-anchor="middle">S = max(W, H)</text>
+    <text x="90" y="184" class="label-math" text-anchor="middle">Zero-pad shorter axis</text>
+    <text x="90" y="200" class="label-dim" text-anchor="middle">Canvas: (S, S, 3)</text>
+  </g>
+
+  <!-- Flow Arrow 1 -->
+  <g transform="translate(216, 145)">
+    <line x1="-7" y1="0" x2="7" y2="0" stroke="#38bdf8" stroke-width="1.5"/>
+    <polygon points="7,-3 13,0 7,3" fill="#38bdf8"/>
+  </g>
+
+  <!-- Stage 2: Bilinear Resizing & Normalization (x: 230, w: 200) -->
+  <g transform="translate(230, 44)">
+    <rect width="200" height="202" rx="8" fill="#182234" stroke="#334155" stroke-width="1"/>
+    <rect width="200" height="30" rx="8" fill="#1e293b"/>
+    <rect y="22" width="200" height="8" fill="#1e293b"/>
+    <text x="12" y="20" class="label-header">Resizing &amp; Normalization</text>
+
+    <!-- Visual: 14x14 Patch Grid -->
+    <g transform="translate(40, 44)">
+      <rect x="0" y="0" width="120" height="48" rx="3" fill="#0b1120" stroke="#60a5fa" stroke-width="1"/>
+      <line x1="30" y1="0" x2="30" y2="48" stroke="#1e293b" stroke-width="1" stroke-dasharray="2,2"/>
+      <line x1="60" y1="0" x2="60" y2="48" stroke="#1e293b" stroke-width="1" stroke-dasharray="2,2"/>
+      <line x1="90" y1="0" x2="90" y2="48" stroke="#1e293b" stroke-width="1" stroke-dasharray="2,2"/>
+      <line x1="0" y1="24" x2="120" y2="24" stroke="#1e293b" stroke-width="1" stroke-dasharray="2,2"/>
+      <text x="60" y="29" class="label-math" text-anchor="middle">14 &#215; 14 Patch Grid</text>
+    </g>
+
+    <text x="100" y="114" class="label-body" text-anchor="middle">Bilinear Resize to target_size</text>
+    <text x="100" y="130" class="label-dim" text-anchor="middle">target_size = 14 &#183; k (default: 224)</text>
+    <text x="100" y="148" class="label-body" text-anchor="middle">ImageNet Normalization</text>
+    <text x="100" y="164" class="label-dim" text-anchor="middle">&#956;=[0.485, 0.456, 0.406]</text>
+    <text x="100" y="180" class="label-dim" text-anchor="middle">&#963;=[0.229, 0.224, 0.225]</text>
+    <text x="100" y="198" class="label-math" text-anchor="middle">(N, 3, target_size, target_size)</text>
+  </g>
+
+  <!-- Flow Arrow 2 -->
+  <g transform="translate(441, 145)">
+    <line x1="-7" y1="0" x2="7" y2="0" stroke="#38bdf8" stroke-width="1.5"/>
+    <polygon points="7,-3 13,0 7,3" fill="#38bdf8"/>
+  </g>
+
+  <!-- Stage 3: ONNX Runtime Forward Pass (x: 455, w: 220) -->
+  <g transform="translate(455, 44)">
+    <rect width="220" height="202" rx="8" fill="#182234" stroke="#2563eb" stroke-width="1.2"/>
+    <rect width="220" height="30" rx="8" fill="#1e3a8a" opacity="0.6"/>
+    <rect y="22" width="220" height="8" fill="#1e3a8a" opacity="0.6"/>
+    <text x="12" y="20" class="label-header">ONNX Runtime Forward Pass</text>
+
+    <!-- Session Box -->
+    <g transform="translate(25, 44)">
+      <rect x="0" y="0" width="170" height="50" rx="4" fill="#0b1120" stroke="#38bdf8" stroke-width="1.2"/>
+      <text x="85" y="21" class="label-header" text-anchor="middle" fill="#38bdf8">session.run()</text>
+      <text x="85" y="38" class="label-dim" text-anchor="middle">vits14 | vitb14 | vitl14 | vitg14</text>
+    </g>
+
+    <text x="110" y="118" class="label-body" text-anchor="middle">Vision Transformer Backbone</text>
+    <text x="110" y="136" class="label-dim" text-anchor="middle">Extract CLS Token Descriptor</text>
+    <text x="110" y="156" class="label-math" text-anchor="middle">Raw Output: (N, D)</text>
+    <text x="110" y="174" class="label-body" text-anchor="middle">D &#8712; {384, 768, 1024, 1536}</text>
+  </g>
+
+  <!-- Flow Arrow 3 -->
+  <g transform="translate(686, 145)">
+    <line x1="-7" y1="0" x2="7" y2="0" stroke="#38bdf8" stroke-width="1.5"/>
+    <polygon points="7,-3 13,0 7,3" fill="#38bdf8"/>
+  </g>
+
+  <!-- Stage 4: Feature L2 Normalization (x: 700, w: 220) -->
+  <g transform="translate(700, 44)">
+    <rect width="220" height="202" rx="8" fill="#182234" stroke="#334155" stroke-width="1"/>
+    <rect width="220" height="30" rx="8" fill="#1e293b"/>
+    <rect y="22" width="220" height="8" fill="#1e293b"/>
+    <text x="12" y="20" class="label-header">L2 Normalization &amp; Similarity</text>
+
+    <!-- Visual Branch -->
+    <g transform="translate(15, 44)">
+      <rect x="0" y="0" width="190" height="56" rx="4" fill="#0b1120" stroke="#334155" stroke-width="1"/>
+      <text x="10" y="18" class="label-header" fill="#38bdf8">l2_normalize = True</text>
+      <text x="10" y="34" class="label-math">v_norm = v / max(||v||&#8322;, 1e-6)</text>
+      <text x="10" y="48" class="label-dim">Unit sphere: ||v||&#8322; = 1.0</text>
+    </g>
+
+    <text x="110" y="128" class="label-body" text-anchor="middle">Pairwise Cosine Similarity</text>
+    <text x="110" y="146" class="label-math" text-anchor="middle">S_cos = v_i &#183; v_j &#8712; [-1, 1]</text>
+    <text x="110" y="164" class="label-body" text-anchor="middle">Direct inner product</text>
+    <text x="110" y="182" class="code-amber" text-anchor="middle">Sim(A, B) = S_norm @ S_norm.T</text>
+  </g>
+
+  <!-- Flow Arrow 4 -->
+  <g transform="translate(931, 145)">
+    <line x1="-7" y1="0" x2="7" y2="0" stroke="#38bdf8" stroke-width="1.5"/>
+    <polygon points="7,-3 13,0 7,3" fill="#38bdf8"/>
+  </g>
+
+  <!-- Stage 5: Output Data Contract (x: 945, w: 210) -->
+  <g transform="translate(945, 44)">
+    <rect width="210" height="202" rx="8" fill="#182234" stroke="#38bdf8" stroke-width="1.2"/>
+    <rect width="210" height="30" rx="8" fill="#1e293b"/>
+    <rect y="22" width="210" height="8" fill="#1e293b"/>
+    <text x="12" y="20" class="label-header">Output Data Contract</text>
+
+    <!-- Dataclass box -->
+    <g transform="translate(15, 44)">
+      <rect width="180" height="26" rx="4" fill="#0b1120" stroke="#38bdf8" stroke-width="1"/>
+      <text x="90" y="17" class="label-dim" text-anchor="middle">FeatureEmbedding</text>
+    </g>
+
+    <!-- Field Descriptions -->
+    <g transform="translate(18, 88)">
+      <text x="0" y="0" class="label-header" fill="#f8fafc">Fields:</text>
+
+      <text x="0" y="18" class="label-dim">&#8226; features</text>
+      <text x="10" y="32" class="label-body">(N, D) float32</text>
+
+      <text x="0" y="52" class="label-dim">&#8226; embedding_type</text>
+      <text x="10" y="66" class="code-amber">"global"</text>
+
+      <text x="0" y="86" class="label-dim">&#8226; l2_normalized</text>
+      <text x="10" y="100" class="label-body">bool (True / False)</text>
+    </g>
+  </g>
+</svg>

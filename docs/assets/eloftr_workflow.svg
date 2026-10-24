@@ -1,0 +1,202 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 270" width="100%" height="100%">
+  <defs>
+    <style>
+      .label-title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; fill: #94a3b8; }
+      .label-header { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 11px; font-weight: 700; fill: #f8fafc; }
+      .label-body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 9.5px; fill: #94a3b8; }
+      .label-dim { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 9px; fill: #38bdf8; }
+      .label-math { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 8.5px; fill: #34d399; }
+      .code-amber { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 8.5px; fill: #fbbf24; }
+    </style>
+  </defs>
+
+  <!-- Background Canvas -->
+  <rect width="1180" height="270" rx="10" fill="#0f172a" stroke="#1e293b" stroke-width="1.5"/>
+
+  <!-- Pipeline Title -->
+  <text x="25" y="27" class="label-title">EfficientLoFTR Processing Flow</text>
+
+  <!-- Stage 1: Maximum Dimension Scaling (x: 25, w: 170) -->
+  <g transform="translate(25, 44)">
+    <rect width="170" height="202" rx="8" fill="#182234" stroke="#334155" stroke-width="1"/>
+    <rect width="170" height="30" rx="8" fill="#1e293b"/>
+    <rect y="22" width="170" height="8" fill="#1e293b"/>
+    <text x="12" y="20" class="label-header">Maximum Dimension Scaling</text>
+
+    <!-- Visual: Aspect Ratio Scaling with bounding box -->
+    <g transform="translate(18, 46)">
+      <!-- Image A representation -->
+      <rect x="0" y="4" width="58" height="40" rx="2" fill="#0b1120" stroke="#475569" stroke-width="1" stroke-dasharray="2,2"/>
+      <rect x="0" y="4" width="46" height="32" rx="2" fill="#0369a1" fill-opacity="0.25" stroke="#38bdf8" stroke-width="1.2"/>
+      <text x="23" y="23" class="label-body" text-anchor="middle">View A</text>
+
+      <!-- Image B representation -->
+      <rect x="74" y="0" width="56" height="48" rx="2" fill="#0b1120" stroke="#475569" stroke-width="1" stroke-dasharray="2,2"/>
+      <rect x="74" y="0" width="44" height="38" rx="2" fill="#0369a1" fill-opacity="0.25" stroke="#38bdf8" stroke-width="1.2"/>
+      <text x="96" y="22" class="label-body" text-anchor="middle">View B</text>
+
+      <!-- Scale factor indicators -->
+      <text x="23" y="58" class="label-math" text-anchor="middle">&#8595; scale_a</text>
+      <text x="96" y="58" class="label-math" text-anchor="middle">&#8595; scale_b</text>
+    </g>
+
+    <text x="85" y="128" class="label-body" text-anchor="middle">Preserves aspect ratio</text>
+    <text x="85" y="146" class="label-dim" text-anchor="middle">max(W, H) &#8804; D_max</text>
+    <text x="85" y="164" class="label-math" text-anchor="middle">cv2.resize(INTER_AREA)</text>
+    <text x="85" y="182" class="label-dim" text-anchor="middle">(W_scaled, H_scaled)</text>
+  </g>
+
+  <!-- Flow Arrow 1 -->
+  <g transform="translate(207, 145)">
+    <line x1="-7" y1="0" x2="7" y2="0" stroke="#38bdf8" stroke-width="1.5"/>
+    <polygon points="7,-3 13,0 7,3" fill="#38bdf8"/>
+  </g>
+
+  <!-- Stage 2: Multiple-of-32 Alignment (x: 220, w: 175) -->
+  <g transform="translate(220, 44)">
+    <rect width="175" height="202" rx="8" fill="#182234" stroke="#334155" stroke-width="1"/>
+    <rect width="175" height="30" rx="8" fill="#1e293b"/>
+    <rect y="22" width="175" height="8" fill="#1e293b"/>
+    <text x="10" y="20" class="label-header">Multiple-of-32 Alignment</text>
+
+    <!-- Visual: 32px block quantization and resize to grid -->
+    <g transform="translate(20, 44)">
+      <rect x="0" y="0" width="134" height="56" rx="3" fill="#0b1120" stroke="#60a5fa" stroke-width="1"/>
+      <!-- Grid lines for 32x32 blocks -->
+      <line x1="33" y1="0" x2="33" y2="56" stroke="#1e293b" stroke-width="1" stroke-dasharray="2,2"/>
+      <line x1="67" y1="0" x2="67" y2="56" stroke="#1e293b" stroke-width="1" stroke-dasharray="2,2"/>
+      <line x1="100" y1="0" x2="100" y2="56" stroke="#1e293b" stroke-width="1" stroke-dasharray="2,2"/>
+      <line x1="0" y1="28" x2="134" y2="28" stroke="#1e293b" stroke-width="1" stroke-dasharray="2,2"/>
+      <!-- Aligned image fill -->
+      <rect x="2" y="2" width="130" height="52" fill="#38bdf8" fill-opacity="0.12"/>
+      <text x="67" y="32" class="label-body" text-anchor="middle">32-px Aligned Grid</text>
+    </g>
+
+    <text x="87" y="128" class="label-body" text-anchor="middle">Resized to multiple of 32</text>
+    <text x="87" y="146" class="label-math" text-anchor="middle">W = (W_s // 32) * 32</text>
+    <text x="87" y="164" class="label-math" text-anchor="middle">H = (H_s // 32) * 32</text>
+    <text x="87" y="182" class="label-dim" text-anchor="middle">float32 &#8226; [0, 1] gray</text>
+  </g>
+
+  <!-- Flow Arrow 2 -->
+  <g transform="translate(407, 145)">
+    <line x1="-7" y1="0" x2="7" y2="0" stroke="#38bdf8" stroke-width="1.5"/>
+    <polygon points="7,-3 13,0 7,3" fill="#38bdf8"/>
+  </g>
+
+  <!-- Stage 3: Bottom-Right Batch Padding (x: 420, w: 175) -->
+  <g transform="translate(420, 44)">
+    <rect width="175" height="202" rx="8" fill="#182234" stroke="#334155" stroke-width="1"/>
+    <rect width="175" height="30" rx="8" fill="#1e293b"/>
+    <rect y="22" width="175" height="8" fill="#1e293b"/>
+    <text x="10" y="20" class="label-header">Bottom-Right Batch Padding</text>
+
+    <!-- Visual: Content area with clearly styled padded borders -->
+    <g transform="translate(20, 44)">
+      <!-- Valid image signal -->
+      <rect x="0" y="0" width="94" height="42" fill="#0b1120" stroke="#38bdf8" stroke-width="1.2"/>
+      <text x="47" y="25" class="label-body" text-anchor="middle">Image Tensor (H, W)</text>
+      <!-- Padding on Right and Bottom -->
+      <rect x="94" y="0" width="38" height="42" fill="#1e293b" fill-opacity="0.8" stroke="#f59e0b" stroke-width="1" stroke-dasharray="2,2"/>
+      <rect x="0" y="42" width="132" height="15" fill="#1e293b" fill-opacity="0.8" stroke="#f59e0b" stroke-width="1" stroke-dasharray="2,2"/>
+      <text x="113" y="24" class="code-amber" text-anchor="middle">pad 0</text>
+      <text x="66" y="53" class="code-amber" text-anchor="middle">pad 0</text>
+    </g>
+
+    <text x="87" y="128" class="label-body" text-anchor="middle">Aligns pair spatial shape</text>
+    <text x="87" y="146" class="label-math" text-anchor="middle">W_pad = max(W_a, W_b)</text>
+    <text x="87" y="164" class="label-math" text-anchor="middle">H_pad = max(H_a, H_b)</text>
+    <text x="87" y="182" class="label-dim" text-anchor="middle">(1, 1, H_pad, W_pad)</text>
+  </g>
+
+  <!-- Flow Arrow 3 -->
+  <g transform="translate(607, 145)">
+    <line x1="-7" y1="0" x2="7" y2="0" stroke="#38bdf8" stroke-width="1.5"/>
+    <polygon points="7,-3 13,0 7,3" fill="#38bdf8"/>
+  </g>
+
+  <!-- Stage 4: ONNX Runtime Inference (x: 620, w: 175) -->
+  <g transform="translate(620, 44)">
+    <rect width="175" height="202" rx="8" fill="#182234" stroke="#2563eb" stroke-width="1.2"/>
+    <rect width="175" height="30" rx="8" fill="#1e3a8a" opacity="0.6"/>
+    <rect y="22" width="175" height="8" fill="#1e3a8a" opacity="0.6"/>
+    <text x="12" y="20" class="label-header">ONNX Runtime Inference</text>
+
+    <!-- Visual: Single solid ONNX Runtime session execution block -->
+    <g transform="translate(18, 44)">
+      <rect x="0" y="0" width="138" height="56" rx="5" fill="#0b1120" stroke="#38bdf8" stroke-width="1.2"/>
+      <rect x="8" y="8" width="122" height="40" rx="3" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+      <text x="69" y="26" class="label-header" text-anchor="middle" fill="#38bdf8">session.run()</text>
+      <text x="69" y="41" class="label-body" text-anchor="middle">EfficientLoFTR ONNX</text>
+    </g>
+
+    <text x="87" y="128" class="label-body" text-anchor="middle">Single forward execution</text>
+    <text x="87" y="146" class="label-dim" text-anchor="middle">mkpts0_f: (M, 2) float32</text>
+    <text x="87" y="164" class="label-dim" text-anchor="middle">mkpts1_f: (M, 2) float32</text>
+    <text x="87" y="182" class="label-math" text-anchor="middle">mconf: (M,) float32</text>
+  </g>
+
+  <!-- Flow Arrow 4 -->
+  <g transform="translate(807, 145)">
+    <line x1="-7" y1="0" x2="7" y2="0" stroke="#38bdf8" stroke-width="1.5"/>
+    <polygon points="7,-3 13,0 7,3" fill="#38bdf8"/>
+  </g>
+
+  <!-- Stage 5: Boundary Filtering (x: 820, w: 170) -->
+  <g transform="translate(820, 44)">
+    <rect width="170" height="202" rx="8" fill="#182234" stroke="#334155" stroke-width="1"/>
+    <rect width="170" height="30" rx="8" fill="#1e293b"/>
+    <rect y="22" width="170" height="8" fill="#1e293b"/>
+    <text x="12" y="20" class="label-header">Boundary Filtering</text>
+
+    <!-- Visual: Accepted vs Rejected keypoints in padded space -->
+    <g transform="translate(18, 44)">
+      <!-- Unpadded region: accepted points -->
+      <rect x="0" y="0" width="88" height="52" fill="#0b1120" stroke="#22c55e" stroke-width="1.2"/>
+      <circle cx="26" cy="18" r="3.5" fill="#22c55e"/>
+      <circle cx="62" cy="34" r="3.5" fill="#22c55e"/>
+      <text x="44" y="47" class="label-math" text-anchor="middle">valid matches</text>
+
+      <!-- Padded boundary: rejected points with X cross -->
+      <rect x="88" y="0" width="44" height="52" fill="#1e293b" fill-opacity="0.8" stroke="#f43f5e" stroke-width="1" stroke-dasharray="2,2"/>
+      <circle cx="108" cy="22" r="3.5" fill="#f43f5e"/>
+      <line x1="104" y1="18" x2="112" y2="26" stroke="#f43f5e" stroke-width="1.5"/>
+      <line x1="112" y1="18" x2="104" y2="26" stroke="#f43f5e" stroke-width="1.5"/>
+      <text x="110" y="42" class="code-amber" text-anchor="middle">reject</text>
+    </g>
+
+    <text x="85" y="128" class="label-body" text-anchor="middle">Prunes padded-zone points</text>
+    <text x="85" y="146" class="label-math" text-anchor="middle">x0 &lt; W_a &#8743; y0 &lt; H_a</text>
+    <text x="85" y="164" class="label-math" text-anchor="middle">x1 &lt; W_b &#8743; y1 &lt; H_b</text>
+    <text x="85" y="182" class="label-dim" text-anchor="middle">Retains N valid matches</text>
+  </g>
+
+  <!-- Flow Arrow 5 -->
+  <g transform="translate(1002, 145)">
+    <line x1="-7" y1="0" x2="7" y2="0" stroke="#38bdf8" stroke-width="1.5"/>
+    <polygon points="7,-3 13,0 7,3" fill="#38bdf8"/>
+  </g>
+
+  <!-- Stage 6: Coordinate Projection (x: 1015, w: 140) -->
+  <g transform="translate(1015, 44)">
+    <rect width="140" height="202" rx="8" fill="#182234" stroke="#34d399" stroke-width="1.2"/>
+    <rect width="140" height="30" rx="8" fill="#064e3b" opacity="0.5"/>
+    <rect y="22" width="140" height="8" fill="#064e3b" opacity="0.5"/>
+    <text x="10" y="20" class="label-header">Coordinate Projection</text>
+
+    <!-- Visual: Output Dataclass Container -->
+    <g transform="translate(12, 44)">
+      <rect width="116" height="24" rx="3" fill="#0b1120" stroke="#34d399" stroke-width="1"/>
+      <text x="58" y="16" class="label-dim" text-anchor="middle">KeypointMatches</text>
+
+      <text x="4" y="40" class="label-body">&#8226; keypoints_a (N, 2)</text>
+      <text x="4" y="54" class="label-body">&#8226; keypoints_b (N, 2)</text>
+      <text x="4" y="68" class="label-body">&#8226; confidence (N,)</text>
+    </g>
+
+    <text x="70" y="128" class="label-body" text-anchor="middle">Native pixel space</text>
+    <text x="70" y="146" class="label-math" text-anchor="middle">P_orig = P_raw &#183; scale</text>
+    <text x="70" y="164" class="label-dim" text-anchor="middle">scale = orig / aligned</text>
+    <text x="70" y="182" class="label-math" text-anchor="middle">float32 arrays</text>
+  </g>
+</svg>

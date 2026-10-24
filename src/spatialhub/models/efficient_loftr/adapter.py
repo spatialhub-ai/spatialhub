@@ -8,8 +8,9 @@ import cv2
 import numpy as np
 
 from spatialhub.core.runtime import create_ort_session, resolve_model_path
-from spatialhub.structures import MatchResult
-from spatialhub.utils import load_image
+from spatialhub.structures import KeypointMatches
+from spatialhub.utils import load_image, to_color
+
 
 logger = logging.getLogger(__name__)
 
@@ -90,23 +91,30 @@ class EfficientLoFTRAdapter:
         image_a: str | Path | np.ndarray,
         image_b: str | Path | np.ndarray,
         max_dim: int | None = 1024,
-    ) -> MatchResult:
+    ) -> KeypointMatches:
         """Perform semi-dense feature matching between two images.
 
         Args:
             image_a:
-                First image input (file path or NumPy array).
+                First image input (file path or NumPy array with pixel values in [0, 255]).
             image_b:
-                Second image input (file path or NumPy array).
+                Second image input (file path or NumPy array with pixel values in [0, 255]).
             max_dim:
                 Optional maximum spatial dimension to downscale input images before
                 matching. Keeps aspect ratio intact.
 
         Returns:
-            MatchResult:
-                Dataclass containing image inputs, matched keypoints in original image
-                coordinates, and matching confidence scores.
+            KeypointMatches:
+                Dataclass containing matched keypoints in original image
+                coordinates and matching confidence scores.
+
+        Raises:
+            RuntimeError:
+                If called after the inference session has been closed.
         """
+        if getattr(self, "session", None) is None:
+            raise RuntimeError("Inference session has been closed. Re-initialize adapter to match images.")
+
         # Preprocess images (grayscale conversion, resize to multiples of 32, normalize)
         tensor_a, scale_a = self._preprocess(image_a, max_dim=max_dim)
         tensor_b, scale_b = self._preprocess(image_b, max_dim=max_dim)
@@ -135,9 +143,7 @@ class EfficientLoFTRAdapter:
 
         # Return empty result safely if no matches are found
         if len(mconf) == 0:
-            return MatchResult(
-                image_a=image_a,
-                image_b=image_b,
+            return KeypointMatches(
                 keypoints_a=np.empty((0, 2), dtype=np.float32),
                 keypoints_b=np.empty((0, 2), dtype=np.float32),
                 confidence=np.empty((0,), dtype=np.float32),
@@ -155,9 +161,7 @@ class EfficientLoFTRAdapter:
             & (mkpts1_raw[:, 1] < h_b)
         )
 
-        return MatchResult(
-            image_a=image_a,
-            image_b=image_b,
+        return KeypointMatches(
             keypoints_a=mkpts0_orig[valid_mask].astype(np.float32),
             keypoints_b=mkpts1_orig[valid_mask].astype(np.float32),
             confidence=mconf[valid_mask].astype(np.float32),
@@ -173,10 +177,24 @@ class EfficientLoFTRAdapter:
         Converts image to grayscale, scales down to max_dim if needed, aligns dimensions
         to multiples of 32, and normalizes to [0, 1] float32 tensor of shape (1, 1, H, W).
 
+        Args:
+            img_input: Input image as file path or NumPy array with pixel values in [0, 255].
+            max_dim: Optional maximum spatial dimension limit.
+
         Returns:
             Tuple of (preprocessed_tensor, scale_factors_array).
+
+        Raises:
+            TypeError: If img_input type is unsupported.
+            ValueError: If image dimensions or channel counts are unsupported.
         """
-        img = load_image(img_input, color_mode="GRAY")
+        if isinstance(img_input, (str, Path)):
+            img = load_image(img_input, color_mode="GRAY")
+        elif isinstance(img_input, np.ndarray):
+            img = to_color(img_input, "GRAY")
+        else:
+            raise TypeError(f"img_input must be a str, Path, or np.ndarray, got {type(img_input).__name__}")
+
         orig_h, orig_w = img.shape
 
         # Downscale if maximum dimension exceeds max_dim threshold
@@ -197,20 +215,26 @@ class EfficientLoFTRAdapter:
         if (new_w, new_h) != (curr_w, curr_h):
             img = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_AREA)
 
-        # Normalize to [0, 1] and add batch/channel dimensions: (1, 1, H, W)
+        # Normalize from [0, 255] to [0, 1] and add batch/channel dimensions: (1, 1, H, W)
         tensor = img.astype(np.float32) / 255.0
         tensor = np.expand_dims(tensor, axis=(0, 1))
 
         return tensor, scale
 
-    def __enter__(self):
+    def __enter__(self) -> EfficientLoFTRAdapter:
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: Any | None,
+    ) -> None:
         self.close()
-    
+
     def close(self) -> None:
         """Release underlying runtime inference session and memory resources."""
         if getattr(self, "session", None) is not None:
             self.session = None
+
 

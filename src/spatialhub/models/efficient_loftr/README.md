@@ -28,7 +28,7 @@ graph TD
     E --> F["ONNX Runtime Forward Pass"]
     F --> G["Filter Matches Outside Unpadded Boundaries"]
     G --> H["Project Coordinates to Native Resolution"]
-    H --> I["MatchResult"]
+    H --> I["KeypointMatches"]
 ```
 
 ### Maximum Dimension Scaling
@@ -365,6 +365,7 @@ Latency, throughput, and host process RAM deltas measured on the first pair of t
 
 ```python
 from spatialhub import EfficientLoFTR
+from spatialhub.utils import load_image, save_image, visualize_matched_keypoints
 
 # Initialize with 'opt' variant and CUDA acceleration
 matcher = EfficientLoFTR(
@@ -372,11 +373,23 @@ matcher = EfficientLoFTR(
     providers=["CUDAExecutionProvider", "CPUExecutionProvider"]
 )
 
+# Load input images
+img_a = load_image("image_a.jpg", color_mode="RGB")
+img_b = load_image("image_b.jpg", color_mode="RGB")
+
 # Execute matching between two images
-result = matcher.match("image_a.jpg", "image_b.jpg", max_dim=1024)
+result = matcher.match(img_a, img_b, max_dim=1024)
 
 # Render side-by-side visualization
-result.visualize(top_k=50, save_path="matches.png")
+vis = visualize_matched_keypoints(
+    img_a,
+    img_b,
+    keypoints_a=result.keypoints_a,
+    keypoints_b=result.keypoints_b,
+    confidence=result.confidence,
+    top_k=50,
+)
+save_image(vis, "matches.png")
 ```
 
 ---
@@ -465,13 +478,11 @@ uv run tools/benchmark/profile_efficient_loftr.py \
 
 ## Returned Result Data Structure
 
-Returns a [`MatchResult`](https://spatialhub-ai.github.io/spatialhub/core-and-utils/structures/match_result/) dataclass:
+Returns a [`KeypointMatches`](https://spatialhub-ai.github.io/spatialhub/structures/perception_primitives/#keypointmatches) dataclass:
 
 | Attribute | Type | Shape | Description |
 | :--- | :--- | :--- | :--- |
-| `image_a` | `str | Path | np.ndarray` | `(H, W, 3)` or path | First image reference or RGB array. |
-| `image_b` | `str | Path | np.ndarray` | `(H, W, 3)` or path | Second image reference or RGB array. |
-| `keypoints_a` | `Keypoints2D` | `(N, 2)` float32 | Matched keypoint `[x, y]` coordinates in `image_a`. |
-| `keypoints_b` | `Keypoints2D` | `(N, 2)` float32 | Matched keypoint `[x, y]` coordinates in `image_b`. |
-| `confidence` | `Scores` | `(N,)` float32 | Match confidence scores in `[0.0, 1.0]`. |
+| `keypoints_a` | `np.ndarray` | `(N, 2)` float32 | Matched keypoint `[x, y]` coordinates in `image_a`. |
+| `keypoints_b` | `np.ndarray` | `(N, 2)` float32 | Matched keypoint `[x, y]` coordinates in `image_b`. |
+| `confidence` | `np.ndarray` | `(N,)` float32 | Match confidence scores in `[0.0, 1.0]`. |
 

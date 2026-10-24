@@ -10,7 +10,7 @@ import pytest
 
 from spatialhub import EfficientLoFTR
 from spatialhub.models.efficient_loftr.adapter import EfficientLoFTRAdapter
-from spatialhub.structures import MatchResult
+from spatialhub.structures import KeypointMatches
 
 
 class TestEfficientLoFTRInit:
@@ -179,13 +179,13 @@ class TestEfficientLoFTRMatching:
 
         result = mocked_adapter.match(img_a, img_b, max_dim=1024)
 
-        assert isinstance(result, MatchResult)
+        assert isinstance(result, KeypointMatches)
         assert np.array_equal(result.keypoints_a, mkpts0_raw)
         assert np.array_equal(result.keypoints_b, mkpts1_raw)
         assert np.array_equal(result.confidence, mconf)
 
     def test_match_mocked_zero_matches(self, mocked_adapter: EfficientLoFTRAdapter):
-        """Test that zero-detection case safely returns MatchResult with empty float32 arrays."""
+        """Test that zero-detection case safely returns KeypointMatches with empty float32 arrays."""
         img_a = np.zeros((480, 640, 3), dtype=np.uint8)
         img_b = np.zeros((480, 640, 3), dtype=np.uint8)
 
@@ -197,7 +197,7 @@ class TestEfficientLoFTRMatching:
 
         result = mocked_adapter.match(img_a, img_b, max_dim=1024)
 
-        assert isinstance(result, MatchResult)
+        assert isinstance(result, KeypointMatches)
         assert result.keypoints_a.shape == (0, 2)
         assert result.keypoints_b.shape == (0, 2)
         assert result.confidence.shape == (0,)
@@ -238,7 +238,7 @@ class TestEfficientLoFTRIntegration:
 
         result = matcher.match(path_a, path_b, max_dim=1024)
 
-        assert isinstance(result, MatchResult)
+        assert isinstance(result, KeypointMatches)
         assert isinstance(result.keypoints_a, np.ndarray)
         assert isinstance(result.keypoints_b, np.ndarray)
         assert isinstance(result.confidence, np.ndarray)
@@ -259,7 +259,7 @@ class TestEfficientLoFTRIntegration:
 
         result = matcher.match(img_a, img_b, max_dim=640)
 
-        assert isinstance(result, MatchResult)
+        assert isinstance(result, KeypointMatches)
         assert isinstance(result.keypoints_a, np.ndarray)
         assert isinstance(result.keypoints_b, np.ndarray)
         assert isinstance(result.confidence, np.ndarray)

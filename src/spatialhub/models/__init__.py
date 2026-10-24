@@ -2,22 +2,22 @@ import importlib
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from .cnos import CNOSAdapter as CNOS
-    from .depth_anything_3 import DepthAnything3Adapter as DepthAnything3
-    from .dinov2 import DINOv2Adapter as DINOv2
-    from .efficient_loftr import EfficientLoFTRAdapter as EfficientLoFTR
-    from .fastsam import FastSAMAdapter as FastSAM
-    from .foundationpose import FoundationPoseAdapter as FoundationPose
-    from .sam import SAMAdapter as SAM
+    from .cnos import CNOS
+    from .depth_anything_3 import DepthAnything3
+    from .dinov2 import DINOv2
+    from .efficient_loftr import EfficientLoFTR
+    from .fastsam import FastSAM
+    from .foundationpose import FoundationPose
+    from .sam import SAM
 
 _MODEL_EXPORTS: dict[str, tuple[str, str]] = {
-    "CNOS": (".cnos", "CNOSAdapter"),
-    "DepthAnything3": (".depth_anything_3", "DepthAnything3Adapter"),
-    "DINOv2": (".dinov2", "DINOv2Adapter"),
-    "EfficientLoFTR": (".efficient_loftr", "EfficientLoFTRAdapter"),
-    "FastSAM": (".fastsam", "FastSAMAdapter"),
-    "FoundationPose": (".foundationpose", "FoundationPoseAdapter"),
-    "SAM": (".sam", "SAMAdapter"),
+    "CNOS": (".cnos", "CNOS"),
+    "DepthAnything3": (".depth_anything_3", "DepthAnything3"),
+    "DINOv2": (".dinov2", "DINOv2"),
+    "EfficientLoFTR": (".efficient_loftr", "EfficientLoFTR"),
+    "FastSAM": (".fastsam", "FastSAM"),
+    "FoundationPose": (".foundationpose", "FoundationPose"),
+    "SAM": (".sam", "SAM"),
 }
 
 __all__ = [

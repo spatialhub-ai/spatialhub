@@ -251,6 +251,6 @@ class TestLazyModuleImports:
         import spatialhub.utils as utils
 
         assert hasattr(utils, "load_image")
-        assert "TemplateRenderer" in dir(utils)
+        assert "AtlasRenderer" in dir(utils)
 
 

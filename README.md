@@ -104,6 +104,10 @@ colored_depth = visualize_depth(pred_depth, colormap="inferno")
 save_image(colored_depth, "depth_visualization.png")
 ```
 
+<p align="center">
+  <img src="docs/assets/da3_depth.png" alt="Depth Anything 3 Metric Depth Estimation" width="100%" />
+</p>
+
 ### Real-Time Instance Segmentation (FastSAM)
 
 ```python
@@ -118,6 +122,10 @@ with FastSAM(model_variant="s") as segmentor:
 overlay = blend_masks(image=image, masks=results.masks, alpha=0.45)
 save_image(overlay, "segmented_instances.png")
 ```
+
+<p align="center">
+  <img src="docs/assets/fastsam_masks.png" alt="FastSAM Real-Time Instance Segmentation" width="100%" />
+</p>
 
 ### Semi-Dense Feature Matching (EfficientLoFTR)
 
@@ -142,6 +150,10 @@ vis = visualize_matched_keypoints(
 save_image(vis, "keypoint_correspondences.png")
 ```
 
+<p align="center">
+  <img src="docs/assets/eloftr_matches.png" alt="EfficientLoFTR Semi-Dense Feature Correspondences" width="100%" />
+</p>
+
 ### Zero-Shot CAD Detection (CNOS)
 
 ```python
@@ -165,6 +177,60 @@ with CNOS.from_cad_model(
 overlay = blend_masks(image=image, masks=results.masks)
 save_image(overlay, "cad_detection.png")
 ```
+
+<p align="center">
+  <img src="docs/assets/cad_multiview.gif" alt="Spherical CAD Template Viewpoints" width="220" />
+</p>
+
+<p align="center">
+  <img src="docs/assets/cnos_detection.png" alt="CNOS Zero-Shot CAD Object Detection" width="100%" />
+</p>
+
+### Model-Based 6D Pose Tracking (FoundationPose)
+
+```python
+import glob
+import numpy as np
+from spatialhub import FoundationPose
+
+# Load pinhole camera intrinsics matrix (3x3)
+intrinsics = np.loadtxt("examples/assets/mustard0/cam_K.txt")
+
+rgb_files = sorted(glob.glob("examples/assets/mustard0/rgb/*.png"))
+depth_files = sorted(glob.glob("examples/assets/mustard0/depth/*.png"))
+mask_files = sorted(glob.glob("examples/assets/mustard0/masks/*.png"))
+
+with FoundationPose(
+    intrinsics=intrinsics,
+    model="examples/assets/mustard0/mesh/textured_simple.obj",
+    model_unit="m",
+    model_name="mustard",
+) as tracker:
+    # Register initial 6D pose from first RGB-D frame and 2D segmentation mask
+    init_pose = tracker.register(
+        rgb=rgb_files[0],
+        depth=depth_files[0],
+        mask=mask_files[0],
+        depth_unit="mm",
+    )
+    print(f"Registered pose translation: {init_pose.pose[0, :3, 3]}")
+
+    # Track 6D pose sequentially in subsequent RGB-D frames
+    next_pose = tracker.track(
+        rgb=rgb_files[1],
+        depth=depth_files[1],
+        depth_unit="mm",
+    )
+    print(f"Tracked pose translation: {next_pose.pose[0, :3, 3]}")
+```
+
+<p align="center">
+  <video src="https://github.com/spatialhub-ai/spatialhub/raw/main/docs/assets/foundationpose_tracking.mp4" controls width="100%" poster="docs/assets/foundationpose_tracking.png">
+    <a href="https://github.com/spatialhub-ai/spatialhub/raw/main/docs/assets/foundationpose_tracking.mp4">
+      <img src="docs/assets/foundationpose_tracking.png" alt="FoundationPose 6D Pose Tracking" width="100%" />
+    </a>
+  </video>
+</p>
 
 ---
 

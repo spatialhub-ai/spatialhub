@@ -2,86 +2,120 @@ import importlib
 from typing import TYPE_CHECKING, Any
 
 from .camera import (
-    create_projection_matrix,
-    opencv_to_opengl_pose,
+    sample_sphere_points,
+    intrinsics_to_projection_matrix,
+    project_points_to_image,
     reproject_depth_to_3d,
-    reproject_depth_to_3d_batch,
+    sample_icosphere_poses,
+    sample_sphere_poses,
     scale_intrinsics,
 )
+from .colors import (
+    to_color,
+)
+from .download import download_file
 from .image import (
-    extract_foreground_bbox,
     load_image,
-    non_max_suppression,
+    mask_to_bbox,
+    nms_boxes,
     normalize_image,
-    square_crop_and_resize,
+    pad_to_square,
+    save_image,
+    save_video,
+    scale_depth,
 )
-from .mesh import (
-    MeshArrays,
-    center_mesh,
-    compute_mesh_diameter,
-    compute_obb,
+from .transform import (
+    extents_to_corners,
     invert_transform,
-    load_mesh,
-    look_at,
-    prepare_mesh_arrays,
-    read_mesh,
-    sample_sphere_poses,
-    scale_mesh,
-    to_single_mesh,
+    opencv_to_opengl,
+    transform_points,
 )
-from .viz import (
+from .visualization import (
+    blend_masks,
     draw_3d_axis,
     draw_3d_box,
-    visualize_masks,
-    visualize_matches,
+    draw_boxes_2d,
+    visualize_dense_features,
+    visualize_depth,
+    visualize_global_features,
+    visualize_matched_keypoints,
 )
 
 if TYPE_CHECKING:
-    from .moderngl import (
-        BatchedAtlasRenderer,
-        FullscreenShader,
-        create_moderngl_context,
+    from .mesh import (
+        MeshBuffers,
+        OrientedBoundingBox,
+        center_mesh,
+        compute_mesh_diameter,
+        compute_obb,
+        load_mesh,
+        prepare_mesh_buffers,
+        scale_mesh,
     )
-    from .template_renderer import TemplateRenderer
+    from .moderngl import (
+        AtlasRenderer,
+        FullscreenRenderer,
+        create_moderngl_context,
+        validate_moderngl_context,
+    )
 
 _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
-    "TemplateRenderer": (".template_renderer", "TemplateRenderer"),
+    "MeshBuffers": (".mesh", "MeshBuffers"),
+    "OrientedBoundingBox": (".mesh", "OrientedBoundingBox"),
+    "center_mesh": (".mesh", "center_mesh"),
+    "compute_mesh_diameter": (".mesh", "compute_mesh_diameter"),
+    "compute_obb": (".mesh", "compute_obb"),
+    "load_mesh": (".mesh", "load_mesh"),
+    "prepare_mesh_buffers": (".mesh", "prepare_mesh_buffers"),
+    "scale_mesh": (".mesh", "scale_mesh"),
     "create_moderngl_context": (".moderngl.context", "create_moderngl_context"),
-    "BatchedAtlasRenderer": (".moderngl.atlas_renderer", "BatchedAtlasRenderer"),
-    "FullscreenShader": (".moderngl.fullscreen", "FullscreenShader"),
+    "validate_moderngl_context": (".moderngl.context", "validate_moderngl_context"),
+    "AtlasRenderer": (".moderngl.atlas_renderer", "AtlasRenderer"),
+    "FullscreenRenderer": (".moderngl.fullscreen", "FullscreenRenderer"),
 }
 
 __all__ = [
-    "visualize_matches",
-    "visualize_masks",
-    "draw_3d_box",
-    "draw_3d_axis",
+    "to_color",
+    "download_file",
     "load_image",
-    "extract_foreground_bbox",
-    "square_crop_and_resize",
+    "save_image",
+    "save_video",
+    "scale_depth",
+    "mask_to_bbox",
+    "pad_to_square",
     "normalize_image",
-    "non_max_suppression",
+    "nms_boxes",
     "load_mesh",
-    "read_mesh",
     "scale_mesh",
     "center_mesh",
-    "to_single_mesh",
     "compute_mesh_diameter",
+    "blend_masks",
+    "draw_3d_axis",
+    "draw_3d_box",
+    "draw_boxes_2d",
+    "visualize_dense_features",
+    "visualize_depth",
+    "visualize_global_features",
+    "visualize_matched_keypoints",
+    "extents_to_corners",
+    "OrientedBoundingBox",
     "compute_obb",
-    "look_at",
+    "sample_sphere_points",
     "invert_transform",
+    "transform_points",
     "sample_sphere_poses",
-    "MeshArrays",
-    "prepare_mesh_arrays",
+    "sample_icosphere_poses",
+    "MeshBuffers",
+    "prepare_mesh_buffers",
     "scale_intrinsics",
     "reproject_depth_to_3d",
-    "reproject_depth_to_3d_batch",
-    "create_projection_matrix",
-    "opencv_to_opengl_pose",
-    "TemplateRenderer",
+    "intrinsics_to_projection_matrix",
+    "opencv_to_opengl",
+    "project_points_to_image",
     "create_moderngl_context",
-    "BatchedAtlasRenderer",
-    "FullscreenShader",
+    "validate_moderngl_context",
+    "AtlasRenderer",
+    "FullscreenRenderer",
 ]
 
 
@@ -94,10 +128,11 @@ def __getattr__(name: str) -> Any:
             globals()[name] = val
             return val
         except ImportError as exc:
-            if "moderngl" in str(exc):
+            err_msg = str(exc)
+            if any(dep in err_msg for dep in ("trimesh", "moderngl", "scipy")):
                 raise ImportError(
-                    f"'{name}' requires optional rendering dependencies ('moderngl'). "
-                    f"Install with: pip install 'spatialhub[render]' or pip install 'spatialhub[gpu,render]'"
+                    f"'{name}' requires optional rendering dependencies ('trimesh', 'moderngl'). "
+                    f"Install with: uv sync --extra render (or pip install 'spatialhub[render]')"
                 ) from None
             raise
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

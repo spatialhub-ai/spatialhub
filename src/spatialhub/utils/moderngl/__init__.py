@@ -3,20 +3,22 @@ import importlib
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from .atlas_renderer import BatchedAtlasRenderer
-    from .context import create_moderngl_context
-    from .fullscreen import FullscreenShader
+    from .atlas_renderer import AtlasRenderer
+    from .context import create_moderngl_context, validate_moderngl_context
+    from .fullscreen import FullscreenRenderer
 
 _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     "create_moderngl_context": (".context", "create_moderngl_context"),
-    "BatchedAtlasRenderer": (".atlas_renderer", "BatchedAtlasRenderer"),
-    "FullscreenShader": (".fullscreen", "FullscreenShader"),
+    "validate_moderngl_context": (".context", "validate_moderngl_context"),
+    "AtlasRenderer": (".atlas_renderer", "AtlasRenderer"),
+    "FullscreenRenderer": (".fullscreen", "FullscreenRenderer"),
 }
 
 __all__ = [
     "create_moderngl_context",
-    "BatchedAtlasRenderer",
-    "FullscreenShader",
+    "validate_moderngl_context",
+    "AtlasRenderer",
+    "FullscreenRenderer",
 ]
 
 

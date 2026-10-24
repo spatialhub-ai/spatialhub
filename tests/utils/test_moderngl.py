@@ -2,15 +2,16 @@
 
 from __future__ import annotations
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
 try:
     import moderngl
-    from spatialhub.utils.moderngl.context import create_moderngl_context
-    from spatialhub.utils.moderngl.atlas_renderer import BatchedAtlasRenderer
-    from spatialhub.utils.moderngl.fullscreen import FullscreenShader
+    import spatialhub.utils.moderngl as mgl
+    from spatialhub.utils.moderngl.atlas_renderer import AtlasRenderer
+    from spatialhub.utils.moderngl.context import create_moderngl_context, validate_moderngl_context
+    from spatialhub.utils.moderngl.fullscreen import FullscreenRenderer
 
     RENDERER_AVAILABLE = True
 except Exception:
@@ -32,8 +33,32 @@ def gl_ctx() -> moderngl.Context:
         pytest.skip(f"ModernGL context creation failed: {err}")
 
 
+class TestModernGLPackage:
+    """Tests for spatialhub.utils.moderngl lazy exports and package attributes."""
+
+    def test_lazy_exports(self) -> None:
+        assert mgl.create_moderngl_context is create_moderngl_context
+        assert mgl.validate_moderngl_context is validate_moderngl_context
+        assert mgl.AtlasRenderer is AtlasRenderer
+        assert mgl.FullscreenRenderer is FullscreenRenderer
+
+    def test_dir_contains_all(self) -> None:
+        exported = dir(mgl)
+        for name in [
+            "create_moderngl_context",
+            "validate_moderngl_context",
+            "AtlasRenderer",
+            "FullscreenRenderer",
+        ]:
+            assert name in exported
+
+    def test_invalid_attribute_raises(self) -> None:
+        with pytest.raises(AttributeError, match="has no attribute 'invalid_attr'"):
+            _ = mgl.invalid_attr  # type: ignore[attr-defined]
+
+
 class TestModernGLContext:
-    """Tests for create_moderngl_context."""
+    """Tests for create_moderngl_context and validate_moderngl_context."""
 
     def test_create_moderngl_context_success(self, gl_ctx: moderngl.Context):
         assert gl_ctx is not None
@@ -51,12 +76,28 @@ class TestModernGLContext:
             with pytest.raises(RuntimeError, match="GL context init error"):
                 create_moderngl_context()
 
+    def test_validate_context_success(self, gl_ctx: moderngl.Context):
+        validated = validate_moderngl_context(gl_ctx)
+        assert validated is gl_ctx
 
-class TestBatchedAtlasRenderer:
-    """Tests for BatchedAtlasRenderer framebuffer allocation, rendering, and un-tiling."""
+    def test_validate_context_invalid_type(self):
+        with pytest.raises(TypeError, match="Expected moderngl.Context, got str"):
+            validate_moderngl_context("not_a_context")
+
+    def test_validate_context_released(self):
+        mock_released_ctx = MagicMock(spec=moderngl.Context)
+        mock_invalid_obj = type("InvalidObject", (), {})()
+        mock_released_ctx.mglo = mock_invalid_obj
+
+        with pytest.raises(RuntimeError, match="ModernGL context has been released and is no longer valid"):
+            validate_moderngl_context(mock_released_ctx)
+
+
+class TestAtlasRenderer:
+    """Tests for AtlasRenderer framebuffer allocation, multi-attachment rendering, and un-tiling."""
 
     def test_init_state(self, gl_ctx: moderngl.Context):
-        renderer = BatchedAtlasRenderer(gl_ctx)
+        renderer = AtlasRenderer(gl_ctx)
         assert renderer.ctx is gl_ctx
         assert renderer._color_attachments == []
         assert renderer._depth_rb is None
@@ -67,7 +108,7 @@ class TestBatchedAtlasRenderer:
         renderer.release_fbo()
 
     def test_prepare_resources_allocation_and_reuse(self, gl_ctx: moderngl.Context):
-        renderer = BatchedAtlasRenderer(gl_ctx)
+        renderer = AtlasRenderer(gl_ctx)
         layout = [(4, "f4")]
 
         # First allocation
@@ -81,31 +122,26 @@ class TestBatchedAtlasRenderer:
         first_tex = renderer._color_attachments[0]
         first_fbo = renderer._fbo
 
-        # Subsequent call with identical specs should reuse existing buffers
+        # Same dimensions and layout should reuse cached resources
         renderer._prepare_resources(64, 64, layout)
         assert renderer._color_attachments[0] is first_tex
         assert renderer._fbo is first_fbo
 
-        # Resize should release and reallocate new buffers
+        # Different dimensions should reallocate
         renderer._prepare_resources(128, 128, layout)
         assert renderer._current_size == (128, 128)
         assert renderer._color_attachments[0] is not first_tex
 
+        # Different layout should reallocate
+        layout_multi = [(4, "f4"), (4, "f4")]
+        renderer._prepare_resources(128, 128, layout_multi)
+        assert len(renderer._color_attachments) == 2
+
         renderer.release_fbo()
 
-    def test_prepare_resources_multi_attachment(self, gl_ctx: moderngl.Context):
-        renderer = BatchedAtlasRenderer(gl_ctx)
-        layout = [(4, "u1"), (1, "f4"), (2, "f2")]
+    def test_render_and_read_tiles_single_tile(self, gl_ctx: moderngl.Context):
+        renderer = AtlasRenderer(gl_ctx)
 
-        renderer._prepare_resources(32, 32, layout)
-        assert len(renderer._color_attachments) == 3
-        assert renderer._current_layout == layout
-        renderer.release_fbo()
-
-    def test_render_and_unpack_attachment_single_tile(self, gl_ctx: moderngl.Context):
-        renderer = BatchedAtlasRenderer(gl_ctx)
-
-        # Simple program that renders a red quad
         prog = gl_ctx.program(
             vertex_shader="""
                 #version 330
@@ -123,7 +159,6 @@ class TestBatchedAtlasRenderer:
             """,
         )
 
-        # Fullscreen-covering two-triangle quad
         vertices = np.array(
             [
                 -1.0, -1.0,
@@ -139,24 +174,85 @@ class TestBatchedAtlasRenderer:
         vao = gl_ctx.vertex_array(prog, [(vbo, "2f", "in_pos")])
 
         # Render 1 viewpoint into a 1x1 grid with size 16x16
-        renderer.render(vao, N=1, C=1, R=1, out_H=16, out_W=16, layout=[(4, "u1")])
-        out = renderer.unpack_attachment(0)
+        renderer.render(
+            vao,
+            num_instances=1,
+            grid_shape=(1, 1),
+            tile_shape=(16, 16),
+            layout=[(4, "u1")],
+        )
 
-        assert out.shape == (1, 16, 16, 4)
-        assert out.dtype == np.uint8
-        # All pixels should be red [255, 0, 0, 255]
-        assert np.all(out[0, :, :, 0] == 255)
-        assert np.all(out[0, :, :, 1] == 0)
-        assert np.all(out[0, :, :, 2] == 0)
-        assert np.all(out[0, :, :, 3] == 255)
+        # Test read_tiles with default attachment_index=0
+        out_default = renderer.read_tiles()
+        assert out_default.shape == (1, 16, 16, 4)
+        assert out_default.dtype == np.uint8
+        # Red quad [255, 0, 0, 255]
+        assert np.all(out_default[0, :, :, 0] == 255)
+        assert np.all(out_default[0, :, :, 1] == 0)
+        assert np.all(out_default[0, :, :, 2] == 0)
+        assert np.all(out_default[0, :, :, 3] == 255)
+
+        # Explicit index 0 matches default
+        out_explicit = renderer.read_tiles(0)
+        assert np.array_equal(out_default, out_explicit)
 
         vbo.release()
         vao.release()
         prog.release()
         renderer.release_fbo()
 
-    def test_render_batched_grid_and_unpack_slicing(self, gl_ctx: moderngl.Context):
-        renderer = BatchedAtlasRenderer(gl_ctx)
+    def test_render_multi_target_g_buffer(self, gl_ctx: moderngl.Context):
+        renderer = AtlasRenderer(gl_ctx)
+
+        # Multi-target program outputting to 2 color attachments:
+        # attachment 0: RGBA color (0.2, 0.4, 0.6, 1.0)
+        # attachment 1: Normal vector (0.0, 1.0, 0.0, 1.0)
+        prog = gl_ctx.program(
+            vertex_shader="""
+                #version 330
+                in vec2 in_pos;
+                void main() {
+                    gl_Position = vec4(in_pos, 0.0, 1.0);
+                }
+            """,
+            fragment_shader="""
+                #version 330
+                layout(location = 0) out vec4 out_color;
+                layout(location = 1) out vec4 out_normal;
+                void main() {
+                    out_color = vec4(0.2, 0.4, 0.6, 1.0);
+                    out_normal = vec4(0.0, 1.0, 0.0, 1.0);
+                }
+            """,
+        )
+
+        vertices = np.array([-1.0, -1.0, 1.0, -1.0, -1.0, 1.0, 1.0, 1.0], dtype="f4")
+        vbo = gl_ctx.buffer(vertices.tobytes())
+        vao = gl_ctx.vertex_array(prog, [(vbo, "2f", "in_pos")])
+
+        renderer.render(
+            vao,
+            num_instances=1,
+            grid_shape=(1, 1),
+            tile_shape=(8, 8),
+            layout=[(4, "f4"), (4, "f4")],
+        )
+
+        color_tiles = renderer.read_tiles(0)
+        normal_tiles = renderer.read_tiles(1)
+
+        assert color_tiles.shape == (1, 8, 8, 4)
+        assert normal_tiles.shape == (1, 8, 8, 4)
+        np.testing.assert_allclose(color_tiles[0, 0, 0], [0.2, 0.4, 0.6, 1.0], atol=1e-4)
+        np.testing.assert_allclose(normal_tiles[0, 0, 0], [0.0, 1.0, 0.0, 1.0], atol=1e-4)
+
+        vbo.release()
+        vao.release()
+        prog.release()
+        renderer.release_fbo()
+
+    def test_render_batched_grid_and_read_tiles_slicing(self, gl_ctx: moderngl.Context):
+        renderer = AtlasRenderer(gl_ctx)
 
         prog = gl_ctx.program(
             vertex_shader="""
@@ -179,8 +275,14 @@ class TestBatchedAtlasRenderer:
         vao = gl_ctx.vertex_array(prog, [(vbo, "2f", "in_pos")])
 
         # 3 viewpoints in a 2x2 grid (R=2, C=2, out_H=8, out_W=8)
-        renderer.render(vao, N=3, C=2, R=2, out_H=8, out_W=8, layout=[(4, "f4")])
-        out = renderer.unpack_attachment(0)
+        renderer.render(
+            vao,
+            num_instances=3,
+            grid_shape=(2, 2),
+            tile_shape=(8, 8),
+            layout=[(4, "f4")],
+        )
+        out = renderer.read_tiles(0)
 
         # Must slice [:N], so returned shape is (3, 8, 8, 4) instead of 4
         assert out.shape == (3, 8, 8, 4)
@@ -202,46 +304,44 @@ class TestBatchedAtlasRenderer:
             ("u2", np.uint16),
             ("i1", np.int8),
             ("u1", np.uint8),
-            ("unknown_format", np.uint8),  # Fallback default
+            ("unknown_format", np.uint8),
         ],
     )
-    def test_unpack_attachment_dtypes(self, gl_ctx: moderngl.Context, dtype_str: str, expected_dtype: type):
-        renderer = BatchedAtlasRenderer(gl_ctx)
+    def test_read_tiles_dtypes(self, gl_ctx: moderngl.Context, dtype_str: str, expected_dtype: type):
+        renderer = AtlasRenderer(gl_ctx)
 
-        # Mock the grid state and texture read for various dtypes
-        renderer._grid_state = (2, 2, 1, 4, 4)
+        renderer._grid_state = (2, 1, 2, 4, 4)
         renderer._current_size = (8, 4)
         renderer._current_layout = [(1, dtype_str)]
 
         mock_tex = gl_ctx.texture((8, 4), 1, dtype="u1" if dtype_str == "unknown_format" else dtype_str)
-        # Write dummy bytes
         dummy_data = np.zeros((4, 8, 1), dtype=expected_dtype)
         mock_tex.write(dummy_data.tobytes())
         renderer._color_attachments = [mock_tex]
 
         try:
-            unpacked = renderer.unpack_attachment(0)
+            unpacked = renderer.read_tiles(0)
             assert unpacked.shape == (2, 4, 4, 1)
             assert unpacked.dtype == expected_dtype
         finally:
             mock_tex.release()
             renderer._color_attachments.clear()
 
-    def test_unpack_attachment_invalid_index_raises(self, gl_ctx: moderngl.Context):
-        renderer = BatchedAtlasRenderer(gl_ctx)
+    def test_read_tiles_invalid_index_raises(self, gl_ctx: moderngl.Context):
+        renderer = AtlasRenderer(gl_ctx)
 
-        # Unpack when no color attachments are allocated
+        # No color attachments allocated
         with pytest.raises(IndexError, match="Attachment index 0 is invalid"):
-            renderer.unpack_attachment(0)
+            renderer.read_tiles(0)
 
         renderer._prepare_resources(16, 16, [(4, "u1")])
         with pytest.raises(IndexError, match="Attachment index 2 is invalid"):
-            renderer.unpack_attachment(2)
+            renderer.read_tiles(2)
 
         renderer.release_fbo()
 
     def test_release_fbo_idempotent(self, gl_ctx: moderngl.Context):
-        renderer = BatchedAtlasRenderer(gl_ctx)
+        renderer = AtlasRenderer(gl_ctx)
         renderer._prepare_resources(16, 16, [(4, "u1")])
 
         assert renderer._fbo is not None
@@ -253,12 +353,31 @@ class TestBatchedAtlasRenderer:
         assert renderer._current_size == (0, 0)
         assert renderer._current_layout == []
 
-        # Calling again should not raise errors
         renderer.release_fbo()
 
+    def test_close_alias(self, gl_ctx: moderngl.Context):
+        renderer = AtlasRenderer(gl_ctx)
+        renderer._prepare_resources(16, 16, [(4, "u1")])
+        renderer.close()
+        assert renderer._fbo is None
 
-class TestFullscreenShader:
-    """Tests for FullscreenShader quad setup, texture upload/download, and ping-pong swapping."""
+    def test_context_ownership_and_release(self):
+        mock_ctx = MagicMock(spec=moderngl.Context)
+        renderer_borrowed = AtlasRenderer(mock_ctx)
+        assert not renderer_borrowed._own_ctx
+        renderer_borrowed.release()
+        mock_ctx.release.assert_not_called()
+        assert renderer_borrowed.ctx is mock_ctx
+
+        with patch("spatialhub.utils.moderngl.atlas_renderer.create_moderngl_context", return_value=mock_ctx):
+            with AtlasRenderer() as renderer_owned:
+                assert renderer_owned._own_ctx
+            mock_ctx.release.assert_called_once()
+            assert renderer_owned.ctx is None
+
+
+class TestFullscreenRenderer:
+    """Tests for FullscreenRenderer quad setup, shader execution, texture upload/download, and ping-pong swapping."""
 
     @pytest.fixture
     def vert_shader_src(self) -> str:
@@ -286,12 +405,13 @@ class TestFullscreenShader:
         """
 
     def test_init_state(self, gl_ctx: moderngl.Context):
-        fs = FullscreenShader(gl_ctx)
+        fs = FullscreenRenderer(gl_ctx)
         assert fs.ctx is gl_ctx
         assert fs._tex_in is None
         assert fs._tex_out is None
         assert fs._fbo is None
         assert fs._current_shape == (0, 0, 0)
+        assert fs._quad_vbo is not None
         fs.release_fbo()
 
     def test_create_program_and_quad_vao(
@@ -300,25 +420,26 @@ class TestFullscreenShader:
         vert_shader_src: str,
         invert_frag_shader_src: str,
     ):
-        fs = FullscreenShader(gl_ctx)
+        fs = FullscreenRenderer(gl_ctx)
         prog = fs.create_program(vert_shader_src, invert_frag_shader_src)
         assert isinstance(prog, moderngl.Program)
 
-        vbo = fs.create_quad_vbo()
-        assert isinstance(vbo, moderngl.Buffer)
-        assert vbo.size == 8 * 4  # 8 floats * 4 bytes
+        assert isinstance(fs._quad_vbo, moderngl.Buffer)
+        assert fs._quad_vbo.size == 8 * 4  # 8 floats * 4 bytes
 
-        vao = fs.create_vao(prog, vbo, attributes=["in_position"])
+        vao = fs._create_vao(prog, attributes=["in_position"])
         assert isinstance(vao, moderngl.VertexArray)
 
+        cached_vao = fs._get_vao(prog)
+        assert cached_vao is not None
+
         vao.release()
-        vbo.release()
         prog.release()
 
     def test_upload_2d_and_3d(self, gl_ctx: moderngl.Context):
-        fs = FullscreenShader(gl_ctx)
+        fs = FullscreenRenderer(gl_ctx)
 
-        # 2D Grayscale input (H=16, W=32) -> shape (32, 16, 1)
+        # 2D Grayscale input (H=16, W=32)
         img_2d = np.ones((16, 32), dtype=np.float32)
         fs.upload(img_2d)
         assert fs._current_shape == (32, 16, 1)
@@ -340,21 +461,17 @@ class TestFullscreenShader:
         fs.release_fbo()
 
     def test_upload_invalid_shapes_raises(self, gl_ctx: moderngl.Context):
-        fs = FullscreenShader(gl_ctx)
+        fs = FullscreenRenderer(gl_ctx)
 
-        # 1D array
         with pytest.raises(ValueError, match="Input array must be 2D or 3D"):
             fs.upload(np.ones((10,), dtype=np.float32))
 
-        # 4D array
         with pytest.raises(ValueError, match="Input array must be 2D or 3D"):
             fs.upload(np.ones((1, 10, 10, 3), dtype=np.float32))
 
-        # 3D with 0 channels
         with pytest.raises(ValueError, match="Textures support 1-4 components"):
             fs.upload(np.ones((10, 10, 0), dtype=np.float32))
 
-        # 3D with 5 channels
         with pytest.raises(ValueError, match="Textures support 1-4 components"):
             fs.upload(np.ones((10, 10, 5), dtype=np.float32))
 
@@ -363,9 +480,8 @@ class TestFullscreenShader:
         gl_ctx: moderngl.Context,
         vert_shader_src: str,
     ):
-        fs = FullscreenShader(gl_ctx)
+        fs = FullscreenRenderer(gl_ctx)
 
-        # Multiplier shader: multiplies input by 2.0
         double_frag_shader = """
             #version 330
             uniform sampler2D tex_in;
@@ -377,26 +493,51 @@ class TestFullscreenShader:
             }
         """
         prog = fs.create_program(vert_shader_src, double_frag_shader)
-        vbo = fs.create_quad_vbo()
-        vao = fs.create_vao(prog, vbo, attributes=["in_position"])
-
         input_data = np.full((16, 16), 0.25, dtype=np.float32)
         fs.upload(input_data)
-        fs.render(vao, prog, texture_uniform_name="tex_in")
+        fs.render_pass(prog, texture_uniform_name="tex_in")
         output = fs.to_numpy()
 
-        # For 1-channel input, output is squeezed to (H, W)
         assert output.shape == (16, 16)
         assert output.dtype == np.float32
         np.testing.assert_allclose(output, 0.5, atol=1e-5)
 
-        vao.release()
-        vbo.release()
+        prog.release()
+        fs.release_fbo()
+
+    def test_render_pass_custom_uniform_name_and_explicit_vao(
+        self,
+        gl_ctx: moderngl.Context,
+        vert_shader_src: str,
+    ):
+        fs = FullscreenRenderer(gl_ctx)
+
+        custom_frag_shader = """
+            #version 330
+            uniform sampler2D custom_sampler;
+            in vec2 v_uv;
+            out vec4 fragColor;
+            void main() {
+                fragColor = texture(custom_sampler, v_uv);
+            }
+        """
+        prog = fs.create_program(vert_shader_src, custom_frag_shader)
+        custom_vao = fs._create_vao(prog)
+
+        input_data = np.full((8, 8, 4), 0.75, dtype=np.float32)
+        fs.upload(input_data)
+        fs.render_pass(prog, vao=custom_vao, texture_uniform_name="custom_sampler")
+        output = fs.to_numpy()
+
+        assert output.shape == (8, 8, 4)
+        np.testing.assert_allclose(output, 0.75, atol=1e-5)
+
+        custom_vao.release()
         prog.release()
         fs.release_fbo()
 
     def test_to_numpy_without_render_raises(self, gl_ctx: moderngl.Context):
-        fs = FullscreenShader(gl_ctx)
+        fs = FullscreenRenderer(gl_ctx)
         with pytest.raises(RuntimeError, match="No rendered data available"):
             fs.to_numpy()
 
@@ -405,9 +546,8 @@ class TestFullscreenShader:
         gl_ctx: moderngl.Context,
         vert_shader_src: str,
     ):
-        fs = FullscreenShader(gl_ctx)
+        fs = FullscreenRenderer(gl_ctx)
 
-        # Add 0.1 each pass
         add_frag_shader = """
             #version 330
             uniform sampler2D tex_in;
@@ -419,18 +559,15 @@ class TestFullscreenShader:
             }
         """
         prog = fs.create_program(vert_shader_src, add_frag_shader)
-        vbo = fs.create_quad_vbo()
-        vao = fs.create_vao(prog, vbo, attributes=["in_position"])
 
         input_data = np.zeros((8, 8, 3), dtype=np.float32)
         fs.upload(input_data)
 
         # Pass 1: 0.0 + 0.1 = 0.1
-        fs.render(vao, prog)
-        # Swap: output becomes next input
+        fs.render_pass(prog)
         fs.swap_buffers()
         # Pass 2: 0.1 + 0.1 = 0.2
-        fs.render(vao, prog)
+        fs.render_pass(prog)
 
         result = fs.to_numpy()
         assert result.shape == (8, 8, 3)
@@ -438,24 +575,20 @@ class TestFullscreenShader:
         np.testing.assert_allclose(result[..., 1], 0.2, atol=1e-5)
         np.testing.assert_allclose(result[..., 2], 0.2, atol=1e-5)
 
-        vao.release()
-        vbo.release()
         prog.release()
         fs.release_fbo()
 
-    def test_process_convenience_method(
+    def test_apply_convenience_method(
         self,
         gl_ctx: moderngl.Context,
         vert_shader_src: str,
         invert_frag_shader_src: str,
     ):
-        fs = FullscreenShader(gl_ctx)
+        fs = FullscreenRenderer(gl_ctx)
         prog = fs.create_program(vert_shader_src, invert_frag_shader_src)
-        vbo = fs.create_quad_vbo()
-        vao = fs.create_vao(prog, vbo, attributes=["in_position"])
 
         input_data = np.array([[[0.2, 0.4, 0.6, 1.0]]], dtype=np.float32)
-        output = fs.process(vao, prog, input_data)
+        output = fs.apply(prog, input_data)
 
         assert output.shape == (1, 1, 4)
         np.testing.assert_allclose(output[0, 0, 0], 0.8, atol=1e-5)
@@ -463,13 +596,11 @@ class TestFullscreenShader:
         np.testing.assert_allclose(output[0, 0, 2], 0.4, atol=1e-5)
         np.testing.assert_allclose(output[0, 0, 3], 1.0, atol=1e-5)
 
-        vao.release()
-        vbo.release()
         prog.release()
         fs.release_fbo()
 
     def test_release_fbo_idempotent(self, gl_ctx: moderngl.Context):
-        fs = FullscreenShader(gl_ctx)
+        fs = FullscreenRenderer(gl_ctx)
         fs.upload(np.ones((8, 8), dtype=np.float32))
 
         assert fs._tex_in is not None
@@ -482,5 +613,25 @@ class TestFullscreenShader:
         assert fs._fbo is None
         assert fs._current_shape == (0, 0, 0)
 
-        # Calling again should be a clean no-op
+        # Calling again is clean no-op
         fs.release_fbo()
+
+    def test_close_alias(self, gl_ctx: moderngl.Context):
+        fs = FullscreenRenderer(gl_ctx)
+        fs.upload(np.ones((8, 8), dtype=np.float32))
+        fs.close()
+        assert fs._fbo is None
+
+    def test_context_ownership_and_release(self):
+        mock_ctx = MagicMock(spec=moderngl.Context)
+        fs_borrowed = FullscreenRenderer(mock_ctx)
+        assert not fs_borrowed._own_ctx
+        fs_borrowed.release()
+        mock_ctx.release.assert_not_called()
+        assert fs_borrowed.ctx is mock_ctx
+
+        with patch("spatialhub.utils.moderngl.fullscreen.create_moderngl_context", return_value=mock_ctx):
+            with FullscreenRenderer() as fs_owned:
+                assert fs_owned._own_ctx
+            mock_ctx.release.assert_called_once()
+            assert fs_owned.ctx is None

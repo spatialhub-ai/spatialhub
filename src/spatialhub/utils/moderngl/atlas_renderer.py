@@ -1,6 +1,4 @@
-"""
-Batched atlas mesh renderer and offscreen framebuffer manager.
-"""
+"""Batched atlas mesh renderer and offscreen framebuffer manager."""
 
 from __future__ import annotations
 
@@ -9,24 +7,26 @@ import logging
 import moderngl
 import numpy as np
 
-from .context import create_moderngl_context
+from .context import create_moderngl_context, validate_moderngl_context
 
 logger = logging.getLogger(__name__)
 
 
-class BatchedAtlasRenderer:
-    """
-    Manages offscreen framebuffer attachments and dynamic allocation for batched 2D grid atlas rendering.
-    """
+class AtlasRenderer:
+    """Manages offscreen framebuffer attachments for batched 2D grid atlas rendering."""
 
-    def __init__(self, ctx: moderngl.Context):
-        """
-        Initialize the BatchedAtlasRenderer with an execution context.
+    def __init__(self, ctx: moderngl.Context | None = None):
+        """Initialize the renderer.
 
         Args:
-            ctx: Execution context instance.
+            ctx: Optional externally created context. If None, creates a standalone context.
         """
-        self.ctx = ctx
+        if ctx is not None:
+            self.ctx = validate_moderngl_context(ctx)
+            self._own_ctx = False
+        else:
+            self.ctx = create_moderngl_context()
+            self._own_ctx = True
 
         self._color_attachments: list[moderngl.Texture] = []
         self._depth_rb: moderngl.Renderbuffer | None = None
@@ -34,9 +34,11 @@ class BatchedAtlasRenderer:
 
         self._current_size = (0, 0)
         self._current_layout: list[tuple[int, str]] = []
-        self._grid_state = (0, 0, 0, 0, 0)  # Caches (N, C, R, out_H, out_W)
 
-        # Map texture data format specifiers to array dtypes
+        # cached grid tiling state for un-tiling rendered atlas in read_tiles
+        self._grid_state = (0, 0, 0, 0, 0)
+
+        # texture format specifiers to numpy dtypes
         self._dtype_map = {
             "f4": np.float32,
             "f2": np.float16,
@@ -70,41 +72,37 @@ class BatchedAtlasRenderer:
     def render(
         self,
         vao: moderngl.VertexArray,
-        N: int,
-        C: int,
-        R: int,
-        out_H: int,
-        out_W: int,
+        num_instances: int,
+        grid_shape: tuple[int, int],
+        tile_shape: tuple[int, int],
         layout: list[tuple[int, str]],
     ) -> None:
-        """
-        Configure target framebuffer resolution and execute instanced draw calls.
+        """Configure target framebuffer resolution and execute instanced draw calls.
 
         Args:
             vao: Instanced vertex array object containing geometry and instance attributes.
-            N: Total number of instanced viewpoints.
-            C: Number of grid columns in atlas layout.
-            R: Number of grid rows in atlas layout.
-            out_H: Spatial height of each individual tile crop in pixels.
-            out_W: Spatial width of each individual tile crop in pixels.
+            num_instances: Total number of instanced viewpoints (N).
+            grid_shape: Number of grid (rows, cols) in atlas layout.
+            tile_shape: Spatial (height, width) of each individual tile crop in pixels.
             layout: List of tuples specifying attachment channel count and dtype string (e.g. [(4, 'f4')]).
         """
-        self._grid_state = (N, C, R, out_H, out_W)
+        n_rows, n_cols = grid_shape
+        tile_h, tile_w = tile_shape
+        self._grid_state = (num_instances, n_rows, n_cols, tile_h, tile_w)
 
-        atlas_W, atlas_H = C * out_W, R * out_H
+        atlas_W, atlas_H = n_cols * tile_w, n_rows * tile_h
         self._prepare_resources(atlas_W, atlas_H, layout)
 
         self._fbo.use()
         self._fbo.clear(0.0, 0.0, 0.0, 0.0)
         self.ctx.enable(moderngl.DEPTH_TEST)
-        vao.render(moderngl.TRIANGLES, instances=N)
+        vao.render(moderngl.TRIANGLES, instances=num_instances)
 
-    def unpack_attachment(self, attachment_index: int) -> np.ndarray:
-        """
-        Read back a framebuffer color attachment texture and un-tile grid cells into a 4D array.
+    def read_tiles(self, attachment_index: int = 0) -> np.ndarray:
+        """Read back a framebuffer color attachment texture and un-tile grid cells into a 4D array.
 
         Args:
-            attachment_index: Index of the target color attachment in the G-Buffer layout.
+            attachment_index: Index of the target color attachment in the layout (default: 0).
 
         Returns:
             Un-tiled array of shape (N, out_H, out_W, components) in corresponding array dtype.
@@ -112,7 +110,7 @@ class BatchedAtlasRenderer:
         if not self._color_attachments or attachment_index >= len(self._color_attachments):
             raise IndexError(f"Attachment index {attachment_index} is invalid for the current layout.")
 
-        N, C, R, out_H, out_W = self._grid_state
+        num_instances, n_rows, n_cols, tile_h, tile_w = self._grid_state
 
         tex = self._color_attachments[attachment_index]
         atlas_W, atlas_H = self._current_size
@@ -122,11 +120,11 @@ class BatchedAtlasRenderer:
 
         arr = np.frombuffer(tex.read(), dtype=dtype).reshape((atlas_H, atlas_W, components))
 
-        # Un-tile 2D grid atlas (R * out_H, C * out_W, components) -> (N, out_H, out_W, components)
-        arr = arr.reshape((R, out_H, C, out_W, components))
+        # un-tile 2d grid atlas into instanced tiles
+        arr = arr.reshape((n_rows, tile_h, n_cols, tile_w, components))
         arr = arr.transpose((0, 2, 1, 3, 4))
 
-        return arr.reshape((R * C, out_H, out_W, components))[:N]
+        return arr.reshape((n_rows * n_cols, tile_h, tile_w, components))[:num_instances]
 
     def release_fbo(self) -> None:
         """Release allocated color textures, depth renderbuffer, and framebuffer objects."""
@@ -140,3 +138,21 @@ class BatchedAtlasRenderer:
             self._fbo = None
             self._current_size = (0, 0)
             self._current_layout = []
+
+    def release(self) -> None:
+        """Release allocated framebuffer objects and context if owned."""
+        self.release_fbo()
+        if hasattr(self, "ctx") and self.ctx is not None and getattr(self, "_own_ctx", True):
+            self.ctx.release()
+            self.ctx = None
+
+    def close(self) -> None:
+        """Alias for release."""
+        self.release()
+
+    def __enter__(self) -> AtlasRenderer:
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        self.close()
+

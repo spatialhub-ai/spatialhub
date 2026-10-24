@@ -8,8 +8,9 @@ import cv2
 import numpy as np
 
 from spatialhub.core.runtime import create_ort_session, resolve_model_path
-from spatialhub.structures import SegmentationResult
-from spatialhub.utils import load_image, non_max_suppression, normalize_image
+from spatialhub.structures import InstanceSegmentation
+from spatialhub.utils import load_image, nms_boxes, normalize_image, to_color
+
 
 logger = logging.getLogger(__name__)
 
@@ -159,12 +160,11 @@ class SAMAdapter:
         self._cached_has_mask_input = np.zeros((1,), dtype=np.float32)
         self._cached_point_labels = np.ones((self.points_per_batch, 1), dtype=np.float32)
 
-    def _empty_result(self, image: np.ndarray, orig_h: int, orig_w: int) -> SegmentationResult:
-        """Construct empty SegmentationResult instance."""
-        return SegmentationResult(
-            image=image,
-            boxes=np.empty((0, 4), dtype=np.float32),
+    def _empty_result(self, image: np.ndarray, orig_h: int, orig_w: int) -> InstanceSegmentation:
+        """Construct empty InstanceSegmentation instance."""
+        return InstanceSegmentation(
             masks=np.empty((0, orig_h, orig_w), dtype=bool),
+            boxes=np.empty((0, 4), dtype=np.float32),
             scores=np.empty((0,), dtype=np.float32),
         )
 
@@ -274,7 +274,7 @@ class SAMAdapter:
         pred_iou_thresh: float,
         stability_score_thresh: float,
         box_nms_thresh: float,
-    ) -> SegmentationResult:
+    ) -> InstanceSegmentation:
         """Filter decoder candidate masks, scale coordinates, and apply non-maximum suppression.
 
         Args:
@@ -288,12 +288,19 @@ class SAMAdapter:
             box_nms_thresh: Box IoU cutoff threshold for NMS deduplication.
 
         Returns:
-            SegmentationResult: Filtered boxes, masks, and confidence scores.
+            InstanceSegmentation: Filtered boxes, masks, and confidence scores.
         """
         if not all_raw_masks:
             return self._empty_result(image, orig_h, orig_w)
 
+        # Slice out letterbox padding using actual decoder output spatial dimensions
         masks_cat = np.concatenate(all_raw_masks, axis=0)
+        native_mask_h, native_mask_w = masks_cat.shape[1], masks_cat.shape[2]
+        max_dim = max(orig_h, orig_w)
+        prep_h = int(np.floor(float(native_mask_h) * orig_h / max_dim + 0.5))
+        prep_w = int(np.floor(float(native_mask_w) * orig_w / max_dim + 0.5))
+
+        masks_cat = masks_cat[:, :prep_h, :prep_w]
         scores_cat = np.concatenate(all_iou_preds, axis=0)
 
         # IoU Score Thresholding
@@ -331,7 +338,7 @@ class SAMAdapter:
         boxes[:, [1, 3]] = np.clip(boxes[:, [1, 3]], 0, orig_h)
 
         # Non-Maximum Suppression Deduplication
-        keep_nms = non_max_suppression(boxes, final_scores, box_nms_thresh)
+        keep_nms = nms_boxes(boxes, final_scores, box_nms_thresh)
         if len(keep_nms) == 0:
             return self._empty_result(image, orig_h, orig_w)
 
@@ -362,29 +369,40 @@ class SAMAdapter:
 
             final_masks = np.concatenate(out_masks_list, axis=0) if len(out_masks_list) > 1 else out_masks_list[0]
 
-        return SegmentationResult(
-            image=image,
-            boxes=final_boxes,
+        return InstanceSegmentation(
             masks=final_masks,
+            boxes=final_boxes,
             scores=surviving_scores,
         )
 
-    def generate_masks(self, image: str | Path | np.ndarray, **kwargs) -> SegmentationResult:
+    def generate_masks(self, image: str | Path | np.ndarray, **kwargs) -> InstanceSegmentation:
         """Execute Automatic Mask Generation (AMG) over input image.
 
         Args:
-            image: Input image (file path or RGB NumPy array).
+            image: Input image (file path or RGB NumPy array with pixel values in [0, 255]).
             kwargs: Optional threshold overrides ('pred_iou_thresh', 'stability_score_thresh', 'iou_threshold', 'points_per_side').
 
         Returns:
-            SegmentationResult: Dataclass containing bounding boxes, masks, and scores.
+            InstanceSegmentation: Dataclass containing bounding boxes, masks, and scores.
+
+        Raises:
+            RuntimeError: If called after inference sessions have been closed.
+            TypeError: If image input type is unsupported.
+            ValueError: If image spatial shape or channel count is unsupported.
         """
+        if getattr(self, "encoder_session", None) is None or getattr(self, "decoder_session", None) is None:
+            raise RuntimeError("Inference session has been closed. Re-initialize adapter to generate masks.")
+
         pred_iou_thresh = kwargs.get("pred_iou_thresh", self.default_pred_iou_thresh)
         stability_score_thresh = kwargs.get("stability_score_thresh", self.default_stability_score_thresh)
         box_nms_thresh = kwargs.get("iou_threshold", self.default_box_nms_thresh)
 
         if isinstance(image, (str, Path)):
             image = load_image(image, color_mode="RGB")
+        elif isinstance(image, np.ndarray):
+            image = to_color(image, "RGB")
+        else:
+            raise TypeError(f"image must be a str, Path, or np.ndarray, got {type(image).__name__}")
 
         # Preprocess
         input_tensor, scale, (orig_h, orig_w) = self._preprocess_image(image)

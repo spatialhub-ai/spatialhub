@@ -31,7 +31,7 @@ graph TD
     F --> G{"l2_normalize=True?"}
     G -- "Yes" --> H["Feature L2 Normalization"]
     G -- "No" --> I["Keep Raw Embeddings"]
-    H --> J["FeatureExtractionResult"]
+    H --> J["FeatureEmbedding"]
     I --> J
 ```
 
@@ -353,21 +353,29 @@ Latency, throughput, and memory footprint measured across $10$ unmeasured warmup
 ## SpatialHub Adapter API & Usage
 
 ```python
-from spatialhub.models.dinov2 import DINOv2Adapter
+from spatialhub import DINOv2
+from spatialhub.utils import load_image, save_image, visualize_global_features
+
+# Load image
+image = load_image("sample.jpg", color_mode="RGB")
 
 # Initialize DINOv2 adapter with ViT-L/14 backbone (1024-dim)
-with DINOv2Adapter(
+with DINOv2(
     model_variant="vitl14",
     target_size=224,
     providers=["CUDAExecutionProvider", "CPUExecutionProvider"],
 ) as extractor:
     # Single image input (path or array)
-    result_single = extractor.extract_features("sample.jpg", l2_normalize=True)
+    result_single = extractor.extract_features(image, l2_normalize=True)
     print("Single embedding shape:", result_single.features.shape)  # (1, 1024)
 
     # Batch or collection input (list of images or paths)
     result_batch = extractor.extract_features(["image_0.jpg", "image_1.jpg"], l2_normalize=True)
     print("Batch embedding shape:", result_batch.features.shape)   # (2, 1024)
+
+    # Visualize pairwise cosine similarity matrix
+    sim_vis = visualize_global_features(result_batch.features)
+    save_image(sim_vis, "similarity_matrix.png")
 ```
 
 ---
@@ -447,11 +455,10 @@ uv run tools/benchmark/profile_dinov2.py \
 
 ## Returned Result Data Structure
 
-Returns a [`FeatureExtractionResult`](https://spatialhub-ai.github.io/spatialhub/core-and-utils/structures/feature_extraction_result/) dataclass:
+Returns a [`FeatureEmbedding`](https://spatialhub-ai.github.io/spatialhub/structures/perception_primitives/#featureembedding) dataclass:
 
 | Attribute | Type | Shape | Description |
 | :--- | :--- | :--- | :--- |
-| `images` | `np.ndarray | list | str | Path` | `(H, W, 3)` or `(N, H, W, 3)` | Original input image array, path, or stacked batch array. |
-| `features` | `FeatureEmbedding` | `(N, D)` float32 | Extracted global CLS token feature embedding vectors. |
+| `features` | `np.ndarray` | `(N, D)` float32 | Extracted global CLS token feature embedding vectors. |
 | `embedding_type` | `Literal["global", "dense"]` | N/A | Feature representation scope (`"global"`). |
 | `l2_normalized` | `bool` | N/A | Flag indicating whether feature embeddings satisfy $\lVert v \rVert_2 = 1.0$. |

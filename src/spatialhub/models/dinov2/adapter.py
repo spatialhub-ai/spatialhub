@@ -8,8 +8,8 @@ import cv2
 import numpy as np
 
 from spatialhub.core.runtime import create_ort_session, resolve_model_path
-from spatialhub.structures import FeatureExtractionResult
-from spatialhub.utils import load_image, normalize_image
+from spatialhub.structures import FeatureEmbedding
+from spatialhub.utils import load_image, normalize_image, pad_to_square, to_color
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +42,7 @@ class DINOv2Adapter:
     """Image feature extraction pipeline using DINOv2.
 
     Applies ImageNet channel normalization and square padding, executes feature
-    extraction, and returns global CLS token embeddings as a FeatureExtractionResult.
+    extraction, and returns global CLS token embeddings as a FeatureEmbedding.
 
     Supported model variants include:
     - vits14 (384-dim)
@@ -126,61 +126,63 @@ class DINOv2Adapter:
             del self.session
             self.session = None
 
-    def _preprocess(self, images: np.ndarray | list[np.ndarray]) -> np.ndarray:
+    def _preprocess(
+        self,
+        images: np.ndarray | str | Path | list[np.ndarray | str | Path],
+    ) -> np.ndarray:
         """Preprocess RGB image(s) into a normalized tensor batch.
 
-        Applies square padding to preserve aspect ratio and bilinear resizing
-        to target_size, followed by ImageNet channel normalization.
+        Applies color conversion to RGB, square padding to preserve aspect ratio,
+        bilinear resizing to target_size, and ImageNet channel normalization.
+        Input arrays must have raw pixel values in [0, 255].
 
         Args:
-            images: Single RGB image array (H, W, 3) or list of RGB image arrays.
+            images: Single image (array, str, or Path) or list of images.
 
         Returns:
             np.ndarray: Normalized batch tensor of shape (N, 3, target_size, target_size) with dtype float32.
+
+        Raises:
+            TypeError: If input types are unsupported.
+            ValueError: If input dimensions or channel counts are unsupported.
         """
-        if isinstance(images, np.ndarray):
-            if images.ndim == 3:
-                raw_list = [images]
+        if isinstance(images, (str, Path)):
+            raw_list = [load_image(images, color_mode="RGB")]
+        elif isinstance(images, np.ndarray):
+            if images.ndim in (2, 3):
+                raw_list = [to_color(images, "RGB")]
             elif images.ndim == 4:
-                raw_list = [images[i] for i in range(images.shape[0])]
+                raw_list = [to_color(images[i], "RGB") for i in range(images.shape[0])]
             else:
-                raise ValueError(f"Expected RGB image array with shape (H, W, 3) or (N, H, W, 3), got shape {images.shape}")
-        elif isinstance(images, (list, tuple)):
-            raw_list = list(images)
+                raise ValueError(
+                    f"Expected 2D, 3D, or 4D image array, got ndim={images.ndim} with shape {images.shape}"
+                )
+        elif isinstance(images, list):
+            if len(images) == 0:
+                raise ValueError("Input image collection cannot be empty.")
+            raw_list = []
+            for item in images:
+                if isinstance(item, (str, Path)):
+                    raw_list.append(load_image(item, color_mode="RGB"))
+                elif isinstance(item, np.ndarray):
+                    raw_list.append(to_color(item, "RGB"))
+                else:
+                    raise TypeError(f"Unsupported image element type: {type(item).__name__}")
         else:
-            raise TypeError(f"Unsupported image input type for preprocessing: {type(images)}")
+            raise TypeError(f"Unsupported image input type for preprocessing: {type(images).__name__}")
 
         processed_images = []
         for img in raw_list:
-            if not isinstance(img, np.ndarray) or img.ndim != 3 or img.shape[2] != 3:
-                raise ValueError(
-                    f"Expected RGB image array with shape (H, W, 3), got {type(img)} with shape {getattr(img, 'shape', None)}"
+            square_img = pad_to_square(img)
+
+            if square_img.shape[0] != self.target_size or square_img.shape[1] != self.target_size:
+                square_img = cv2.resize(
+                    square_img,
+                    (self.target_size, self.target_size),
+                    interpolation=cv2.INTER_LINEAR,
                 )
 
-            # Square pad to preserve aspect ratio
-            h, w = img.shape[:2]
-            max_side = max(h, w)
-
-            if h != w:
-                square_img = np.zeros((max_side, max_side, 3), dtype=img.dtype)
-                y_offset = (max_side - h) // 2
-                x_offset = (max_side - w) // 2
-                square_img[y_offset : y_offset + h, x_offset : x_offset + w] = img
-            else:
-                square_img = img
-
-            # Resize to target spatial resolution
-            if max_side != self.target_size:
-                square_img = cv2.resize(square_img, (self.target_size, self.target_size), interpolation=cv2.INTER_LINEAR)
-
-            # Scale uint8 / integer arrays to [0.0, 1.0], preserving float inputs already in [0.0, 1.0]
-            if np.issubdtype(square_img.dtype, np.integer):
-                img_float = square_img.astype(np.float32) / 255.0
-            elif square_img.max() > 1.0:
-                img_float = square_img.astype(np.float32) / 255.0
-            else:
-                img_float = square_img.astype(np.float32)
-
+            img_float = square_img.astype(np.float32) / 255.0
             normed_img = normalize_image(img_float, to_chw=True)
             processed_images.append(normed_img)
 
@@ -188,55 +190,30 @@ class DINOv2Adapter:
 
     def extract_features(
         self,
-        images: np.ndarray | str | Path | list[np.ndarray | str | Path] | tuple[np.ndarray | str | Path, ...],
+        images: np.ndarray | str | Path | list[np.ndarray | str | Path],
         l2_normalize: bool = False,
-    ) -> FeatureExtractionResult:
+    ) -> FeatureEmbedding:
         """Extract global DINOv2 CLS token embeddings.
 
         Args:
-            images:
-                Input RGB image or collection of images. Supports:
-                - Single image: NumPy array (H, W, 3), image file path (str or Path).
-                - Batch image: NumPy array (N, H, W, 3).
-                - Image collection: List or tuple of NumPy arrays, file path strings, or Path objects.
-            l2_normalize:
-                If True, applies L2 normalization along feature embedding dimension.
+            images: Input RGB image or list of images. Supports:
+                - Single image: NumPy array with raw pixel values in [0, 255], image file path (str or Path).
+                - Batch image: NumPy array (N, H, W, 3) or (N, H, W, C).
+                - Image collection: List of NumPy arrays, file path strings, or Path objects.
+            l2_normalize: If True, applies L2 normalization along feature embedding dimension.
 
         Returns:
-            FeatureExtractionResult:
-                Result dataclass containing input images and feature embeddings of shape (N, D).
+            FeatureEmbedding: Result dataclass containing feature embeddings of shape (N, D).
+
+        Raises:
+            RuntimeError: If called after the inference session has been closed.
+            TypeError: If input image type is unsupported.
+            ValueError: If input spatial shape, channels, or empty collection is provided.
         """
-        if self.session is None:
+        if getattr(self, "session", None) is None:
             raise RuntimeError("Inference session has been closed. Re-initialize adapter to extract features.")
 
-        image_list: list[np.ndarray] = []
-        if isinstance(images, (str, Path)):
-            image_list = [load_image(images, color_mode="RGB")]
-        elif isinstance(images, np.ndarray):
-            if images.ndim == 3:
-                image_list = [images]
-            elif images.ndim == 4:
-                image_list = [images[i] for i in range(images.shape[0])]
-            else:
-                raise ValueError(f"Expected image array of shape (H, W, 3) or (N, H, W, 3), got {images.shape}")
-        elif isinstance(images, (list, tuple)):
-            for item in images:
-                if isinstance(item, (str, Path)):
-                    image_list.append(load_image(item, color_mode="RGB"))
-                elif isinstance(item, np.ndarray):
-                    if item.ndim == 3:
-                        image_list.append(item)
-                    else:
-                        raise ValueError(f"Expected image item array of shape (H, W, 3), got {item.shape}")
-                else:
-                    raise TypeError(f"Unsupported image element type: {type(item)}")
-        else:
-            raise TypeError(f"Unsupported images input type: {type(images)}")
-
-        if not image_list:
-            raise ValueError("Input image collection cannot be empty.")
-
-        input_tensor = self._preprocess(image_list)
+        input_tensor = self._preprocess(images)
 
         outputs = self.session.run(None, {self.input_name: input_tensor})
         features = outputs[0].astype(np.float32)
@@ -245,17 +222,7 @@ class DINOv2Adapter:
             norms = np.linalg.norm(features, axis=-1, keepdims=True)
             features = features / np.maximum(norms, 1e-6)
 
-        is_single = isinstance(images, (str, Path)) or (isinstance(images, np.ndarray) and images.ndim == 3)
-        if is_single:
-            stored_images = image_list[0]
-        else:
-            try:
-                stored_images = np.stack(image_list, axis=0)
-            except ValueError:
-                stored_images = np.array(image_list, dtype=object)
-
-        return FeatureExtractionResult(
-            images=stored_images,
+        return FeatureEmbedding(
             features=features.astype(np.float32),
             embedding_type="global",
             l2_normalized=l2_normalize,

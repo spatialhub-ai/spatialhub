@@ -10,7 +10,7 @@ import pytest
 
 from spatialhub import DINOv2
 from spatialhub.models.dinov2.adapter import DINOv2Adapter
-from spatialhub.structures import FeatureExtractionResult
+from spatialhub.structures import FeatureEmbedding
 
 
 class TestDINOv2Init:
@@ -124,23 +124,47 @@ class TestDINOv2Preprocess:
         assert tensor.dtype == np.float32
 
     def test_preprocess_float_scaled_inputs(self, adapter_instance: DINOv2Adapter):
-        """Test preprocessing float arrays in [0.0, 1.0] without double scaling."""
-        float_img = np.ones((224, 224, 3), dtype=np.float32) * 0.5
+        """Test preprocessing float arrays in [0.0, 255.0]."""
+        float_img = np.ones((224, 224, 3), dtype=np.float32) * 128.0
         tensor = adapter_instance._preprocess(float_img)
 
         assert tensor.shape == (1, 3, 224, 224)
         assert tensor.dtype == np.float32
 
+    def test_preprocess_grayscale_and_rgba(self, adapter_instance: DINOv2Adapter):
+        """Test preprocessing 2D grayscale, 1-channel grayscale, and 4-channel RGBA inputs."""
+        gray_2d = np.zeros((224, 224), dtype=np.uint8)
+        gray_3d = np.zeros((224, 224, 1), dtype=np.uint8)
+        rgba = np.zeros((224, 224, 4), dtype=np.uint8)
+
+        t_2d = adapter_instance._preprocess(gray_2d)
+        t_3d = adapter_instance._preprocess(gray_3d)
+        t_rgba = adapter_instance._preprocess(rgba)
+
+        assert t_2d.shape == (1, 3, 224, 224)
+        assert t_3d.shape == (1, 3, 224, 224)
+        assert t_rgba.shape == (1, 3, 224, 224)
+
     def test_preprocess_invalid_image_dimension_raises(self, adapter_instance: DINOv2Adapter):
-        """Test exception when passing 2D grayscale or non-3-channel images."""
-        gray_img = np.zeros((224, 224), dtype=np.uint8)
-        with pytest.raises(ValueError, match="Expected RGB image array with shape"):
-            adapter_instance._preprocess(gray_img)
+        """Test exception when passing unsupported image array dimensions or channels."""
+        with pytest.raises(ValueError, match="Expected 2D, 3D, or 4D image array"):
+            adapter_instance._preprocess(np.zeros((224,), dtype=np.uint8))
+
+        with pytest.raises(ValueError, match="Expected 2D, 3D, or 4D image array"):
+            adapter_instance._preprocess(np.zeros((1, 2, 3, 4, 5), dtype=np.uint8))
+
+        with pytest.raises(ValueError, match="Unsupported number of image channels"):
+            adapter_instance._preprocess(np.zeros((224, 224, 5), dtype=np.uint8))
 
     def test_preprocess_invalid_type_raises(self, adapter_instance: DINOv2Adapter):
         """Test exception when passing unsupported image container types."""
         with pytest.raises(TypeError, match="Unsupported image input type for preprocessing"):
             adapter_instance._preprocess(12345)
+
+    def test_preprocess_tuple_raises(self, adapter_instance: DINOv2Adapter):
+        """Test exception when passing a tuple instead of a list."""
+        with pytest.raises(TypeError, match="Unsupported image input type for preprocessing"):
+            adapter_instance._preprocess((np.zeros((224, 224, 3), dtype=np.uint8),))
 
 
 class TestDINOv2Inference:
@@ -171,25 +195,23 @@ class TestDINOv2Inference:
         """Test extracting features from a single RGB NumPy array."""
         result = mock_adapter.extract_features(sample_rgb_image, l2_normalize=False)
 
-        assert isinstance(result, FeatureExtractionResult)
+        assert isinstance(result, FeatureEmbedding)
         assert result.features.shape == (1, 1024)
         assert result.embedding_type == "global"
         assert not result.l2_normalized
-        assert result.images.shape == sample_rgb_image.shape
 
     def test_extract_features_single_path_string(self, mock_adapter: DINOv2Adapter, sample_image_file: str):
         """Test extracting features from a single image file path string."""
         result = mock_adapter.extract_features(sample_image_file, l2_normalize=False)
 
-        assert isinstance(result, FeatureExtractionResult)
+        assert isinstance(result, FeatureEmbedding)
         assert result.features.shape == (1, 1024)
-        assert result.images.ndim == 3
 
     def test_extract_features_single_path_obj(self, mock_adapter: DINOv2Adapter, sample_image_file: str):
         """Test extracting features from a pathlib.Path object."""
         result = mock_adapter.extract_features(Path(sample_image_file), l2_normalize=False)
 
-        assert isinstance(result, FeatureExtractionResult)
+        assert isinstance(result, FeatureEmbedding)
         assert result.features.shape == (1, 1024)
 
     def test_extract_features_batch_4d_array(self, mock_adapter: DINOv2Adapter):
@@ -198,7 +220,6 @@ class TestDINOv2Inference:
         result = mock_adapter.extract_features(batch_imgs, l2_normalize=False)
 
         assert result.features.shape == (4, 1024)
-        assert result.images.shape == (4, 224, 224, 3)
 
     def test_extract_features_list_collection(self, mock_adapter: DINOv2Adapter, sample_pair_image_files: tuple[str, str]):
         """Test extracting features from a mixed collection of image paths and arrays."""
@@ -209,7 +230,6 @@ class TestDINOv2Inference:
         result = mock_adapter.extract_features(inputs, l2_normalize=False)
 
         assert result.features.shape == (3, 1024)
-        assert len(result.images) == 3
 
     def test_extract_features_l2_normalization(self, mock_adapter: DINOv2Adapter, sample_rgb_image: np.ndarray):
         """Test that l2_normalize=True produces unit-length embedding vectors."""
@@ -229,3 +249,26 @@ class TestDINOv2Inference:
         """Test exception when an empty collection is provided."""
         with pytest.raises(ValueError, match="Input image collection cannot be empty"):
             mock_adapter.extract_features([])
+
+    def test_extract_features_grayscale_and_rgba(self, mock_adapter: DINOv2Adapter):
+        """Test extracting features from 2D grayscale and 4-channel RGBA arrays."""
+        gray = np.zeros((224, 224), dtype=np.uint8)
+        rgba = np.zeros((224, 224, 4), dtype=np.uint8)
+
+        res_gray = mock_adapter.extract_features(gray)
+        assert isinstance(res_gray, FeatureEmbedding)
+        assert res_gray.features.shape == (1, 1024)
+
+        res_rgba = mock_adapter.extract_features(rgba)
+        assert isinstance(res_rgba, FeatureEmbedding)
+        assert res_rgba.features.shape == (1, 1024)
+
+    def test_extract_features_invalid_type_raises(self, mock_adapter: DINOv2Adapter):
+        """Test exception when passing unsupported image container types."""
+        with pytest.raises(TypeError, match="Unsupported image input type for preprocessing"):
+            mock_adapter.extract_features(12345)
+
+    def test_extract_features_tuple_raises(self, mock_adapter: DINOv2Adapter):
+        """Test exception when passing a tuple instead of a list."""
+        with pytest.raises(TypeError, match="Unsupported image input type for preprocessing"):
+            mock_adapter.extract_features((np.zeros((224, 224, 3), dtype=np.uint8),))

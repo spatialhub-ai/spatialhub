@@ -22,42 +22,23 @@ if str(BENCHMARK_DIR) not in sys.path:
     sys.path.insert(0, str(BENCHMARK_DIR))
 
 from spatialhub.core.runtime import resolve_model_path
-from spatialhub.models.sam.adapter import SAMAdapter
-from spatialhub.utils.image import load_image
+from spatialhub.models.sam.adapter import MODEL_REGISTRY, SAMAdapter
 from spatialhub.utils.profiling import (
     BenchmarkStats,
     benchmark_callable,
     format_benchmark_table,
 )
-from utils import get_available_ort_providers
+from utils import (
+    DEFAULT_CACHE_DIR,
+    DEFAULT_IMAGES_DIR,
+    DEFAULT_ONNX_DIR,
+    PROJECT_ROOT,
+    collect_sample_image,
+    get_available_ort_providers,
+)
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
-
-DEFAULT_ONNX_DIR = PROJECT_ROOT / "onnx_weight"
-DEFAULT_CACHE_DIR = PROJECT_ROOT / ".cache"
-DEFAULT_IMAGES_DIR = DEFAULT_CACHE_DIR / "images"
-
-MODEL_REGISTRY: dict[str, dict[str, Any]] = {
-    "vit_b": {
-        "name": "SAM ViT-B",
-        "encoder_filename": "vit_b_encoder.onnx",
-        "decoder_filename": "vit_b_decoder.onnx",
-        "repo_id": "SpatialHub/sam-onnx",
-    },
-    "vit_l": {
-        "name": "SAM ViT-L",
-        "encoder_filename": "vit_l_encoder.onnx",
-        "decoder_filename": "vit_l_decoder.onnx",
-        "repo_id": "SpatialHub/sam-onnx",
-    },
-    "vit_h": {
-        "name": "SAM ViT-H",
-        "encoder_filename": "vit_h_encoder.onnx",
-        "decoder_filename": "vit_h_decoder.onnx",
-        "repo_id": "SpatialHub/sam-onnx",
-    },
-}
 
 SUPPORTED_VARIANTS = list(MODEL_REGISTRY.keys())
 
@@ -95,33 +76,6 @@ def resolve_onnx_model_paths(variant: str, custom_dir: Path | None = None) -> tu
         filename=dec_filename,
     )
     return resolved_enc, resolved_dec
-
-
-def collect_sample_image(data_dir: Path | str) -> np.ndarray:
-    """Collect a sample image from data directory or generate a synthetic test frame.
-
-    Args:
-        data_dir: Path to directory containing image files.
-
-    Returns:
-        RGB image array of shape (H, W, 3).
-    """
-    img_dir = Path(data_dir)
-    valid_extensions = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
-
-    if img_dir.exists() and img_dir.is_dir():
-        for file in sorted(img_dir.iterdir()):
-            if file.suffix.lower() in valid_extensions and file.is_file():
-                return load_image(file, color_mode="RGB")
-
-    logger.info("No sample image found in %s. Using synthetic 640x480 benchmark frame.", img_dir)
-    h, w = 480, 640
-    img = np.zeros((h, w, 3), dtype=np.uint8)
-    xx, yy = np.meshgrid(np.linspace(0, 255, w), np.linspace(0, 255, h))
-    img[:, :, 0] = xx % 256
-    img[:, :, 1] = yy % 256
-    img[:, :, 2] = ((xx + yy) / 2) % 256
-    return img
 
 
 def profile_sam_variant(
@@ -323,7 +277,7 @@ def run_benchmark_suite(
         out_path.parent.mkdir(parents=True, exist_ok=True)
 
     for var in variants:
-        model_name = MODEL_REGISTRY[var]["name"]
+        model_name = MODEL_REGISTRY[var].get("name", f"SAM {var}")
 
         for prov_spec, dev_label in providers:
             logger.info("Profiling %s on %s (input: %dx%d, target_size: %d, grid: %dx%d)...",

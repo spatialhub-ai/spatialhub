@@ -23,7 +23,7 @@ if str(BENCHMARK_DIR) not in sys.path:
     sys.path.insert(0, str(BENCHMARK_DIR))
 
 from spatialhub.models.efficient_loftr.adapter import EfficientLoFTRAdapter
-from spatialhub.utils.image import load_image
+from spatialhub.utils import load_image
 from spatialhub.core.runtime import resolve_model_path
 from spatialhub.utils.profiling import (
     BenchmarkStats,

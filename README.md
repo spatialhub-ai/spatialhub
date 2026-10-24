@@ -96,7 +96,7 @@ with DepthAnything3(model_name="da3metric_large") as estimator:
     pred_depth = depth_result.depth[0]
 
 # Unproject metric depth map to 3D camera-space point cloud (N, 3)
-point_cloud = reproject_depth_to_3d(depth=pred_depth, intrinsics=intrinsics)
+point_cloud = reproject_depth_to_3d(depth=pred_depth, K=intrinsics)
 print(f"Reconstructed point cloud vertices: {point_cloud.shape}")
 
 # Save depth visualization
@@ -106,6 +106,11 @@ save_image(colored_depth, "depth_visualization.png")
 
 <p align="center">
   <img src="docs/assets/da3_depth.png" alt="Depth Anything 3 Metric Depth Estimation" width="100%" />
+</p>
+
+<p align="center">
+  <img src="docs/assets/room_point_cloud_3d.png" alt="Reconstructed 3D Point Cloud in Camera Space" width="100%" /><br />
+  <em>Reconstructed 3D camera-space point cloud unprojected from predicted depth map. <a href="https://spatialhub-ai.github.io/spatialhub/getting_started/quickstart/#point-cloud-reprojection">Interactive 3D Viewer in Docs &rarr;</a></em>
 </p>
 
 ### Real-Time Instance Segmentation (FastSAM)
@@ -179,14 +184,13 @@ save_image(overlay, "cad_detection.png")
 ```
 
 <p align="center">
-  <img src="docs/assets/cad_multiview.gif" alt="Spherical CAD Template Viewpoints" width="220" />
-</p>
-
-<p align="center">
   <img src="docs/assets/cnos_detection.png" alt="CNOS Zero-Shot CAD Object Detection" width="100%" />
 </p>
 
 ### Model-Based 6D Pose Tracking (FoundationPose)
+
+> [!NOTE]
+> The `mustard0` RGB-D benchmark sequence and CAD model can be automatically downloaded by running `uv run python examples/foundationpose.py`.
 
 ```python
 import glob

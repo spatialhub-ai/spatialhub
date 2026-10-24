@@ -14,7 +14,16 @@ extra:
 theme:
   name: material
   language: en
+  logo: assets/logo.svg
+  favicon: assets/favicon.svg
   palette:
+    # Dark mode (default)
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
     # Light mode
     - scheme: default
       primary: indigo
@@ -22,16 +31,8 @@ theme:
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
-    # Dark mode
-    - scheme: slate
-      primary: indigo
-      accent: indigo
-      toggle:
-        icon: material/brightness-4
-        name: Switch to light mode
   features:
     - navigation.instant
-    - navigation.tabs
     - navigation.top
     - toc.follow
     - search.suggest
@@ -39,7 +40,9 @@ theme:
     - content.code.copy
 
 markdown_extensions:
+  - md_in_html
   - admonition
+  - pymdownx.details
   - toc:
       permalink: true
       toc_depth: 3
@@ -51,7 +54,9 @@ markdown_extensions:
   - pymdownx.highlight:
       anchor_linenums: true
   - pymdownx.inlinehilite
-  - pymdownx.snippets
+  - pymdownx.snippets:
+      base_path: ["."]
+      dedent_subsections: true
   - pymdownx.tabbed:
       alternate_style: true
   - pymdownx.arithmatex:
@@ -69,44 +74,33 @@ extra_css:
   - stylesheets/extra.css
 
 nav:
-  - Home: index.md
+  - Overview: index.md
   - Getting Started:
-      - Installation: getting-started/installation.md
-      - Quickstart: getting-started/quickstart.md
-  - API Reference:
-      - Core:
-          - Models:
-              - Overview: models/overview.md
-              - FoundationPose: models/foundationpose.md
-              - EfficientLoFTR: models/eloftr.md
-              - Depth Anything 3: models/depthanything3.md
-              - DINOv2: models/dinov2.md
-              - FastSAM: models/fastsam.md
-              - SAM: models/sam.md
-              - CNOS: models/cnos.md
-          - Data Structures:
-              - Overview: core-and-utils/structures/overview.md
-              - MatchResult: core-and-utils/structures/match_result.md
-              - DepthPredictionResult: core-and-utils/structures/depth_prediction_result.md
-              - FeatureExtractionResult: core-and-utils/structures/feature_extraction_result.md
-              - SegmentationResult: core-and-utils/structures/segmentation_result.md
-              - PoseEstimationResult: core-and-utils/structures/pose_estimation_result.md
-          - Runtime & Execution: core-and-utils/runtime.md
-          - ONNX Export: core-and-utils/export.md
-          - Numerical Parity: core-and-utils/parity.md
-          - Performance Profiling: core-and-utils/profiling.md
-      - Geometry & Vision:
-          - Camera Geometry: core-and-utils/camera.md
-          - 3D Mesh Processing: core-and-utils/mesh.md
-          - Image Preprocessing: core-and-utils/image.md
-          - Visualization: core-and-utils/viz.md
-      - Rendering:
-          - ModernGL Overview: core-and-utils/moderngl/index.md
-          - Context & Headless Setup: core-and-utils/moderngl/context.md
-          - Batched Atlas Renderer: core-and-utils/moderngl/atlas_renderer.md
-          - Fullscreen Shader: core-and-utils/moderngl/fullscreen.md
-          - 3D Template Renderer: core-and-utils/template_renderer.md
-
+      - Installation: getting_started/installation.md
+      - Quickstart: getting_started/quickstart.md
+  - Structures:
+      - Poses & Cameras: structures/poses_and_cameras.md
+      - Perception: structures/perception_primitives.md
+      - Scene & Depth: structures/scene_and_bounds.md
+  - Utilities:
+      - Images: utilities/image.md
+      - Transforms: utilities/transform.md
+      - Cameras: utilities/camera.md
+      - Meshes: utilities/mesh.md
+      - Visualization: utilities/visualization.md
+  - Rendering:
+      - Headless Contexts: rendering/headless.md
+      - Atlas Renderer: rendering/atlas_renderer.md
+      - Fullscreen Shaders: rendering/fullscreen_shaders.md
+  - Model Adapters:
+      - Overview: models/overview.md
+      - EfficientLoFTR: models/eloftr.md
+      - Depth Anything 3: models/depthanything3.md
+      - DINOv2: models/dinov2.md
+      - FastSAM: models/fastsam.md
+      - SAM: models/sam.md
+      - CNOS: models/cnos.md
+      - FoundationPose: models/foundationpose.md
 
 extra_javascript:
   - javascripts/mathjax.js

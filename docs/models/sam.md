@@ -1,76 +1,188 @@
-# Segment Anything Model (SAM) Technical Reference
+# Segment Anything (SAM)
 
 `spatialhub.models.sam` provides an ONNX Runtime adapter for **Segment Anything Model (SAM)**, executing Automatic Mask Generation (AMG) via decoupled Image Encoder and Mask Decoder ONNX sessions.
 
 ---
 
-## Supported Model Variants
+## Variants
 
-`SAMAdapter` supports 3 Vision Transformer (ViT) backbone variants via `model_variant`:
+The `SAMAdapter` supports 3 Vision Transformer (ViT) backbone variants via `model_variant`:
 
-| Model Variant (`model_variant`) | Encoder ONNX | Decoder ONNX | Parameter Count | Resolution | Architecture & Role |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| `"vit_b"` | `vit_b_encoder.onnx` | `vit_b_decoder.onnx` | ~93.7M | $1024 \times 1024$ | Vision Transformer Base backbone (12 layers, 768 embed dim, 12 heads). |
-| `"vit_l"` | `vit_l_encoder.onnx` | `vit_l_decoder.onnx` | ~312.3M | $1024 \times 1024$ | Vision Transformer Large backbone (24 layers, 1024 embed dim, 16 heads). |
-| `"vit_h"` (Default) | `vit_h_encoder.onnx` | `vit_h_decoder.onnx` | ~641.1M | $1024 \times 1024$ | Vision Transformer Huge backbone (32 layers, 1280 embed dim, 16 heads). |
+| Model Variant (`model_variant`) | Backbone Architecture | Target Use Case |
+| :--- | :--- | :--- |
+| `"vit_b"` | ViT-Base (12 layers, 768 embed dim) | High-speed proposal generation and interactive workflows. |
+| `"vit_l"` | ViT-Large (24 layers, 1024 embed dim) | Balanced precision and memory footprint. |
+| `"vit_h"` (Default) | ViT-Huge (32 layers, 1280 embed dim) | Maximum zero-shot boundary quality and detail. |
 
 !!! note
-    The Mask Decoder model architecture is identical across all three variants (~4.05M parameters, 2-layer two-way cross-attention Transformer). Every image encoder projects features down to a standard $(1, 256, 64, 64)$ embedding tensor before decoding.
+    Each variant pairs an image encoder (`<variant>_encoder.onnx`) operating at $1024 \times 1024$ with a common lightweight mask decoder (`<variant>_decoder.onnx`).
 
 ---
 
-## Preprocessing & Post-processing Flow
+## Initialization
 
-SAM executes in two distinct stages: an image encoder executed once per frame, followed by batched prompt decoding passes over a precomputed uniform point grid.
+Initialize `SAM` with a Vision Transformer backbone variant:
 
-<div align="center">
+```python
+from spatialhub import SAM
 
-```mermaid
-graph TD
-    A["Input Image (H_orig, W_orig, 3)"] --> B["Isotropic Rescaling & Padding to (1, 3, 1024, 1024)"]
-    B --> C["Image Encoder ONNX Session"]
-    C --> D["Feature Embedding (1, 256, 64, 64)"]
-    E["Uniform Point Grid (N, 2)"] --> F["Batched Point Prompt Slicing"]
-    D --> G["Mask Decoder ONNX Session (Batched)"]
-    F --> G
-    G --> H["Predicted Mask Logits (N, 256, 256) & IoU Scores"]
-    H --> I["IoU & Stability Filtering"]
-    I --> J["Coordinate Rescaling & NMS Deduplication"]
-    J --> K["Bilinear Upsampling to (H_orig, W_orig)"]
-    K --> L["SegmentationResult"]
+# Default ViT-Huge backbone
+segmentor = SAM(model_variant="vit_h")
+
+# Lightweight ViT-Base with CUDA acceleration
+segmentor = SAM(model_variant="vit_b", providers=["CUDAExecutionProvider"])
 ```
 
-</div>
+### Parameters
+
+| Parameter | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `encoder_onnx_path` | `str | Path | None` | `None` | Path to local ViT encoder `.onnx` weight file. If omitted, downloads from Hugging Face Hub. |
+| `decoder_onnx_path` | `str | Path | None` | `None` | Path to local mask decoder `.onnx` weight file. If omitted, downloads from Hugging Face Hub. |
+| `model_variant` | `str` | `"vit_h"` | Vision Transformer backbone variant (`"vit_b"`, `"vit_l"`, `"vit_h"`). |
+| `target_size` | `int` | `1024` | Input longest-side resolution for image encoder embedding. |
+| `points_per_side` | `int` | `32` | Number of point prompts sampled along each image edge for grid evaluation. |
+| `points_per_batch` | `int` | `64` | Batch size of point prompts evaluated simultaneously by the mask decoder. |
+| `pred_iou_thresh` | `float` | `0.88` | Default cutoff threshold for predicted mask IoU quality. |
+| `stability_score_thresh` | `float` | `0.95` | Default stability score cutoff across binary threshold offsets. |
+| `box_nms_thresh` | `float` | `0.70` | Default Non-Maximum Suppression IoU threshold across candidate masks. |
+| `providers` | `list[str] | str | None` | `None` | ONNX Runtime execution providers (e.g. `["CUDAExecutionProvider", "CPUExecutionProvider"]`). |
+
+---
+
+## Methods
+
+### `generate_masks`
+
+Executes Automatic Mask Generation (AMG) by evaluating grid prompts over the encoded image representation.
+
+```python
+results = segmentor.generate_masks(image="indoor_scene.jpg", points_per_side=16)
+```
+
+#### Parameters
+
+| Parameter | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `image` | `str | Path | np.ndarray` | *required* | Input image as file path or RGB array $(H, W, 3)$ with values in $[0, 255]$. |
+| `pred_iou_thresh` | `float | None` | `None` | Overrides default predicted mask IoU threshold. |
+| `stability_score_thresh` | `float | None` | `None` | Overrides default stability score cutoff threshold. |
+| `iou_threshold` | `float | None` | `None` | Overrides default Non-Maximum Suppression IoU threshold. |
+| `points_per_side` | `int | None` | `None` | Overrides default sampling grid density. |
+
+#### Return Value
+
+The `generate_masks` method returns an [`InstanceSegmentation`](../structures/perception_primitives.md#instancesegmentation) dataclass:
+
+| Attribute | Shape | Dtype | Description |
+| :--- | :--- | :--- | :--- |
+| `boxes` | `(N, 4)` | `np.float32` | Bounding boxes in `[x1, y1, x2, y2]` native pixel space. |
+| `masks` | `(N, H, W)` | `bool` | Binary proposal masks at native image resolution $(H, W)$. |
+| `scores` | `(N,)` | `np.float32` | Predicted IoU confidence scores in $[0, 1]$. |
+| `ids` | `(N,)` | `np.int32` | Zero-indexed proposal identifiers. |
+| `names` | `list[str]` | `list[str]` | Generic class labels (`["object", ...]`). |
+
+---
+
+## Example
+
+Demonstration script evaluating grid prompts and visualizing segmentation masks:
+
+```python title="examples/sam.py"
+--8<-- "examples/sam.py:sam"
+```
+
+![SAM Instance Segmentation](../assets/sam_masks.png)
+
+Execute the sample script from the repository root:
+
+```bash
+uv run python examples/sam.py
+```
+
+Visualization is saved to `examples/output/sam_masks.png`.
+
+??? example "Single-Image Zero-Shot Automatic Mask Generation"
+
+    ```python
+    from spatialhub import SAM
+
+    with SAM(model_variant="vit_b", providers=["CUDAExecutionProvider"]) as segmentor:
+        results = segmentor.generate_masks(
+            image="indoor_scene.jpg",
+            pred_iou_thresh=0.88,
+            stability_score_thresh=0.95,
+            iou_threshold=0.70,
+        )
+
+        print("Extracted instance count:", len(results.masks))
+        print("Mask spatial resolution:", results.masks.shape[1:])
+        print("Bounding box coordinates (xyxy):", results.boxes.shape)
+    ```
+
+??? example "Dense Grid Prompt Evaluation (`points_per_side = 32`)"
+
+    ```python
+    from spatialhub import SAM
+
+    with SAM(
+        model_variant="vit_h",
+        points_per_side=32,
+        points_per_batch=64,
+        providers=["CUDAExecutionProvider"],
+    ) as segmentor:
+        # Evaluate 1024 uniform point prompts for fine-grained part segmentation
+        results = segmentor.generate_masks(
+            image="complex_assembly.jpg",
+            pred_iou_thresh=0.86,
+            stability_score_thresh=0.92,
+            iou_threshold=0.65,
+        )
+
+        print(f"Generated {len(results.masks)} candidate instance masks.")
+    ```
+
+---
+
+## End-to-End Flow
+
+![SAM Processing Workflow](../assets/sam_workflow.svg)
+
+SAM decouples visual segmentation into an asymmetric architecture consisting of a heavy Vision Transformer (ViT) Image Encoder and a lightweight Prompt Decoder. The image encoder consumes more than $95\%$ of total compute and executes exactly once per input image, producing an image embedding tensor $\mathbf{F}_{\text{img}} \in \mathbb{R}^{1 \times 256 \times 64 \times 64}$. The prompt decoder then evaluates prompts against this cached embedding in milliseconds.
 
 ### Isotropic Canvas Scaling & Input Normalization
 
-Given an input image with spatial dimensions $(W_{\text{orig}}, H_{\text{orig}})$ and target encoder resolution $S_{\text{target}} = 1024$, the isotropic scaling factor $s$ is computed as:
+Given an input image with spatial dimensions $(W_{\text{orig}}, H_{\text{orig}})$ and target encoder resolution $S_{\text{target}} = 1024$, the image is scaled isotropically:
 
 $$
 s = \frac{S_{\text{target}}}{\max(H_{\text{orig}},\, W_{\text{orig}})}
 $$
 
-Rescaled dimensions $(W_{\text{scaled}}, H_{\text{scaled}})$ preserve the original aspect ratio:
+Rescaled dimensions $(W_{\text{scaled}}, H_{\text{scaled}})$ preserve the original geometric aspect ratio:
 
 $$
 W_{\text{scaled}} = \lfloor W_{\text{orig}} \cdot s + 0.5 \rfloor, \qquad H_{\text{scaled}} = \lfloor H_{\text{orig}} \cdot s + 0.5 \rfloor
 $$
 
-The image is resized to $(W_{\text{scaled}}, H_{\text{scaled}})$, normalized per-channel with mean $\mu = [123.675, 116.28, 103.53]$ and standard deviation $\sigma = [58.395, 57.12, 57.375]$, and padded with constant zeros to form the $(1, 3, 1024, 1024)$ input tensor:
+Isotropic scaling ensures uniform spatial sampling. Anisotropic stretching would warp physical geometries, causing isotropic prompt grids to sample space non-uniformly and distorting mask boundaries.
+
+The rescaled image is normalized per-channel using ImageNet mean $\mu = [123.675, 116.28, 103.53]$ and standard deviation $\sigma = [58.395, 57.12, 57.375]$. Bottom-right constant zero padding aligns the tensor to $(1, 3, 1024, 1024)$:
 
 $$
 \text{pad}_{h} = S_{\text{target}} - H_{\text{scaled}}, \qquad \text{pad}_{w} = S_{\text{target}} - W_{\text{scaled}}
 $$
 
+Anchoring padding to the bottom and right edges ensures that image coordinates remain aligned with the canvas origin $(0, 0)$, avoiding coordinate offsets during prompt mapping.
+
 ### Uniform Point Prompt Grid Sampling
 
-For Automatic Mask Generation (AMG), point prompts are generated on a regular relative spatial grid of density $G \times G$ (where $G$ is specified by `points_per_side`):
+In Automatic Mask Generation (AMG), an image is segmented without prior object knowledge by distributing point prompts across a uniform $G \times G$ spatial lattice, where $G$ is configured by `points_per_side`:
 
 $$
 u_i = \frac{i + 0.5}{G}, \quad v_j = \frac{j + 0.5}{G}, \qquad \forall i, j \in \{0, 1, \dots, G - 1\}
 $$
 
-Relative normalized coordinates $(u_i, v_j) \in [0, 1]^2$ are mapped directly to encoder input coordinates:
+Normalized coordinates $(u_i, v_j) \in [0, 1]^2$ are mapped directly to encoder input coordinates:
 
 $$
 x_{p, i} = u_i \cdot W_{\text{orig}} \cdot s, \qquad y_{p, j} = v_j \cdot H_{\text{orig}} \cdot s
@@ -78,47 +190,65 @@ $$
 
 ### Batched Native Mask Decoding
 
-Point prompts are partitioned into sequential batches of size $B$ (specified by `points_per_batch`). To minimize host-device PCIe memory transfer overhead and avoid high-resolution internal ONNX allocations, the decoder operates at native intermediate resolution $S_{\text{native}} = 256 \times 256$:
+The $G^2$ prompt points are partitioned into sequential batches of size $B$ (`points_per_batch`). For each batch, the decoder evaluates two-way cross-attention between prompt tokens and the cached image embedding $\mathbf{F}_{\text{img}}$, emitting low-resolution mask logits and predicted IoU quality scores:
 
 $$
 M_{\text{raw}} \in \mathbb{R}^{B \times 256 \times 256}, \qquad S_{\text{iou}} \in \mathbb{R}^{B}
 $$
 
+Decoding at native intermediate resolution $S_{\text{native}} = 256 \times 256$ avoids allocating multi-gigabyte memory buffers on host and GPU memory during prompt evaluation.
+
 ### Candidate Mask Filtering & Stability Scoring
 
-Candidate masks are filtered by predicted IoU confidence score:
+Candidate masks are filtered by predicted IoU quality score:
 
 $$
 \text{Keep}_{\text{iou}} = \{ k \mid S_{\text{iou}}[k] > \tau_{\text{iou}} \}
 $$
 
-Surviving candidate masks are evaluated for binarization boundary stability across offset thresholds $+1.0$ and $-1.0$:
+Surviving candidate masks are evaluated for binarization stability across offset logit thresholds $+1.0$ and $-1.0$:
 
 $$
-\text{Stability}(M) = \frac{\sum_{y=1}^{256} \sum_{x=1}^{256} \mathbb{I}(M_{y, x} > 1.0)}{\sum_{y=1}^{256} \sum_{x=1}^{256} \mathbb{I}(M_{y, x} > -1.0) + \epsilon}
+\operatorname{Stability}(M) = \frac{\sum_{y=1}^{256} \sum_{x=1}^{256} \mathbb{I}(M_{y, x} > 1.0)}{\sum_{y=1}^{256} \sum_{x=1}^{256} \mathbb{I}(M_{y, x} > -1.0) + \epsilon}
 $$
 
-Masks satisfying $\text{Stability}(M) > \tau_{\text{stability}}$ are converted to boolean candidate masks $M_{\text{binary}} = (M > 0.0)$.
+where $\mathbb{I}(\cdot)$ is the indicator function ($\mathbb{I}(\text{true}) = 1$, $\mathbb{I}(\text{false}) = 0$) and $\epsilon = 10^{-8}$ prevents division by zero.
+
+In raw logit space, thresholding at $0.0$ corresponds to probability $\sigma(0.0) = 0.5$. If a predicted mask has sharp, well-defined boundary gradients, perturbing the threshold cutoff to $+1.0$ ($\sigma \approx 0.73$) or $-1.0$ ($\sigma \approx 0.27$) causes minimal change in mask area. If boundary predictions are diffuse and uncertain, shifting thresholds causes large area variations. The stability score quantifies this boundary sharpness; values close to $1.0$ indicate crisp, reliable object contours.
+
+Masks satisfying $\operatorname{Stability}(M) > \tau_{\text{stability}}$ are converted to boolean candidate masks $M_{\text{binary}} = (M > 0.0)$.
 
 ### Bounding Box Extraction & Coordinate Rescaling
 
-Bounding box coordinates $[x_1, y_1, x_2, y_2]_{\text{native}}$ are computed via vectorized spatial reductions across boolean mask slices and projected to original image dimensions:
+Bounding box coordinates $[x_1, y_1, x_2, y_2]_{\text{native}}$ are determined via vectorized spatial reductions finding the spatial extremes of non-zero pixels:
 
 $$
-x_{1, 2}^{\text{orig}} = \text{clip}\left(x_{1, 2}^{\text{native}} \cdot \frac{W_{\text{orig}}}{S_{\text{native}}},\; 0,\; W_{\text{orig}}\right)
+x_1 = \min \{ x \mid M_{\text{binary}}[:, x] \}, \qquad x_2 = \max \{ x \mid M_{\text{binary}}[:, x] \}
 $$
 
 $$
-y_{1, 2}^{\text{orig}} = \text{clip}\left(y_{1, 2}^{\text{native}} \cdot \frac{H_{\text{orig}}}{S_{\text{native}}},\; 0,\; H_{\text{orig}}\right)
+y_1 = \min \{ y \mid M_{\text{binary}}[y, :] \}, \qquad y_2 = \max \{ y \mid M_{\text{binary}}[y, :] \}
+$$
+
+Coordinates are projected to native image dimensions:
+
+$$
+x_{1, 2}^{\text{orig}} = \operatorname{clip}\left(x_{1, 2}^{\text{native}} \cdot \frac{W_{\text{orig}}}{S_{\text{native}}},\; 0,\; W_{\text{orig}}\right)
+$$
+
+$$
+y_{1, 2}^{\text{orig}} = \operatorname{clip}\left(y_{1, 2}^{\text{native}} \cdot \frac{H_{\text{orig}}}{S_{\text{native}}},\; 0,\; H_{\text{orig}}\right)
 $$
 
 ### Non-Maximum Suppression & Bilinear Upsampling
 
-Overlapping mask proposals are deduplicated using Non-Maximum Suppression (NMS) on bounding boxes with overlap threshold $\tau_{\text{nms}}$. Surviving binary masks are upsampled to $(W_{\text{orig}}, H_{\text{orig}})$ using multi-channel bilinear interpolation on uint8 buffers thresholded at $> 127$.
+Overlapping mask proposals are deduplicated using Non-Maximum Suppression (NMS) on bounding boxes with overlap threshold $\tau_{\text{nms}}$. 
+
+Executing NMS and stability filtering at the compact $256 \times 256$ native resolution avoids the substantial memory and compute cost of upsampling hundreds of redundant mask candidates. Only surviving deduplicated binary masks are bilinearly interpolated to native image dimensions $(W_{\text{orig}}, H_{\text{orig}})$ using uint8 buffers thresholded at $> 127$.
 
 ---
 
-## Numerical Parity Verification
+## Numerical Parity
 
 Numerical parity evaluates mathematical agreement between the original PyTorch reference models (`sam_vit_b_01ec64.pth`, `sam_vit_l_0b3195.pth`, `sam_vit_h_4b8939.pth`) and the SpatialHub ONNX Runtime adapter on benchmark images at $1024 \times 1024$ resolution (`points_per_side = 16`, `points_per_batch = 32`).
 
@@ -128,94 +258,218 @@ Numerical parity evaluates mathematical agreement between the original PyTorch r
 | **SAM ViT-L** | 10 | `6.163e-05` | `2.769e-03` | `2.639e-02` | `7.731e+01` | **0.9996** | **0.9986** | `2.075e-04` |
 | **SAM ViT-H** | 10 | `2.712e-05` | `3.335e-03` | `1.821e-02` | `6.886e+01` | **1.0000** | **1.0000** | `5.042e-05` |
 
-!!! note
-    Parity evaluation script is located at `tools/benchmark/parity_sam.py`.
-
 ---
 
-## Performance Benchmarks
+## Performance
 
 Latency, throughput, and memory footprint measured across $2$ unmeasured warmup iterations and $5$ timed measurement iterations at $1024 \times 1024$ encoder input resolution (`points_per_side = 16`, `points_per_batch = 32`, `pred_iou_thresh = 0.88`, `stability_score_thresh = 0.95`, `box_nms_thresh = 0.70`).
 
+### Test Environment & Hardware Specification
+* **Operating System**: Windows 11 (64-bit)
+* **GPU**: NVIDIA GeForce RTX (8,192 MB physical VRAM, CUDA Execution Provider)
+* **CPU**: Multi-core x86_64 host processor (`CPUExecutionProvider`)
+* **ONNX Runtime**: 1.20+ with native CUDA synchronization and memory telemetry
+* **Grid Parameters**: `points_per_side = 16` (256 prompt points), `points_per_batch = 32` (8 decoder batches per frame)
+
 === "CUDA Execution (`CUDAExecutionProvider`)"
 
-    | Model / Target | Device | Latency Mean (ms) | Median (ms) | P95 (ms) | Throughput (FPS) | Peak RAM Delta | Peak VRAM Delta |
-    | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-    | **SAM ViT-B** | | | | | | | |
-    | Preprocess | `CUDA` | 20.74 +/- 0.53 | 20.84 | 21.46 | **48.2** | +0.0 MB | 0.0 MB |
-    | Encoder | `CUDA` | 198.52 +/- 1.91 | 198.27 | 201.64 | **5.0** | +50.7 MB | +1620.0 MB |
-    | Decoder | `CUDA` | 512.52 +/- 10.86 | 513.80 | 527.39 | **2.0** | +68.0 MB | 0.0 MB |
-    | Postprocess | `CUDA` | 70.07 +/- 1.34 | 70.01 | 72.19 | **14.3** | +0.9 MB | 0.0 MB |
-    | End-to-End | `CUDA` | 984.00 +/- 97.06 | 993.89 | 1098.28 | **1.0** | +0.1 MB | 0.0 MB |
-    | **SAM ViT-L** | | | | | | | |
-    | Preprocess | `CUDA` | 23.09 +/- 0.71 | 23.42 | 23.62 | **43.3** | +0.0 MB | 0.0 MB |
-    | Encoder | `CUDA` | 650.14 +/- 52.01 | 656.18 | 737.73 | **1.5** | +67.6 MB | +2160.0 MB |
-    | Decoder | `CUDA` | 550.00 +/- 25.00 | 545.00 | 580.00 | **1.8** | +68.0 MB | 0.0 MB |
-    | Postprocess | `CUDA` | 75.00 +/- 5.00 | 74.00 | 82.00 | **13.3** | +1.0 MB | 0.0 MB |
-    | End-to-End | `CUDA` | 1350.00 +/- 60.00 | 1340.00 | 1420.00 | **0.7** | +0.1 MB | 0.0 MB |
-    | **SAM ViT-H** | | | | | | | |
-    | Preprocess | `CUDA` | 24.50 +/- 1.20 | 24.20 | 26.10 | **40.8** | +0.0 MB | 0.0 MB |
-    | Encoder | `CUDA` | 3763.97 +/- 99.06 | 3700.03 | 3953.44 | **0.3** | +68.5 MB | +1817.0 MB |
-    | Decoder | `CUDA` | 580.00 +/- 30.00 | 575.00 | 620.00 | **1.7** | +68.0 MB | 0.0 MB |
-    | Postprocess | `CUDA` | 80.00 +/- 6.00 | 78.00 | 88.00 | **12.5** | +1.2 MB | 0.0 MB |
-    | End-to-End | `CUDA` | 4450.00 +/- 120.00 | 4430.00 | 4600.00 | **0.2** | +0.2 MB | 0.0 MB |
+    <table>
+      <thead>
+        <tr>
+          <th>Variant</th>
+          <th>Stage</th>
+          <th>Latency Mean (ms)</th>
+          <th>P95 (ms)</th>
+          <th>Throughput (FPS)</th>
+          <th>Peak RAM Delta</th>
+          <th>Peak VRAM Delta</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td rowspan="5" style="vertical-align: middle; text-align: center; font-weight: bold; border-right: 2px solid #ddd;"><code>vit_b</code></td>
+          <td>Preprocess</td>
+          <td>20.74 +/- 0.53</td>
+          <td>21.46</td>
+          <td><strong>48.2</strong></td>
+          <td>+0.0 MB</td>
+          <td>0.0 MB</td>
+        </tr>
+        <tr>
+          <td>Encoder</td>
+          <td>198.52 +/- 1.91</td>
+          <td>201.64</td>
+          <td><strong>5.0</strong></td>
+          <td>+50.7 MB</td>
+          <td>+1620.0 MB</td>
+        </tr>
+        <tr>
+          <td>Decoder</td>
+          <td>512.52 +/- 10.86</td>
+          <td>527.39</td>
+          <td><strong>2.0</strong></td>
+          <td>+68.0 MB</td>
+          <td>0.0 MB</td>
+        </tr>
+        <tr>
+          <td>Postprocess</td>
+          <td>70.07 +/- 1.34</td>
+          <td>72.19</td>
+          <td><strong>14.3</strong></td>
+          <td>+0.9 MB</td>
+          <td>0.0 MB</td>
+        </tr>
+        <tr style="border-bottom: 2px solid #ccc;">
+          <td>End-to-End</td>
+          <td>984.00 +/- 97.06</td>
+          <td>1098.28</td>
+          <td><strong>1.0</strong></td>
+          <td>+0.1 MB</td>
+          <td>0.0 MB</td>
+        </tr>
+        <tr>
+          <td rowspan="5" style="vertical-align: middle; text-align: center; font-weight: bold; border-right: 2px solid #ddd;"><code>vit_l</code></td>
+          <td>Preprocess</td>
+          <td>23.09 +/- 0.71</td>
+          <td>23.62</td>
+          <td><strong>43.3</strong></td>
+          <td>+0.0 MB</td>
+          <td>0.0 MB</td>
+        </tr>
+        <tr>
+          <td>Encoder</td>
+          <td>650.14 +/- 52.01</td>
+          <td>737.73</td>
+          <td><strong>1.5</strong></td>
+          <td>+67.6 MB</td>
+          <td>+2160.0 MB</td>
+        </tr>
+        <tr>
+          <td>Decoder</td>
+          <td>550.00 +/- 25.00</td>
+          <td>580.00</td>
+          <td><strong>1.8</strong></td>
+          <td>+68.0 MB</td>
+          <td>0.0 MB</td>
+        </tr>
+        <tr>
+          <td>Postprocess</td>
+          <td>75.00 +/- 5.00</td>
+          <td>82.00</td>
+          <td><strong>13.3</strong></td>
+          <td>+1.0 MB</td>
+          <td>0.0 MB</td>
+        </tr>
+        <tr style="border-bottom: 2px solid #ccc;">
+          <td>End-to-End</td>
+          <td>1350.00 +/- 60.00</td>
+          <td>1420.00</td>
+          <td><strong>0.7</strong></td>
+          <td>+0.1 MB</td>
+          <td>0.0 MB</td>
+        </tr>
+        <tr>
+          <td rowspan="5" style="vertical-align: middle; text-align: center; font-weight: bold; border-right: 2px solid #ddd;"><code>vit_h</code></td>
+          <td>Preprocess</td>
+          <td>24.50 +/- 1.20</td>
+          <td>26.10</td>
+          <td><strong>40.8</strong></td>
+          <td>+0.0 MB</td>
+          <td>0.0 MB</td>
+        </tr>
+        <tr>
+          <td>Encoder</td>
+          <td>3763.97 +/- 99.06</td>
+          <td>3953.44</td>
+          <td><strong>0.3</strong></td>
+          <td>+68.5 MB</td>
+          <td>+1817.0 MB</td>
+        </tr>
+        <tr>
+          <td>Decoder</td>
+          <td>580.00 +/- 30.00</td>
+          <td>620.00</td>
+          <td><strong>1.7</strong></td>
+          <td>+68.0 MB</td>
+          <td>0.0 MB</td>
+        </tr>
+        <tr>
+          <td>Postprocess</td>
+          <td>80.00 +/- 6.00</td>
+          <td>88.00</td>
+          <td><strong>12.5</strong></td>
+          <td>+1.2 MB</td>
+          <td>0.0 MB</td>
+        </tr>
+        <tr>
+          <td>End-to-End</td>
+          <td>4450.00 +/- 120.00</td>
+          <td>4600.00</td>
+          <td><strong>0.2</strong></td>
+          <td>+0.2 MB</td>
+          <td>0.0 MB</td>
+        </tr>
+      </tbody>
+    </table>
 
 === "CPU Execution (`CPUExecutionProvider`)"
 
-    | Model / Target | Device | Latency Mean (ms) | Median (ms) | P95 (ms) | Throughput (FPS) | Peak RAM Delta |
-    | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-    | **SAM ViT-B** | | | | | | |
-    | Preprocess | `CPU` | 21.64 +/- 0.58 | 21.52 | 22.75 | **46.2** | +0.1 MB |
-    | Encoder | `CPU` | 5299.43 +/- 33.93 | 5290.20 | 5346.54 | **0.2** | +1696.1 MB |
-    | Decoder | `CPU` | 13336.02 +/- 341.37 | 13308.25 | 13952.21 | **0.1** | 0.0 MB |
-    | Postprocess | `CPU` | 95.02 +/- 4.88 | 93.49 | 104.31 | **10.5** | +0.9 MB |
-    | End-to-End | `CPU` | 19975.66 +/- 910.64 | 20384.97 | 21174.28 | **0.1** | 0.0 MB |
-
-!!! note "Profiling Environment & System Specifications"
-    * **Operating System**: Windows 11
-    * **GPU**: NVIDIA GeForce RTX 3070 (8GB VRAM)
-    * **CUDA**: CUDA 12.x, cuDNN 9.x
-    * **ONNX Runtime**: `onnxruntime-gpu` v1.20+
-    * **Precision**: FP32
-    * **Grid Parameters**: `points_per_side = 16` (256 total prompt points), `points_per_batch = 32` (8 decoder batches per frame).
+    <table>
+      <thead>
+        <tr>
+          <th>Variant</th>
+          <th>Stage</th>
+          <th>Latency Mean (ms)</th>
+          <th>P95 (ms)</th>
+          <th>Throughput (FPS)</th>
+          <th>Peak RAM Delta</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td rowspan="5" style="vertical-align: middle; text-align: center; font-weight: bold; border-right: 2px solid #ddd;"><code>vit_b</code></td>
+          <td>Preprocess</td>
+          <td>21.64 +/- 0.58</td>
+          <td>22.75</td>
+          <td><strong>46.2</strong></td>
+          <td>+0.1 MB</td>
+        </tr>
+        <tr>
+          <td>Encoder</td>
+          <td>5299.43 +/- 33.93</td>
+          <td>5346.54</td>
+          <td><strong>0.2</strong></td>
+          <td>+1696.1 MB</td>
+        </tr>
+        <tr>
+          <td>Decoder</td>
+          <td>13336.02 +/- 341.37</td>
+          <td>13952.21</td>
+          <td><strong>0.1</strong></td>
+          <td>0.0 MB</td>
+        </tr>
+        <tr>
+          <td>Postprocess</td>
+          <td>95.02 +/- 4.88</td>
+          <td>104.31</td>
+          <td><strong>10.5</strong></td>
+          <td>+0.9 MB</td>
+        </tr>
+        <tr>
+          <td>End-to-End</td>
+          <td>19975.66 +/- 910.64</td>
+          <td>21174.28</td>
+          <td><strong>0.1</strong></td>
+          <td>0.0 MB</td>
+        </tr>
+      </tbody>
+    </table>
 
 ---
 
-## SpatialHub Adapter API & Usage
+## Developer Tooling
 
-```python
-from spatialhub import SAM
-
-# Initialize SAM adapter with ViT-B backbone
-segmentor = SAM(
-    model_variant="vit_b",
-    target_size=1024,
-    points_per_side=16,
-    points_per_batch=32,
-    pred_iou_thresh=0.88,
-    stability_score_thresh=0.95,
-    box_nms_thresh=0.7,
-    providers=["CUDAExecutionProvider", "CPUExecutionProvider"],
-)
-
-# Run Automatic Mask Generation (AMG)
-result = segmentor.generate_masks("scene.png")
-
-# Access filtered bounding boxes, boolean masks, and confidence scores
-print(f"Detected {len(result.boxes)} segments")
-print(f"Mask tensor shape: {result.masks.shape}")  # (N, H_orig, W_orig)
-
-# Render colorized segmentation overlay
-result.visualize_mask(save_path="sam_masks.png")
-```
-
----
-
-## Tooling & Verification Commands
-
-=== "ONNX Export"
-    Export Segment Anything (SAM) image encoder and mask decoder models to ONNX format using the centralized export utility:
-
+=== "Export ONNX"
     ```bash
     # Export a specific variant
     uv run tools/export/export_sam.py \
@@ -238,8 +492,6 @@ result.visualize_mask(save_path="sam_masks.png")
     | `--return-single-mask` | `bool` | `True` | Output single best mask proposal. |
 
 === "Parity Check"
-    Evaluate numerical parity between PyTorch reference checkpoints and SpatialHub ONNX Runtime adapter:
-
     ```bash
     uv run tools/benchmark/parity_sam.py \
         --variant all \
@@ -263,8 +515,6 @@ result.visualize_mask(save_path="sam_masks.png")
     | `--output-json` | `str` | `None` | Optional destination path for JSON parity statistics. |
 
 === "Performance Profile"
-    Benchmark stage-by-stage latency, throughput, and memory footprint:
-
     ```bash
     uv run tools/benchmark/profile_sam.py \
         --variant all \
@@ -288,16 +538,3 @@ result.visualize_mask(save_path="sam_masks.png")
     | `--output-file` | `str` | `None` | Optional path to save markdown benchmark report. |
 
 ---
-
-## Returned Result Data Structure
-
-Returns a [`SegmentationResult`](../core-and-utils/structures/segmentation_result.md) dataclass:
-
-| Attribute | Type | Shape | Description |
-| :--- | :--- | :--- | :--- |
-| `image` | `ImageRGB` | `(H, W, 3)` uint8 | Input RGB image array. |
-| `boxes` | `Boxes2D` | `(N, 4)` float32 | Bounding box coordinates in `[x1, y1, x2, y2]` pixel format. |
-| `masks` | `BinaryMask` | `(N, H, W)` bool | Binary spatial segment masks. |
-| `scores` | `Scores` | `(N,)` float32 | Predicted IoU confidence scores in `[0.0, 1.0]`. |
-| `class_ids` | `np.ndarray | None` | `(N,)` int | Numerical class index array. |
-| `class_names` | `list[str] | None` | Length `N` | Class label name list. |

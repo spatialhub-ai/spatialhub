@@ -1,41 +1,103 @@
-# EfficientLoFTR Technical Reference
+# EfficientLoFTR
 
 `spatialhub.models.efficient_loftr` provides an ONNX Runtime adapter for **EfficientLoFTR**, a semi-dense local feature matching model using sparse transformers.
 
 ---
 
-## Supported Model Variants
+## Variants
 
-The `EfficientLoFTRAdapter` accepts two model precision variants via `model_type`:
+The `EfficientLoFTRAdapter` accepts two model variants via `model_type`:
 
-| Model Variant (`model_type`) | ONNX File | Description | Target Use Case |
-| :--- | :--- | :--- | :--- |
-| `"full"` (Default) | `eloftr_outdoor_full.onnx` | Full precision semi-dense feature matching model. | Maximum matching precision & robust keypoint coverage. |
-| `"opt"` | `eloftr_outdoor_opt.onnx` | Optimized/reparameterized lightweight model variant. | High throughput, lower memory footprint, and edge processing. |
+| Model Variant (`model_type`) | Description | Target Use Case |
+| :--- | :--- | :--- |
+| `"full"` (Default) | Full precision semi-dense feature matching model. | Maximum matching precision & robust keypoint coverage. |
+| `"opt"` | Optimized/reparameterized lightweight model variant. | High throughput, lower memory footprint, and edge processing. |
 
 ---
 
-## Preprocessing & Post-processing Flow
+## Initialization
 
-EfficientLoFTR matches coarse-to-fine keypoints across image pairs without requiring PyTorch during inference.
+Initialize `EfficientLoFTR` by specifying a model variant, or pass an explicit model path:
 
-<div align="center">
-```mermaid
-graph TD
-    A["Image Pair (A, B): Paths / Arrays"] --> B["Aspect Ratio Downscaling (max_dim)"]
-    B --> C["Multiple-of-32 Dimension Alignment"]
-    C --> D["Grayscale Conversion & Normalization"]
-    D --> E["Bottom-Right Zero Padding to Shared (W_pad, H_pad)"]
-    E --> F["ONNX Runtime Forward Pass"]
-    F --> G["Filter Matches Outside Unpadded Boundaries"]
-    G --> H["Project Coordinates to Native Resolution"]
-    H --> I["MatchResult"]
+```python
+from spatialhub import EfficientLoFTR
+
+# Default full-precision model
+matcher = EfficientLoFTR(model_type="full")
+
+# Lightweight model with CUDA acceleration
+matcher = EfficientLoFTR(model_type="opt", providers=["CUDAExecutionProvider"])
 ```
-</div>
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `model_path` | `str | Path | None` | `None` | Path to local `.onnx` weight file. If omitted, downloads from Hugging Face Hub. |
+| `model_type` | `str` | `"full"` | Model architecture variant (`"full"` or `"opt"`). |
+| `providers` | `list[str] | str | None` | `None` | ONNX Runtime execution providers (e.g. `["CUDAExecutionProvider", "CPUExecutionProvider"]`). |
+
+---
+
+## Methods
+
+### `match`
+
+Executes semi-dense feature matching between an image pair and projects keypoints to native image space.
+
+```python
+matches = matcher.match(image_a, image_b, max_dim=1024)
+```
+
+#### Parameters
+
+| Parameter | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `image_a` | `str | Path | np.ndarray` | *required* | First input image as file path or RGB array $(H, W, 3)$. |
+| `image_b` | `str | Path | np.ndarray` | *required* | Second input image as file path or RGB array $(H, W, 3)$. |
+| `max_dim` | `int | None` | `1024` | Maximum spatial dimension limit for aspect-ratio preserving downscaling. |
+
+#### Return Value
+
+The `match` method returns a [`KeypointMatches`](../structures/perception_primitives.md#keypointmatches) dataclass:
+
+| Attribute | Shape | Dtype | Description |
+| :--- | :--- | :--- | :--- |
+| `keypoints_a` | `(N, 2)` | `np.float32` | Matched $(x, y)$ pixel coordinates in `image_a`. |
+| `keypoints_b` | `(N, 2)` | `np.float32` | Matched $(x, y)$ pixel coordinates in `image_b`. |
+| `confidence` | `(N,)` | `np.float32` | Correspondence confidence scores in $[0, 1]$. |
+
+---
+
+## Example
+
+Demonstration script matching an image pair and visualizing correspondences:
+
+```python title="examples/efficient_loftr.py"
+--8<-- "examples/efficient_loftr.py:efficient_loftr"
+```
+
+![EfficientLoFTR Keypoint Matches](../assets/eloftr_matches.png)
+
+Execute the sample script from the repository root:
+
+```bash
+uv run python examples/efficient_loftr.py
+```
+
+Visualization is saved to `examples/output/eloftr_matches.png`.
+
+---
+
+## End-to-End Flow
+
+![EfficientLoFTR Processing Workflow](../assets/eloftr_workflow.svg)
+
+Dense keypoint matching at native image resolution exhibits quadratic computational and memory complexity $O(N_A \cdot N_B)$ under standard self- and cross-attention mechanisms. EfficientLoFTR resolves this through an asymmetric coarse-to-fine architecture: it establishes initial correspondences at low spatial resolution ($1/8$ scale) using linear attention and refines surviving candidates to sub-pixel precision at high resolution ($1/2$ scale).
 
 ### Maximum Dimension Scaling
 
-Given an input image with native dimensions $(W_{\text{orig}}, H_{\text{orig}})$ and optional maximum dimension limit $D_{\max}$ (`max_dim`), dimensions are scaled preserving aspect ratio:
+Given an input image with native dimensions $(W_{\text{orig}}, H_{\text{orig}})$ and maximum dimension limit $D_{\max}$ (`max_dim`), dimensions are downscaled isotropically if either axis exceeds $D_{\max}$:
 
 $$
 (W_{\text{scaled}}, H_{\text{scaled}}) = \begin{cases} 
@@ -44,39 +106,50 @@ $$
 \end{cases}
 $$
 
-### Multiple-of-32 Alignment & Normalization
+Isotropic scaling preserves the relative aspect ratio, preventing distortion of perspective rays and epipolar lines between views.
 
-Spatial dimensions are aligned to the nearest lower multiples of 32 required by sparse transformer downsampling, and pixel values are normalized to $[0, 1]$ float32 tensors of shape $(1, 1, H, W)$:
+### Multiple-of-32 Alignment
+
+Spatial dimensions are aligned down to the nearest integer multiple of 32, and pixel values are converted to single-channel float32 grayscale tensors in $[0.0, 1.0]$:
 
 $$
 W = \max\left(32,\ \left\lfloor\frac{W_{\text{scaled}}}{32}\right\rfloor \times 32\right), \qquad H = \max\left(32,\ \left\lfloor\frac{H_{\text{scaled}}}{32}\right\rfloor \times 32\right)
 $$
 
+The hierarchical feature pyramid extracts coarse representations at stride 8 and fine representations at stride 2. Enforcing 32-pixel alignment ensures that spatial dimensions divide evenly across all convolutional pooling layers without fractional boundary truncation.
+
 ### Bottom-Right Batch Padding
 
-For an image pair $(A, B)$ with individual aligned dimensions $(W_a, H_a)$ and $(W_b, H_b)$, both tensors are bottom-right zero-padded to shared maximum spatial dimensions $(W_{\text{pad}}, H_{\text{pad}})$:
+When an image pair $(A, B)$ has unequal aligned dimensions $(W_a, H_a)$ and $(W_b, H_b)$, resizing either image to match the other would alter its aspect ratio and distort the underlying epipolar geometry. Instead, both images are zero-padded along their bottom and right edges to a shared spatial size:
 
 $$
 W_{\text{pad}} = \max(W_a, W_b), \qquad H_{\text{pad}} = \max(H_a, H_b)
 $$
 
-### Post-processing: Boundary Filtering & Coordinate Projection
+Padding to identical dimensions allows packing both images into a unified batched tensor $(2, 1, H_{\text{pad}}, W_{\text{pad}})$ for parallel GPU execution while preserving their native geometric scales.
 
-Matches $(P_0, P_1)$ detected inside bottom-right zero-padded regions are filtered out using boundary mask $V$:
+### Hierarchical Coarse-to-Fine Matching
+
+1. **Coarse Matching ($1/8$ resolution)**: The backbone extracts coarse feature maps of dimension $(\frac{H}{8}, \frac{W}{8})$. Efficient linear Transformer layers aggregate context across both images. A dual-softmax operator evaluates mutual nearest-neighbor probabilities, yielding coarse match pairs $(\tilde{i}, \tilde{j})$ with match confidence $c \in [0, 1]$.
+2. **Fine Sub-Pixel Refinement ($1/2$ resolution)**: For each coarse match passing confidence thresholding, local feature windows of size $w \times w$ are extracted from the $1/2$ scale fine feature maps. A lightweight regression head computes continuous sub-pixel coordinate displacement vectors $(\Delta x, \Delta y)$, producing high-precision keypoints $P_0 = (x_0, y_0)$ in image A and $P_1 = (x_1, y_1)$ in image B.
+
+### Boundary Filtering & Projection
+
+Because images were padded to $(W_{\text{pad}}, H_{\text{pad}})$, keypoints predicted inside the bottom-right padding regions represent uninformative canvas artifacts. Valid correspondences are retained using the spatial boundary condition $V$:
 
 $$
 V = \{ (P_0, P_1) \mid x_0 < W_a \land y_0 < H_a \land x_1 < W_b \land y_1 < H_b \}
 $$
 
-Valid raw coordinates $P_{\text{raw}} = (x_{\text{raw}}, y_{\text{raw}})$ are projected back to native image dimensions $(W_{\text{orig}}, H_{\text{orig}})$:
+Surviving raw keypoint coordinates $P = (x, y)$ are projected back to native input coordinates by inverting the preprocessing scale factors:
 
 $$
-P_{\text{orig}} = \left(x_{\text{raw}} \cdot \frac{W_{\text{orig}}}{W},\; y_{\text{raw}} \cdot \frac{H_{\text{orig}}}{H}\right)
+P_{\text{orig}, 0} = \left(x_0 \cdot \frac{W_{\text{orig}, a}}{W_a},\; y_0 \cdot \frac{H_{\text{orig}, a}}{H_a}\right), \qquad P_{\text{orig}, 1} = \left(x_1 \cdot \frac{W_{\text{orig}, b}}{W_b},\; y_1 \cdot \frac{H_{\text{orig}, b}}{H_b}\right)
 $$
 
 ---
 
-## Numerical Parity Verification
+## Numerical Parity
 
 Numerical parity verifies mathematical equivalence between the original PyTorch implementation and the exported ONNX Runtime CUDA graph.
 
@@ -167,20 +240,9 @@ Parity was evaluated on 30 image pairs from the [MegaDepth-1500](https://hugging
 !!! note
     Keypoint coordinate error is $0.0000\text{ px}$ MAE and Max Diff across all tested configurations. Minor confidence variance ($\sim 10^{-4}$ in `full`, $\sim 10^{-3}$ in `opt`) stems from floating-point reduction order in the attention layers. Evaluated up to `max_dim=832`.
 
-To verify parity on a custom dataset organized into two folders with matching filenames (`folder_a/`, `folder_b/`):
-
-```bash
-uv run tools/benchmark/parity_efficient_loftr.py \
-    --folder-a data/custom_pairs/folder_a \
-    --folder-b data/custom_pairs/folder_b \
-    --variant all \
-    --max-dims 640 768 832 \
-    --max-pairs 30
-```
-
 ---
 
-## Performance Benchmarks
+## Performance
 
 Latency, throughput, and host process RAM deltas measured on the first pair of the [MegaDepth-1500](https://huggingface.co/SpatialHub/efficient-loftr-onnx/tree/main/0015_pairs) outdoor dataset (with native input resolutions of $1271 \times 953$ for image A and $1600 \times 1174$ for image B). Measurements reflect 5 unmeasured warmup iterations and 20 timed measurement iterations.
 
@@ -192,7 +254,6 @@ Latency, throughput, and host process RAM deltas measured on the first pair of t
           <th>Variant</th>
           <th>Max Dim Limit</th>
           <th>Latency Mean (ms)</th>
-          <th>Median (ms)</th>
           <th>P95 (ms)</th>
           <th>Throughput (Pairs/s)</th>
           <th>Host RAM Delta</th>
@@ -204,7 +265,6 @@ Latency, throughput, and host process RAM deltas measured on the first pair of t
           <td rowspan="4" style="vertical-align: middle; text-align: center; font-weight: bold;"><code>full</code></td>
           <td><code>640</code></td>
           <td>85.42 +/- 5.27</td>
-          <td>85.48</td>
           <td>96.85</td>
           <td><strong>11.7</strong></td>
           <td>+564.5 MB</td>
@@ -213,7 +273,6 @@ Latency, throughput, and host process RAM deltas measured on the first pair of t
         <tr>
           <td><code>832</code></td>
           <td>205.73 +/- 40.02</td>
-          <td>197.83</td>
           <td>265.53</td>
           <td><strong>4.9</strong></td>
           <td>+200.1 MB</td>
@@ -222,7 +281,6 @@ Latency, throughput, and host process RAM deltas measured on the first pair of t
         <tr>
           <td><code>960</code></td>
           <td>358.43 +/- 86.24</td>
-          <td>314.15</td>
           <td>541.61</td>
           <td><strong>2.8</strong></td>
           <td>+360.7 MB</td>
@@ -231,7 +289,6 @@ Latency, throughput, and host process RAM deltas measured on the first pair of t
         <tr>
           <td><code>1024</code></td>
           <td>3560.52 +/- 334.86</td>
-          <td>3437.02</td>
           <td>4224.72</td>
           <td><strong>0.3</strong></td>
           <td>+1859.1 MB</td>
@@ -241,7 +298,6 @@ Latency, throughput, and host process RAM deltas measured on the first pair of t
           <td rowspan="4" style="vertical-align: middle; text-align: center; font-weight: bold;"><code>opt</code></td>
           <td><code>640</code></td>
           <td>121.49 +/- 14.46</td>
-          <td>122.42</td>
           <td>139.37</td>
           <td><strong>8.2</strong></td>
           <td>+101.2 MB</td>
@@ -250,7 +306,6 @@ Latency, throughput, and host process RAM deltas measured on the first pair of t
         <tr>
           <td><code>832</code></td>
           <td>456.78 +/- 80.48</td>
-          <td>503.46</td>
           <td>562.17</td>
           <td><strong>2.2</strong></td>
           <td>+207.7 MB</td>
@@ -259,7 +314,6 @@ Latency, throughput, and host process RAM deltas measured on the first pair of t
         <tr>
           <td><code>960</code></td>
           <td>878.12 +/- 80.74</td>
-          <td>879.32</td>
           <td>1009.08</td>
           <td><strong>1.1</strong></td>
           <td>+317.9 MB</td>
@@ -268,7 +322,6 @@ Latency, throughput, and host process RAM deltas measured on the first pair of t
         <tr>
           <td><code>1024</code></td>
           <td>1453.20 +/- 133.25</td>
-          <td>1463.95</td>
           <td>1660.77</td>
           <td><strong>0.7</strong></td>
           <td>+490.8 MB</td>
@@ -285,7 +338,6 @@ Latency, throughput, and host process RAM deltas measured on the first pair of t
           <th>Variant</th>
           <th>Max Dim Limit</th>
           <th>Latency Mean (ms)</th>
-          <th>Median (ms)</th>
           <th>P95 (ms)</th>
           <th>Throughput (Pairs/s)</th>
           <th>Host RAM Delta</th>
@@ -296,7 +348,6 @@ Latency, throughput, and host process RAM deltas measured on the first pair of t
           <td rowspan="4" style="vertical-align: middle; text-align: center; font-weight: bold;"><code>full</code></td>
           <td><code>640</code></td>
           <td>3085.78 +/- 333.01</td>
-          <td>3018.24</td>
           <td>3690.02</td>
           <td><strong>0.3</strong></td>
           <td>+1175.2 MB</td>
@@ -304,7 +355,6 @@ Latency, throughput, and host process RAM deltas measured on the first pair of t
         <tr>
           <td><code>832</code></td>
           <td>5789.84 +/- 268.09</td>
-          <td>5704.12</td>
           <td>6189.51</td>
           <td><strong>0.2</strong></td>
           <td>+2731.2 MB</td>
@@ -312,7 +362,6 @@ Latency, throughput, and host process RAM deltas measured on the first pair of t
         <tr>
           <td><code>960</code></td>
           <td>9123.22 +/- 450.85</td>
-          <td>9049.17</td>
           <td>9671.42</td>
           <td><strong>0.1</strong></td>
           <td>+4065.2 MB</td>
@@ -320,7 +369,6 @@ Latency, throughput, and host process RAM deltas measured on the first pair of t
         <tr>
           <td><code>1024</code></td>
           <td>11077.42 +/- 399.25</td>
-          <td>11022.39</td>
           <td>11817.81</td>
           <td><strong>0.1</strong></td>
           <td>+3581.9 MB</td>
@@ -329,7 +377,6 @@ Latency, throughput, and host process RAM deltas measured on the first pair of t
           <td rowspan="4" style="vertical-align: middle; text-align: center; font-weight: bold;"><code>opt</code></td>
           <td><code>640</code></td>
           <td>2833.60 +/- 120.07</td>
-          <td>2821.49</td>
           <td>3020.90</td>
           <td><strong>0.4</strong></td>
           <td>+1332.2 MB</td>
@@ -337,7 +384,6 @@ Latency, throughput, and host process RAM deltas measured on the first pair of t
         <tr>
           <td><code>832</code></td>
           <td>6070.13 +/- 1001.03</td>
-          <td>5627.47</td>
           <td>8153.02</td>
           <td><strong>0.2</strong></td>
           <td>+1490.8 MB</td>
@@ -345,7 +391,6 @@ Latency, throughput, and host process RAM deltas measured on the first pair of t
         <tr>
           <td><code>960</code></td>
           <td>8201.68 +/- 455.54</td>
-          <td>8263.09</td>
           <td>8992.29</td>
           <td><strong>0.1</strong></td>
           <td>+3115.0 MB</td>
@@ -353,7 +398,6 @@ Latency, throughput, and host process RAM deltas measured on the first pair of t
         <tr>
           <td><code>1024</code></td>
           <td>10058.98 +/- 647.43</td>
-          <td>10141.71</td>
           <td>10939.23</td>
           <td><strong>0.1</strong></td>
           <td>+3940.5 MB</td>
@@ -363,31 +407,9 @@ Latency, throughput, and host process RAM deltas measured on the first pair of t
 
 ---
 
-## SpatialHub Adapter API & Usage
-
-```python
-from spatialhub import EfficientLoFTR
-
-# Initialize with 'opt' variant and CUDA acceleration
-matcher = EfficientLoFTR(
-    model_type="opt",
-    providers=["CUDAExecutionProvider", "CPUExecutionProvider"]
-)
-
-# Execute matching between two images
-result = matcher.match("image_a.jpg", "image_b.jpg", max_dim=1024)
-
-# Render side-by-side visualization
-result.visualize(top_k=50, save_path="matches.png")
-```
-
----
-
-## Tooling & Verification Commands
+## Developer Tooling
 
 === "Export ONNX"
-    Export PyTorch checkpoint weights to standalone ONNX graphs:
-
     ```bash
     uv run tools/export/export_efficient_loftr.py \
         --checkpoint weights/eloftr_outdoor.ckpt \
@@ -405,8 +427,6 @@ result.visualize(top_k=50, save_path="matches.png")
     | `--opset` | `int` | `17` | ONNX Operator Set version. |
 
 === "Parity Check"
-    Validate numerical coordinate and confidence parity against PyTorch:
-
     ```bash
     uv run tools/benchmark/parity_efficient_loftr.py \
         --folder-a upstream/efficient_loftr/data/0015_pairs/folder_a \
@@ -433,8 +453,6 @@ result.visualize(top_k=50, save_path="matches.png")
     | `--output-file` | `str` | `None` | File path to write markdown parity report. |
 
 === "Performance Profile"
-    Benchmark execution latency, throughput, and memory deltas:
-
     ```bash
     uv run tools/benchmark/profile_efficient_loftr.py \
         --variant all \
@@ -461,15 +479,3 @@ result.visualize(top_k=50, save_path="matches.png")
     | `--output-file` | `str` | `None` | File path to write markdown summary table. |
 
 ---
-
-## Returned Result Data Structure
-
-Returns a [`MatchResult`](../core-and-utils/structures/match_result.md) dataclass:
-
-| Attribute | Type | Shape | Description |
-| :--- | :--- | :--- | :--- |
-| `image_a` | `str | Path | np.ndarray` | `(H, W, 3)` or path | First image reference or RGB array. |
-| `image_b` | `str | Path | np.ndarray` | `(H, W, 3)` or path | Second image reference or RGB array. |
-| `keypoints_a` | `Keypoints2D` | `(N, 2)` float32 | Matched keypoint `[x, y]` coordinates in `image_a`. |
-| `keypoints_b` | `Keypoints2D` | `(N, 2)` float32 | Matched keypoint `[x, y]` coordinates in `image_b`. |
-| `confidence` | `Scores` | `(N,)` float32 | Match confidence scores in `[0.0, 1.0]`. |

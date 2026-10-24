@@ -1,96 +1,195 @@
-# Depth Anything 3 Technical Reference
+# Depth Anything 3
 
 `spatialhub.models.depth_anything_3` provides an ONNX Runtime adapter for **Depth Anything 3 (DA3)**, a foundation model series supporting monocular relative and metric depth estimation, multi-view camera pose alignment, and nested dual-model scale projection.
 
 ---
 
-## Supported Model Presets & Series
+## Presets
 
 The `DepthAnything3Adapter` accepts official model presets defined in `MODEL_REGISTRY` via `model_name`:
 
-### DA3 Any-View Foundation Series
-Foundation models supporting single-image and multi-view sequences ($N \ge 1$), joint depth prediction, and relative camera pose estimation:
+=== "Any-View Series"
 
-| Model Preset (`model_name`) | ONNX File | Parameter Count | Backbone Architecture | Primary Operational Role |
-| :--- | :--- | :--- | :--- | :--- |
-| `"da3_small"` | `da3_small.onnx` | ~25M | ViT-Small (DINOv2) | High-throughput, real-time edge processing and low-latency robotics. |
-| `"da3_base"` (Default) | `da3_base.onnx` | ~98M | ViT-Base (DINOv2) | Balanced spatial accuracy and computational throughput. |
-| `"da3_large"` | `da3_large.onnx` | ~335M | ViT-Large (DINOv2) | High-fidelity depth mapping and dense multi-view geometry. |
-| `"da3_giant"` | `da3_giant.onnx` | ~1.35B | ViT-Giant (DINOv2) | Flagship foundation model with maximum geometric precision. |
+    | Model Preset (`model_name`) | Backbone | Target Use Case |
+    | :--- | :--- | :--- |
+    | `"da3_small"` | ViT-Small| High-throughput, real-time edge processing and low-latency robotics. |
+    | `"da3_base"` (Default) | ViT-Base| Balanced spatial accuracy and computational throughput. |
+    | `"da3_large"` | ViT-Large| High-fidelity depth mapping and dense multi-view geometry. |
+    | `"da3_giant"` | ViT-Giant| Flagship foundation model with maximum geometric precision. |
 
-### Specialized Monocular Variants
-Single-image models fine-tuned for specific monocular tasks:
+=== "Monocular Series"
 
-| Model Preset (`model_name`) | ONNX File | Parameter Count | Output Modality | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `"da3mono_large"` | `da3mono_large.onnx` | ~335M | Relative Depth + Sky Mask | High-resolution monocular relative depth with sky probability estimation. |
-| `"da3metric_large"` | `da3metric_large.onnx` | ~335M | Metric Depth (Meters) | Direct absolute metric depth prediction using camera focal length scaling. |
+    | Model Preset (`model_name`) | Output Modality | Target Use Case |
+    | :--- | :--- | :--- |
+    | `"da3mono_large"` | Relative Depth + Sky Mask | High-resolution monocular relative depth with sky probability estimation. |
+    | `"da3metric_large"` | Metric Depth (Meters) | Direct absolute metric depth prediction using camera focal length scaling. |
 
-### Nested Dual-Model Series
-Combines the high-frequency geometric detail of an Any-View model with the physical scale of `da3metric_large` via least-squares scale-and-shift alignment:
+=== "Nested Dual-Model Series"
 
-| Model Preset (`model_name`) | Primary Model | Metric Reference | Primary Operational Role |
-| :--- | :--- | :--- | :--- |
-| `"da3nested_small_large"` | `da3_small.onnx` | `da3metric_large.onnx` | Lightweight metric estimation with high frame throughput. |
-| `"da3nested_base_large"` | `da3_base.onnx` | `da3metric_large.onnx` | Balanced detail resolution and physical metric projection. |
-| `"da3nested_large_large"` | `da3_large.onnx` | `da3metric_large.onnx` | High-fidelity dense metric reconstruction. |
-| `"da3nested_giant_large"` | `da3_giant.onnx` | `da3metric_large.onnx` | Maximum visual fidelity projected to absolute metric units. |
+    | Model Preset (`model_name`) | Primary Model | Metric Reference | Target Use Case |
+    | :--- | :--- | :--- | :--- |
+    | `"da3nested_small_large"` | `da3_small` | `da3metric_large` | Lightweight metric estimation with high frame throughput. |
+    | `"da3nested_base_large"` | `da3_base` | `da3metric_large` | Balanced detail resolution and physical metric projection. |
+    | `"da3nested_large_large"` | `da3_large` | `da3metric_large` | High-fidelity dense metric reconstruction. |
+    | `"da3nested_giant_large"` | `da3_giant` | `da3metric_large` | Maximum visual fidelity projected to absolute metric units. |
 
 ---
 
-## Preprocessing & Post-processing Flow
+## Initialization
 
-Depth Anything 3 processes an input sequence of $N$ images, producing aligned depth maps, confidence masks, and optional camera trajectory transformations.
+Initialize `DepthAnything3` by specifying an Any-View, Monocular, or Nested model preset:
 
-<div align="center">
-```mermaid
-graph TD
-    A["Input Images (N views)"] --> B["Preprocessing: Resize (divisible by 14) & ImageNet Normalize"]
-    B --> C["ONNX Runtime Forward Pass"]
-    C --> D["Extract Outputs: depth, conf, sky, extrinsics, intrinsics"]
-    D --> E{"Model Architecture?"}
-    E -- "da3metric_large" --> F["Direct Metric Output (Physical Meters)"]
-    E -- "da3nested_*_large" --> G["Least-Squares Scale Alignment against Metric Head"]
-    E -- "da3_* any-view / mono" --> H["Relative Disparity Prediction"]
-    F --> I{"Input Extrinsics Provided?"}
-    G --> I
-    H --> I
-    I -- "No (extrinsics=None)" --> J["Return Predicted Camera Trajectory in Canonical Frame"]
-    I -- "Yes (N=1)" --> K["Adopt Reference World Pose Directly"]
-    I -- "Yes (N=2)" --> L["Scale Depth by Camera Baseline Ratio & Adopt Reference Pose"]
-    I -- "Yes (N>=3)" --> M["Sim(3) Umeyama Alignment (Rescale Depth & Align Trajectory)"]
-    J --> N["DepthPredictionResult"]
-    K --> N
-    L --> N
-    M --> N
+```python
+from spatialhub import DepthAnything3
+
+# Any-View foundation model
+estimator = DepthAnything3(model_name="da3_base")
+
+# Direct absolute metric depth model with CUDA execution
+estimator = DepthAnything3(model_name="da3metric_large", providers=["CUDAExecutionProvider"])
 ```
-</div>
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `model_name` | `str | Path | list[str | Path]` | `"da3_base"` | Model preset identifier or explicit path(s) to `.onnx` weight files. |
+| `model_variant` | `str | None` | `None` | Optional explicit variant string matching `MODEL_REGISTRY`. |
+| `providers` | `list[str] | str | None` | `None` | ONNX Runtime execution providers (e.g. `["CUDAExecutionProvider", "CPUExecutionProvider"]`). |
+| `align_to_input_ext_scale` | `bool` | `True` | Scales predicted multi-view camera translation to match scale of provided input extrinsics. |
+| `ransac_view_thresh` | `int` | `10` | Minimum multi-view observations required before executing RANSAC trajectory scale alignment. |
+| `process_res` | `int` | `504` | Working image spatial resolution for network input processing. |
+| `process_res_method` | `str` | `"upper_bound_resize"` | Spatial resizing strategy (`"upper_bound_resize"` preserving aspect ratio). |
+
+---
+
+## Methods
+
+### `estimate_depth`
+
+Estimates monocular or multi-view depth maps, optionally registering extrinsics and intrinsics.
+
+```python
+result = estimator.estimate_depth(images=["frame_01.jpg", "frame_02.jpg"])
+```
+
+#### Parameters
+
+| Parameter | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `images` | `list[np.ndarray | str | Path]` | *required* | Sequence of RGB images as file paths or arrays $(H, W, 3)$. |
+| `extrinsics` | `list[np.ndarray] | None` | `None` | Optional camera world-to-camera poses $(N, 4, 4)$ for metric trajectory alignment. |
+| `intrinsics` | `list[np.ndarray] | None` | `None` | Optional camera pinhole intrinsics $(N, 3, 3)$. Estimated if omitted. |
+
+#### Return Value
+
+The `estimate_depth` method returns a [`DepthMap`](../structures/scene_and_bounds.md#depthmap) dataclass:
+
+| Attribute | Shape | Dtype | Description |
+| :--- | :--- | :--- | :--- |
+| `depth` | `(N, H, W)` | `np.float32` | Depth map in meters (metric presets) or relative units (monocular presets). |
+| `confidence` | `(N, H, W)` | `np.float32 | None` | Per-pixel prediction confidence scores when produced by model. |
+| `depth_type` | `str` | `"metric" | "relative"` | Depth unit indicator (`"metric"` or `"relative"`). |
+| `intrinsics` | `(N, 3, 3)` | `np.float32 | None` | Pinhole camera intrinsics estimated or passed. |
+| `extrinsics` | `(N, 4, 4)` | `np.float32 | None` | Camera poses estimated or aligned. |
+
+---
+
+## Example
+
+Demonstration script estimating relative depth from a monocular scene:
+
+```python title="examples/depth_anything_3.py"
+--8<-- "examples/depth_anything_3.py:depth_anything_3"
+```
+
+![Depth Anything 3 Depth Estimation](../assets/da3_depth.png)
+
+Execute the sample script from the repository root:
+
+```bash
+uv run python examples/depth_anything_3.py
+```
+
+Visualization is saved to `examples/output/da3_depth.png`.
+
+??? example "Multi-View Extrinsics Alignment & Depth Scaling"
+
+    ```python
+    from spatialhub import DepthAnything3
+
+    with DepthAnything3(
+        model_name="da3_large",
+        align_to_input_ext_scale=True,
+        ransac_view_thresh=10,
+        providers=["CUDAExecutionProvider"],
+    ) as estimator:
+        result = estimator.estimate_depth(
+            images=["view_01.jpg", "view_02.jpg", "view_03.jpg", "view_04.jpg"],
+            extrinsics=reference_extrinsics,
+        )
+
+        print("Estimated depth shape:", result.depth.shape)
+        print("Aligned camera extrinsics shape:", result.extrinsics.shape)
+    ```
+
+??? example "Direct Metric Depth Estimation"
+
+    ```python
+    from spatialhub import DepthAnything3
+
+    with DepthAnything3(model_name="da3metric_large", providers=["CUDAExecutionProvider"]) as estimator:
+        result = estimator.estimate_depth(images=["indoor_scene.jpg"])
+        print("Metric depth output range (meters):", result.depth.min(), result.depth.max())
+    ```
+
+??? example "Nested Dual-Model Metric Projection"
+
+    ```python
+    from spatialhub import DepthAnything3
+
+    with DepthAnything3(model_name="da3nested_giant_large", providers=["CUDAExecutionProvider"]) as estimator:
+        result = estimator.estimate_depth(images=["indoor_scene.jpg"])
+        print("Metric depth output range (meters):", result.depth.min(), result.depth.max())
+    ```
+
+---
+
+## End-to-End Flow
+
+![Depth Anything 3 Processing Workflow](../assets/da3_workflow.svg)
+
+Depth Anything 3 provides unified monocular and multi-view dense depth estimation, camera trajectory recovery, and metric surface reconstruction. The model handles both unposed sequences (estimating camera poses and relative depth jointly) and posed sequences (aligning relative geometry to calibrated camera baselines).
 
 ### Dimension Resizing & Normalization
 
-Inputs are scaled to spatial dimensions $(W, H)$ that are positive integer multiples of the ViT patch size $14$:
+Inputs are scaled to spatial dimensions $(W, H)$ that are positive integer multiples of the ViT patch size $P = 14$:
 
 $$
 W = 14 \cdot \left\lfloor \frac{W_{\text{target}}}{14} \right\rfloor, \qquad H = 14 \cdot \left\lfloor \frac{H_{\text{target}}}{14} \right\rfloor
 $$
 
-Pixel color channels are normalized using standard ImageNet mean $\mu$ and standard deviation $\sigma$:
+The Vision Transformer divides the input into non-overlapping $14 \times 14$ patches. Slicing dimensions to multiples of 14 prevents fractional patch artifacts and boundary padding distortions.
+
+Pixel channels are scaled to $[0.0, 1.0]$ and normalized using standard ImageNet parameters:
 
 $$
 x_{\text{norm}} = \frac{\frac{x}{255.0} - \mu}{\sigma}, \qquad \mu = [0.485, 0.456, 0.406], \quad \sigma = [0.229, 0.224, 0.225]
 $$
 
-### Depth Output Modalities & Scale Projection
+### Model Presets & Scale Alignment
 
-Depth Anything 3 supports three depth output modes:
+* **Any-View & Mono Presets (`da3_small`, `da3_base`, `da3_large`, `da3_giant`, `da3mono_large`)**: Foundation models predict unscaled relative inverse depth maps $D_{\text{rel}} \in \mathbb{R}^{H \times W}$ and a per-pixel confidence map $C_{\text{rel}} \in [0, 1]^{H \times W}$. In `da3mono_large`, an auxiliary segmentation head emits a binary sky mask $M_{\text{sky}} \in \{0, 1\}^{H \times W}$.
+* **Metric Depth Preset (`da3metric_large`)**: Predicts dense physical depth $D_{\text{metric}} \in \mathbb{R}^{H \times W}$ in meters using canonical focal length normalization ($f_c = 300\text{ px}$).
+* **Nested Dual-Model Presets (`da3nested_*_large`)**: Relative depth models capture fine surface contours, thin structures, and sharp depth discontinuities, but lack metric scale. Metric depth models predict physical distance in meters, but tend to smooth over sharp geometric boundaries. The nested pipeline fuses the geometric sharpness of the relative model with the absolute scale of the metric model via closed-form linear regression.
 
-* **Relative Depth (`da3_small`, `da3_base`, `da3_large`, `da3_giant`, `da3mono_large`)**: Foundation models output non-metric relative depth maps. `da3mono_large` additionally outputs a binary-thresholded sky segmentation mask $M_{\text{sky}}$ where non-zero pixels represent sky regions.
-* **Standalone Metric Depth (`da3metric_large`)**: Directly predicts dense depth maps in physical meters without requiring post-hoc focal normalization.
-* **Nested Dual-Model Metric Projection (`da3nested_*_large`)**: Combines the high-frequency geometric detail of an Any-View model ($D_{\text{rel}}$) with the absolute physical scale of `da3metric_large` ($D_{\text{metric}}$). A closed-form linear least-squares scale parameter $s^*$ is calculated over high-confidence, non-sky pixels $\Omega$:
+Scale parameter $s^*$ is fitted over the valid pixel subset $\Omega$:
 
 $$
 \Omega = \{ (u, v) \mid C_{\text{rel}}(u, v) > \tau_{\text{conf}} \land M_{\text{sky}}(u, v) \le 0.5 \}
 $$
+
+Sky regions represent optical infinity (zero parallax), which causes ill-conditioned scale fitting and large scale overestimation. Excluding sky pixels and low-confidence predictions confines regression to well-defined physical surfaces:
 
 $$
 s^* = \arg\min_s \sum_{(u, v) \in \Omega} \left( s \cdot D_{\text{rel}}(u, v) - D_{\text{metric}}(u, v) \right)^2 = \frac{\sum_{(u, v) \in \Omega} D_{\text{rel}}(u, v) \cdot D_{\text{metric}}(u, v)}{\sum_{(u, v) \in \Omega} D_{\text{rel}}(u, v)^2}
@@ -100,67 +199,40 @@ $$
 D_{\text{aligned}} = s^* \cdot D_{\text{rel}}
 $$
 
-### Camera Calibration & Trajectory Alignment
+### Extrinsics Alignment & Scale Recovery
 
-The adapter handles camera intrinsics and extrinsics dynamically based on whether input poses are provided:
+Monocular and unposed visual depth estimators suffer from $7\text{ DoF}$ gauge ambiguity (3 rotation, 3 translation, 1 scale) in the similarity group $\mathrm{Sim}(3)$. When calibrated reference camera extrinsics $T_{\text{ref}} = [R \mid t] \in \mathrm{SE}(3)$ are provided, SpatialHub recovers the true metric scale and aligns camera trajectories.
 
-```
-+----------------------------------------------------------------------------------------------------+
-|                                    CAMERA PARAMETER FLOW                                           |
-+----------------------------------------------------------------------------------------------------+
-|  Input Parameter      |  Execution Mode    |  Behavior & Depth Scaling   |  Returned Result        |
-+-----------------------+--------------------+-----------------------------+-------------------------+
-|  extrinsics = None    |  Unposed Sequence  |  Camera decoder estimates   |  result.extrinsics      |
-|                       |                    |  relative camera poses      |  contains predicted     |
-|                       |                    |  in internal canonical      |  trajectory (N, 4, 4)   |
-|                       |                    |  coordinate frame.          |                         |
-+-----------------------+--------------------+-----------------------------+-------------------------+
-|  extrinsics provided  |  Posed Single-View |  No scaling performed.      |  result.extrinsics      |
-|  (N = 1)              |  (N = 1)           |  Input world pose adopted.  |  matches input pose.    |
-+-----------------------+--------------------+-----------------------------+-------------------------+
-|  extrinsics provided  |  Posed Two-View    |  Scale computed from camera |  Depth scaled by 1/s;   |
-|  (N = 2)              |  (N = 2)           |  center baseline ratio:     |  result.extrinsics      |
-|                       |                    |  s = ||ΔC_pred|| / ||ΔC_gt|||  matches input poses.   |
-+-----------------------+--------------------+-----------------------------+-------------------------+
-|  extrinsics provided  |  Posed Multi-View  |  Umeyama Sim(3) fit aligns  |  Depth scaled by 1/s;   |
-|  (N >= 3)             |  (N >= 3)          |  predicted trajectory to GT |  result.extrinsics      |
-|                       |                    |  (with RANSAC if N >= 10).  |  matches input poses.   |
-+-----------------------+--------------------+-----------------------------+-------------------------+
-|  intrinsics = None    |  Uncalibrated      |  Pinhole focal & principal  |  result.intrinsics      |
-|                       |                    |  points estimated by head.  |  contains (N, 3, 3).    |
-+-----------------------+--------------------+-----------------------------+-------------------------+
-|  intrinsics provided  |  Calibrated        |  Model conditioned on input |  result.intrinsics      |
-|                       |                    |  calibration parameters.    |  contains (N, 3, 3).    |
-+----------------------------------------------------------------------------------------------------+
-```
+For a camera pose $T_{\text{w2c}} = [R \mid t]$ mapping world coordinates to camera coordinates, the 3D optical center $C$ in world space is:
 
-#### Trajectory Alignment Modes
+$$
+C = -R^T t = T_{\text{w2c}}^{-1}[:3, 3] \in \mathbb{R}^3
+$$
 
-When reference camera extrinsics $T_{\text{ref}} = [R \mid t] \in \mathrm{SE}(3)$ are provided:
-
-**Single-View ($N = 1$)**: Direct assignment of the reference world coordinate frame:
+* **Unposed (`extrinsics = None`)**: Relative trajectory $T_{\text{pred}}$ is returned in internal canonical coordinates.
+* **Single-View ($N = 1$)**: Direct assignment of reference world coordinate frame without depth scaling:
 
 $$
 T_{\text{aligned}} = T_{\text{ref}}
 $$
 
-**Two-View ($N = 2$)**: True 3D camera optical centers in world coordinates $C = T_{\text{w2c}}^{-1}[:3, 3]$ are computed for both reference and predicted poses. Depth and translation are scaled by the baseline distance ratio:
+* **Two-View ($N = 2$)**: 3D optical centers $C_1, C_2$ are computed for predicted and reference camera poses. The metric scale factor is the ratio of physical optical center baselines:
 
 $$
 s_{\text{baseline}} = \frac{\|C_{\text{pred}, 2} - C_{\text{pred}, 1}\|_2}{\|C_{\text{ref}, 2} - C_{\text{ref}, 1}\|_2}, \qquad D_{\text{aligned}} = \frac{D_{\text{pred}}}{s_{\text{baseline}}}
 $$
 
-**Multi-View ($N \ge 3$)**: A rigid similarity transformation $(R^*, t^*, s^*) \in \mathrm{Sim}(3)$ is computed via Umeyama SVD factorization (with optional RANSAC for outlier suppression on $N \ge 10$ views):
+* **Multi-View ($N \ge 3$)**: Similarity transformation $(R^*, t^*, s^*) \in \mathrm{Sim}(3)$ is computed via Umeyama SVD factorization:
 
 $$
 \min_{R \in \mathrm{SO}(3),\, t \in \mathbb{R}^3,\, s > 0} \sum_{i=1}^N \left\| s R C_{\text{pred}, i} + t - C_{\text{ref}, i} \right\|_2^2, \qquad D_{\text{aligned}} = \frac{D_{\text{pred}}}{s^*}
 $$
 
-**Unposed Trajectory Evaluation (`align_to_input_ext_scale=False`)**: When evaluating raw camera decoder drift against ground truth without locking poses to the input, setting `align_to_input_ext_scale=False` outputs the Umeyama-aligned predicted trajectory $T_{\text{aligned}}$ directly without overwriting with $T_{\text{ref}}$.
+For trajectories with $N \ge 10$ views, RANSAC outlier rejection discards degenerate viewpoint estimations before SVD fitting, preventing tracking drift from corrupting global scale recovery.
 
 ---
 
-## Numerical Parity Verification
+## Numerical Parity
 
 Evaluates numerical agreement between PyTorch reference checkpoints and the SpatialHub ONNX Runtime adapter on the HiRoom evaluation dataset at $504 \times 504$ resolution across both **Posed** (input camera parameters supplied) and **Unposed** (camera trajectory estimated from visual features alone) evaluation sequences.
 
@@ -457,7 +529,7 @@ Evaluates numerical agreement between PyTorch reference checkpoints and the Spat
     !!! note
         For $N=2$ views, the two camera positions define a 1D line segment rather than a full 3D point cloud, so a unique 3D $\mathrm{Sim}(3)$ rotation alignment cannot be geometrically constrained against ground truth. For $N \ge 3$ views, full 3D Umeyama $\mathrm{Sim}(3)$ alignment operates, demonstrating monotonic trajectory recovery improvements as model capacity scales ($4.71^\circ \rightarrow 0.61^\circ$).
 
-### Specialized Monocular Series
+### Monocular Series
 
 === "Posed Mode"
 
@@ -645,20 +717,9 @@ Evaluates numerical agreement between PyTorch reference checkpoints and the Spat
       </tbody>
     </table>
 
-To execute local parity testing:
-
-```bash
-# Verify both posed and unposed sequence parity
-uv run tools/benchmark/parity_depth_anything_3.py \
-    --variant all \
-    --mode both \
-    --view-counts 1 2 4 \
-    --output-file .profile/parity_da3.md
-```
-
 ---
 
-## Performance Benchmarks
+## Performance
 
 Latencies, throughput, host process RAM deltas, and peak device VRAM footprint measured on the HiRoom evaluation dataset at $504 \times 504$ resolution.
 
@@ -851,7 +912,7 @@ Latencies, throughput, host process RAM deltas, and peak device VRAM footprint m
       </tbody>
     </table>
 
-### Specialized Monocular Series
+### Monocular Series
 
 === "CUDA Execution (`CUDAExecutionProvider`)"
 
@@ -1005,72 +1066,9 @@ Evaluates sequential dual-session forward execution (`main_session` + `da3metric
 
 ---
 
-## SpatialHub Adapter API & Usage
-
-### Single-View Relative Depth Estimation
-
-```python
-import cv2
-from spatialhub import DepthAnything3
-
-# Initialize adapter with DA3 Base preset
-with DepthAnything3(model_name="da3_base", providers=["CUDAExecutionProvider"]) as estimator:
-    result = estimator.estimate_depth(images=["room_view.jpg"])
-
-    # Visualize colorized depth map
-    colorized_depth = estimator.visualize(result.depth[0])
-    cv2.imwrite("depth_output.png", cv2.cvtColor(colorized_depth, cv2.COLOR_RGB2BGR))
-```
-
-### Multi-View Trajectory Alignment & Depth Scaling
-
-```python
-from spatialhub import DepthAnything3
-
-with DepthAnything3(
-    model_name="da3_large",
-    align_to_input_ext_scale=True,
-    ransac_view_thresh=10,
-    providers=["CUDAExecutionProvider"],
-) as estimator:
-    result = estimator.estimate_depth(
-        images=["view_01.jpg", "view_02.jpg", "view_03.jpg", "view_04.jpg"],
-        extrinsics=reference_extrinsics,
-    )
-
-    print("Estimated depth shape:", result.depth.shape)
-    print("Aligned camera extrinsics shape:", result.extrinsics.shape)
-```
-
-### Direct Metric Depth Estimation
-
-```python
-from spatialhub import DepthAnything3
-
-# Direct absolute metric depth prediction (meters)
-with DepthAnything3(model_name="da3metric_large", providers=["CUDAExecutionProvider"]) as estimator:
-    result = estimator.estimate_depth(images=["indoor_scene.jpg"])
-    print("Metric depth output range (meters):", result.depth.min(), result.depth.max())
-```
-
-### Nested Dual-Model Metric Projection
-
-```python
-from spatialhub import DepthAnything3
-
-# Combine ViT-Base geometric detail with ViT-Large physical metric scale
-with DepthAnything3(model_name="da3nested_base_large", providers=["CUDAExecutionProvider"]) as estimator:
-    result = estimator.estimate_depth(images=["indoor_scene.jpg"])
-    print("Metric depth output range (meters):", result.depth.min(), result.depth.max())
-```
-
----
-
-## Tooling & Verification Commands
+## Developer Tooling
 
 === "Export ONNX"
-    Export pretrained PyTorch Depth Anything 3 checkpoints to ONNX graphs:
-
     ```bash
     uv run tools/export/export_depth_anything_3.py \
         --variant base \
@@ -1090,8 +1088,6 @@ with DepthAnything3(model_name="da3nested_base_large", providers=["CUDAExecution
     | `--opset` | `int` | `18` | ONNX Operator Set version. |
 
 === "Parity Check"
-    Validate numerical depth and camera trajectory parity against PyTorch reference:
-
     ```bash
     uv run tools/benchmark/parity_depth_anything_3.py \
         --variant all \
@@ -1109,8 +1105,6 @@ with DepthAnything3(model_name="da3nested_base_large", providers=["CUDAExecution
     | `--output-file` | `str` | `None` | Optional file path to save Markdown parity summary table. |
 
 === "Performance Profile"
-    Benchmark pipeline stage latency, throughput, and memory footprint:
-
     ```bash
     uv run tools/benchmark/profile_depth_anything_3.py \
         --variant da3_small \
@@ -1136,17 +1130,4 @@ with DepthAnything3(model_name="da3nested_base_large", providers=["CUDAExecution
     | `--output-file` | `str` | `None` | Markdown report path to incrementally append completed results. |
 
 ---
-
-## Returned Result Data Structure
-
-Returns a [`DepthPredictionResult`](../core-and-utils/structures/depth_prediction_result.md) dataclass:
-
-| Attribute | Type | Shape | Description |
-| :--- | :--- | :--- | :--- |
-| `image` | `np.ndarray | str | Path | list` | `(N, H, W, 3)`, `(H, W, 3)`, or path | Input image array(s) or file paths in native resolution. |
-| `depth` | `DepthMap` | `(N, H, W)` float32 | Predicted depth maps in meters or relative scale. Promoted from `(H, W)` if single-image. |
-| `conf` | `ConfidenceMap | None` | `(N, H, W)` float32 | Per-pixel prediction confidence maps in `[0.0, 1.0]`. |
-| `intrinsics` | `Intrinsics3x3 | None` | `(N, 3, 3)` float32 | Pinhole camera intrinsic calibration matrices `[[fx, 0, cx], [0, fy, cy], [0, 0, 1]]`. |
-| `extrinsics` | `CameraToWorld | None` | `(N, 4, 4)` float32 | Estimated or aligned rigid camera-to-world transformation matrices. |
-| `depth_type` | `Literal["metric", "relative", "inverse", "disparity"]` | N/A | Scale interpretation identifier. |
 

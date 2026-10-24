@@ -1,82 +1,64 @@
-# SpatialHub Technical Documentation
+# SpatialHub
 
-**SpatialHub** is a lightweight, PyTorch-free spatial computing and perception library designed for modular inference, zero-configuration weight management, and unified Python API contracts built on **ONNX Runtime**.
+SpatialHub is a Python library for composing deep vision models and geometric algorithms into spatial perception pipelines.
 
----
+Building spatial perception systems typically requires integrating separate vision models—such as monocular depth estimation, instance segmentation, keypoint matching, and 6D object pose—with classical geometric algorithms. In practice, connecting these components requires reconciling conflicting coordinate systems, disparate tensor formats, and differing runtime dependencies across individual models.
 
-## Motivation & Architecture
-
-3D spatial vision and perception pipelines (such as 6D object pose estimation, Visual SLAM, and 3D scene reconstruction) are inherently multi-stage systems:
-
-```mermaid
-graph TD
-    In1["Single RGB Image"]
-    In2["Image Pair"]
-    In3["RGB Images + Intrinsics K"]
-    In4["RGB Image + CAD Mesh .ply"]
-    In5["RGB-D + Intrinsics K + CAD .obj"]
-
-    A1["DINOv2<br/><i>Feature Extraction</i>"]
-    A2["EfficientLoFTR<br/><i>Semi-Dense Matching</i>"]
-    A3["Depth Anything 3<br/><i>Depth Prediction</i>"]
-    A4["FastSAM / SAM / CNOS<br/><i>Segmentation</i>"]
-    A5["FoundationPose<br/><i>6D Pose Estimation</i>"]
-
-    R1["FeatureExtractionResult"]
-    R2["MatchResult"]
-    R3["DepthPredictionResult"]
-    R4["SegmentationResult"]
-    R5["PoseEstimationResult"]
-
-    Downstream["Downstream 3D Spatial Systems<br/><i>Visual SLAM • 3D Scene Reconstruction • Robotic Manipulation</i>"]
-
-    In1 --> A1 --> R1 --> Downstream
-    In2 --> A2 --> R2 --> Downstream
-    In3 --> A3 --> R3 --> Downstream
-    In4 --> A4 --> R4 --> Downstream
-    In5 --> A5 --> R5 --> Downstream
-```
-
-### Four-Tier Architecture Flow
-
-1. **Sensor & Asset Inputs**: Accepts diverse input modalities ranging from raw monocular RGB frames, stereo pairs, and RGB-D streams with camera calibration matrices ($K$), to 3D CAD meshes (`.ply`, `.obj`).
-2. **Perception Adapters (ONNX Runtime)**: Zero-PyTorch execution adapters with pure NumPy/OpenCV vector preprocessing and postprocessing.
-3. **Standardized Return Contracts**: Universal, type-annotated dataclasses (`MatchResult`, `DepthPredictionResult`, etc.) establishing a consistent schema across all model families.
-4. **Downstream 3D Spatial Systems**: Downstream geometric and spatial algorithms consume standardized dataclasses in a plug-and-play manner without model-specific coupling.
-
-### The Multi-Stage Integration Problem
-
-In conventional workflows, combining research models across these stages presents significant friction:
-
-1. **Disparate Interface Contracts**: Every research model outputs different data structures, non-standard tensor shapes, and inconsistent coordinate conventions.
-2. **Conflicting Dependencies**: Combining multiple neural models often causes severe PyTorch, CUDA, and library version conflicts.
-
-### Plug-and-Play Modularity
-
-SpatialHub addresses this by introducing **standardized return contracts** on top of a **zero-PyTorch ONNX Runtime engine**:
-
-* **Interchangeable Models**: Any model producing a given dataclass (e.g. `MatchResult` or `DepthPredictionResult`) can be swapped into downstream pipelines without altering downstream geometric code.
-* **Lightweight Deployment**: Core inference paths rely exclusively on ONNX Runtime with pure NumPy and OpenCV vector operations. PyTorch is isolated strictly to offline export utilities.
+SpatialHub addresses this by providing standardized geometric data structures, consistent coordinate conventions, and self-contained model inference sessions.
 
 ---
 
-## Key Technical Specifications
+## Architecture
 
-* **Modular Return Contracts:** Standardized dataclass outputs ([`MatchResult`](core-and-utils/structures/match_result.md), [`DepthPredictionResult`](core-and-utils/structures/depth_prediction_result.md), [`FeatureExtractionResult`](core-and-utils/structures/feature_extraction_result.md), [`SegmentationResult`](core-and-utils/structures/segmentation_result.md), [`PoseEstimationResult`](core-and-utils/structures/pose_estimation_result.md)).
-* **PyTorch-Free Inference Path:** Pure NumPy and OpenCV vector preprocessing and postprocessing. Inference engines execute exclusively on ONNX Runtime.
-* **Automatic Weight Management:** Downloads, verifies, and caches pretrained `.onnx` weight binaries from Hugging Face Hub.
-* **Execution Provider Configuration:** Supports CPU, CUDA, and TensorRT execution providers with runtime fallback verification.
+SpatialHub organizes vision models, data structures, and geometric utilities into a structured dataflow:
+
+![SpatialHub Architecture](assets/arch_concept4_dataflow.svg)
+
+### Input Data
+
+Pipelines accept standard vision inputs as raw NumPy arrays, filepaths, or 3D mesh files:
+
+- RGB images and sequential video frames (`uint8` arrays in RGB channel order).
+- Camera intrinsic matrices ($K \in \mathbb{R}^{3 \times 3}$) and raw depth maps.
+- 3D CAD meshes (`.ply`, `.obj`, `.stl`) for template rendering and model-based tracking.
+
+### Inference
+
+Models run through isolated ONNX Runtime sessions without requiring a PyTorch installation at runtime:
+
+- **Hardware Acceleration**: Executes on available hardware providers (`CUDAExecutionProvider`, `TensorrtExecutionProvider`, or CPU fallback).
+- **Weight Resolution**: Pretrained ONNX graphs are downloaded and cached locally from Hugging Face Hub on first run.
+- **Vision Modalities**: Supports distinct perception tasks including monocular and multi-view depth estimation, instance segmentation, visual feature extraction, keypoint matching, and 6D object pose estimation. Each model produces predictions directly in the library's standardized data structures.
+
+### Standardized Data Structures
+
+Model outputs populate validated dataclasses defined in `spatialhub.structures` instead of unstructured arrays or vendor-specific dictionaries:
+
+- **Pure NumPy Containers**: Structures hold validated NumPy arrays with zero framework locks.
+- **Leading Batch Dimension**: All fields enforce an explicit leading batch dimension $(N, \dots)$ for consistent dimensional contracts.
+- **Synchronized Slicing**: Indexing operations slice all parallel fields (masks, bounding boxes, scores, identifiers) simultaneously.
+- **Coordinate Conventions**: All camera matrices, 3D coordinates, and $\mathrm{SE}(3)$ transformations strictly adhere to the OpenCV camera coordinate standard ($+X$ right, $+Y$ down, $+Z$ forward along the optical axis).
+
+### Geometric & Rendering Utilities
+
+SpatialHub provides functional utilities and hardware rendering support for spatial data processing:
+
+- **Geometric & Spatial Utilities** (`spatialhub.utils`): Stateless operations for camera projection and 3D backprojection, $\mathrm{SE}(3)$ rigid transformation algebra, metric depth range mapping, and 3D bounding box and coordinate axis visual projections.
+- **Hardware Offscreen Rendering** (`spatialhub.utils.moderngl`): Headless ModernGL contexts (EGL, OSMesa, WGL) supporting batched CAD mesh rasterization, multi-buffer generation (color, surface normals, depth), and fullscreen fragment shader filtering.
+
+### Downstream Applications
+
+The standardized data structures and utilities allow users to construct customized multi-stage vision pipelines, such as:
+
+- **6D Object Pose Tracking**: Integrating CAD mesh registration and iterative pose refinement on video streams.
+- **Zero-Shot CAD Detection**: Combining headless CAD viewpoint rendering with visual feature matching for CAD object localization.
+- **Dense 3D Reconstruction**: Backprojecting monocular or multi-view depth maps into registered metric point clouds.
+- **Two-View Geometry**: Establishing geometric point correspondences for relative camera pose estimation.
 
 ---
 
-## Perception Models Summary
+## Next Steps
 
-| Model | Task | Returned Result Class | Export Script |
-| :--- | :--- | :--- | :--- |
-| [**EfficientLoFTR**](models/eloftr.md) | Semi-dense Feature Matching | [`MatchResult`](core-and-utils/structures/match_result.md) | `tools/export/export_efficient_loftr.py` |
-| [**Depth Anything 3**](models/depthanything3.md) | Monocular & Multi-View Depth | [`DepthPredictionResult`](core-and-utils/structures/depth_prediction_result.md) | `tools/export/export_depth_anything_3.py` |
-| [**DINOv2**](models/dinov2.md) | Image Feature Extraction | [`FeatureExtractionResult`](core-and-utils/structures/feature_extraction_result.md) | `tools/export/export_dinov2.py` |
-| [**FastSAM**](models/fastsam.md) | Real-Time Proposal Segmentation | [`SegmentationResult`](core-and-utils/structures/segmentation_result.md) | `tools/export/export_fastsam.py` |
-| [**SAM**](models/sam.md) | Automatic Mask Generation (AMG) | [`SegmentationResult`](core-and-utils/structures/segmentation_result.md) | `tools/export/export_sam.py` |
-| [**CNOS**](models/cnos.md) | CAD Zero-Shot Object Detection | [`SegmentationResult`](core-and-utils/structures/segmentation_result.md) | `tools/export/export_dinov2.py` & `export_fastsam.py` |
-| [**FoundationPose**](models/foundationpose.md) | Model-based 6D Object Pose & Tracking | [`PoseEstimationResult`](core-and-utils/structures/pose_estimation_result.md) | `tools/export/export_foundationpose.py` |
+- **[Installation](getting_started/installation.md)**: Hardware execution providers (CUDA, TensorRT, CPU) and optional rendering dependencies.
+- **[Quickstart](getting_started/quickstart.md)**: End-to-end walkthrough running monocular depth estimation, instance segmentation, and 3D point cloud unprojection.
+- **[Model Overview](models/overview.md)**: Catalog of supported model architectures and output contract specifications.

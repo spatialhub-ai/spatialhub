@@ -1,29 +1,73 @@
-# Models Overview
+# Model Adapters
 
-SpatialHub provides ONNX Runtime adapters for 7 computer vision model architectures across perception tasks. All adapters return standard Python dataclass contracts defined in [`spatialhub.structures`](../core-and-utils/structures/overview.md).
-
----
-
-## Perception Models Summary Table
-
-| Model Architecture | Task | Primary Adapter Class | Available Model Options / Presets | Supported Sub-Adapters | Returned Result Contract |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **EfficientLoFTR** | Semi-dense Feature Matching | `EfficientLoFTR` | `"full"` (Default), `"opt"` | N/A | [`MatchResult`](../core-and-utils/structures/match_result.md) |
-| **Depth Anything 3** | Monocular & Multi-View Depth | `DepthAnything3` | `"da3_small"`, `"da3_base"` (Default), `"da3_large"`, `"da3_giant"`, `"da3mono_large"`, `"da3metric_large"`, `"da3nested_*_large"` | N/A | [`DepthPredictionResult`](../core-and-utils/structures/depth_prediction_result.md) |
-| **DINOv2** | Image Feature Extraction | `DINOv2` | `"vits14"`, `"vitb14"`, `"vitl14"` (Default), `"vitg14"` | N/A | [`FeatureExtractionResult`](../core-and-utils/structures/feature_extraction_result.md) |
-| **FastSAM** | Real-Time Proposal Segmentation | `FastSAM` | `"x"` (Default), `"s"` | N/A | [`SegmentationResult`](../core-and-utils/structures/segmentation_result.md) |
-| **SAM** | Automatic Mask Generation (AMG) | `SAM` | `"vit_h"` (Default), `"vit_l"`, `"vit_b"` | N/A | [`SegmentationResult`](../core-and-utils/structures/segmentation_result.md) |
-| **CNOS** | CAD Zero-Shot Object Segmentation | `CNOS` | 3D CAD Mesh (`.ply`, `.obj`, `.stl`) | **Segmentors:** `FastSAMAdapter`, `SAMAdapter`<br>**Descriptor:** `DINOv2Adapter` | [`SegmentationResult`](../core-and-utils/structures/segmentation_result.md) |
-| **FoundationPose** | Model-based 6D Object Pose Estimation & Tracking | `FoundationPose` | 3D CAD Mesh (`.ply`, `.obj`, `.stl`) | **Refiner:** `PoseRefinePredictor`<br>**Scorer:** `ScorePredictor` | [`PoseEstimationResult`](../core-and-utils/structures/pose_estimation_result.md) |
+SpatialHub provides ONNX Runtime inference adapters for deep vision architectures across spatial perception tasks. Each adapter standardizes input preprocessing and output decoding, returning typed geometric containers defined in [`spatialhub.structures`](../structures/poses_and_cameras.md).
 
 ---
 
-## Detailed Technical References
+## Adapter Catalog
 
-- [**EfficientLoFTR Documentation**](eloftr.md) : `"full"` and `"opt"` precision options, dimension alignment math, coordinate scaling, and matching API.
-- [**Depth Anything 3 Documentation**](depthanything3.md) : Main foundation series (`small`, `base`, `large`, `giant`), Metric series, Monocular series, and Nested dual-model alignment.
-- [**DINOv2 Documentation**](dinov2.md) : Vision Transformer backbones (`vits14`, `vitb14`, `vitl14`, `vitg14`), ImageNet normalization, and unit L2 normalization.
-- [**FastSAM Documentation**](fastsam.md) : YOLOv8-Seg models (`x`, `s`), prototype mask decoding, NMS filtering, and proposal generation.
-- [**SAM Documentation**](sam.md) : SAM variants (`vit_h`, `vit_l`, `vit_b`), decoupled Image Encoder / Mask Decoder ONNX execution, point grid sampling, and AMG.
-- [**CNOS Documentation**](cnos.md) : 3D CAD mesh template rendering, pluggable segmentors (`FastSAM`, `SAM`), DINOv2 descriptor matching, and zero-shot instance segmentation.
-- [**FoundationPose Documentation**](foundationpose.md) : Iterative neural pose refinement (`RefineNet`), pairwise comparison tournament scoring (`ScoreNet`), ModernGL G-buffer atlas rendering, and 6D object pose registration/tracking.
+| Model | Task | Primary Adapter Class | Output Structure |
+| :--- | :--- | :--- | :--- |
+| [**EfficientLoFTR**](eloftr.md) | Semi-dense Feature Matching | `EfficientLoFTR` | [`KeypointMatches`](../structures/perception_primitives.md#keypointmatches) |
+| [**Depth Anything 3**](depthanything3.md) | Monocular & Metric Depth | `DepthAnything3` | [`DepthMap`](../structures/scene_and_bounds.md#depthmap) |
+| [**DINOv2**](dinov2.md) | Vision Transformer Descriptors | `DINOv2` | [`FeatureEmbedding`](../structures/perception_primitives.md#featureembedding) |
+| [**FastSAM**](fastsam.md) | Real-Time Proposal Segmentation | `FastSAM` | [`InstanceSegmentation`](../structures/perception_primitives.md#instancesegmentation) |
+| [**SAM**](sam.md) | Automatic Mask Generation | `SAM` | [`InstanceSegmentation`](../structures/perception_primitives.md#instancesegmentation) |
+| [**CNOS**](cnos.md) | Zero-Shot CAD Detection | `CNOS` | [`InstanceSegmentation`](../structures/perception_primitives.md#instancesegmentation) |
+| [**FoundationPose**](foundationpose.md) | 6D Object Pose Estimation & Tracking | `FoundationPose` | [`ObjectPose6D`](../structures/poses_and_cameras.md#objectpose6d) |
+
+---
+
+## Execution Providers
+
+Adapters configure hardware execution through the `providers` parameter, accepting ONNX Runtime execution provider names ordered by preference:
+
+```python
+# Hardware acceleration with CPU fallback
+providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
+
+# Host CPU execution
+providers = ["CPUExecutionProvider"]
+```
+
+When omitted, execution defaults to available host runtime providers.
+
+---
+
+## Resource Management
+
+Adapters manage ONNX Runtime inference sessions and GPU memory buffers. All adapters support the Python context manager protocol (`with` statement) for deterministic teardown:
+
+```python
+with EfficientLoFTR(model_type="full") as matcher:
+    matches = matcher.match(image_a, image_b)
+# ONNX sessions and cached buffers released upon exit
+```
+
+For long-lived instances or pipeline loops, call `.close()` directly to release sessions:
+
+```python
+matcher = EfficientLoFTR(model_type="full")
+matches = matcher.match(image_a, image_b)
+matcher.close()
+```
+
+---
+
+## Data Contracts
+
+Every adapter maps raw neural network output tensors directly into typed dataclasses from `spatialhub.structures`:
+
+- Pixel-space correspondences map to [`KeypointMatches`](../structures/perception_primitives.md#keypointmatches).
+- Segmentation masks and bounding boxes map to [`InstanceSegmentation`](../structures/perception_primitives.md#instancesegmentation).
+- Monocular and multi-view depth estimates map to [`DepthMap`](../structures/scene_and_bounds.md#depthmap).
+- Dense and global semantic descriptors map to [`FeatureEmbedding`](../structures/perception_primitives.md#featureembedding).
+- Rigid 3D camera-space poses map to [`ObjectPose6D`](../structures/poses_and_cameras.md#objectpose6d).
+
+Downstream utilities in `spatialhub.utils` operate on these structures without format conversion.
+
+---
+
+## Custom Adapters
+
+SpatialHub does not enforce an inheritance base class for model adapters. Custom models or inference routines can integrate into SpatialHub workflows by returning the corresponding dataclass from [`spatialhub.structures`](../structures/poses_and_cameras.md).

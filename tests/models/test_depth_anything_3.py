@@ -10,7 +10,8 @@ import pytest
 
 from spatialhub import DepthAnything3
 from spatialhub.models.depth_anything_3.adapter import DepthAnything3Adapter
-from spatialhub.structures import DepthPredictionResult
+from spatialhub.structures import CameraExtrinsics, CameraIntrinsics, DepthMap
+
 
 
 class TestDepthAnything3Init:
@@ -148,10 +149,14 @@ class TestDepthAnything3Inference:
 
         result = adapter.estimate_depth(images=[dummy_img])
 
-        assert isinstance(result, DepthPredictionResult)
+        assert isinstance(result, DepthMap)
         assert result.depth is not None
-        assert result.conf is not None
+        assert result.confidence is not None
         assert result.depth_type == "relative"
+        assert isinstance(result.intrinsics, CameraIntrinsics)
+        assert isinstance(result.extrinsics, CameraExtrinsics)
+        assert result.intrinsics.matrix.shape == (1, 3, 3)
+        assert result.extrinsics.matrix.shape == (1, 4, 4)
 
     def test_context_manager_and_close(self):
         """Test context manager lifecycle and close method releasing session resources."""

@@ -24,6 +24,9 @@ import cv2
 from pathlib import Path
 import numpy as np
 
+from spatialhub.utils import load_image, to_color
+from spatialhub.utils.constants import IMAGENET_MEAN, IMAGENET_STD
+
 from multiprocessing.pool import ThreadPool
 from typing import Callable, Dict, List
 
@@ -349,35 +352,14 @@ class InputProcessor:
     # I/O & normalization
     def _load_image(self, img: np.ndarray | str) -> np.ndarray:
         """Load an RGB image from a path or validate an in-memory NumPy array."""
-
         if isinstance(img, (str, Path)):
-            img_path = str(img)
-
-            if not os.path.exists(img_path):
-                raise FileNotFoundError(f"Image path does not exist: {img_path}")
-            
-            img = cv2.imread(img)
-            if img is None:
-                raise ValueError(f"Failed to read image: {img}")
-            
-            img =  cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            return load_image(img, color_mode="RGB")
         elif isinstance(img, np.ndarray):
-            if img.ndim != 3:
-                raise ValueError(
-                    f"Expected image with shape (H, W, C), got {img.shape}."
-                )
-            
-            if img.shape[2] != 3:
-                raise ValueError(
-                    f"Expected 3-channel image, got shape {img.shape}."
-                )
-            
             if img.size == 0:
                 raise ValueError("Input image is empty.")
+            return to_color(img, "RGB")
         else:
-            raise ValueError(f"Unsupported image type: {type(img)}")
-        
-        return img
+            raise TypeError(f"Unsupported image type: {type(img).__name__}")
 
     def _normalize_image(self, img: np.ndarray) -> np.ndarray:
         # Convert Image to float32 array and scale to [0, 1]
@@ -387,8 +369,8 @@ class InputProcessor:
         img_np = np.transpose(img_np, (2, 0, 1))
         
         # Apply ImageNet normalization
-        mean = np.array([0.485, 0.456, 0.406], dtype=np.float32).reshape(3, 1, 1)
-        std = np.array([0.229, 0.224, 0.225], dtype=np.float32).reshape(3, 1, 1)
+        mean = IMAGENET_MEAN.reshape(3, 1, 1)
+        std = IMAGENET_STD.reshape(3, 1, 1)
 
         return (img_np - mean) / std
 

@@ -7,7 +7,7 @@ from typing import Any
 import numpy as np
 
 from spatialhub.core.runtime import create_ort_session, resolve_model_path, ort
-from spatialhub.structures import DepthPredictionResult
+from spatialhub.structures import DepthMap
 
 from .input_processor import InputProcessor
 from .utils import (
@@ -15,8 +15,7 @@ from .utils import (
     align_poses_umeyama,
     affine_inverse_np,
     normalize_extrinsics,
-    process_mono_sky_estimation_np,
-    visualize_depth,
+    process_mono_sky_estimation_np
 )
 
 logger = logging.getLogger(__name__)
@@ -79,7 +78,7 @@ class DepthAnything3Adapter:
 
     def __init__(
         self,
-        model_name: str = "da3_base",
+        model_name: str | Path | list[str | Path] = "da3_base",
         model_variant: str | None = None,
         providers: list[str] | str | None = None,
         align_to_input_ext_scale: bool = True,
@@ -91,7 +90,8 @@ class DepthAnything3Adapter:
 
         Args:
             model_name:
-                Name of the model preset or local/remote ONNX file name. Supported presets:
+                Name of the model preset, local ONNX file path, or list of file paths (for nested models).
+                Supported presets:
                 - Any-view foundation models ("da3_small", "da3_base", "da3_giant", "da3_large")
                 - "da3mono_large":
                   Monocular model fine-tuned for high-detail relative depth estimation.
@@ -124,7 +124,7 @@ class DepthAnything3Adapter:
 
         Raises:
             TypeError:
-                If model_name is not a string.
+                If model_name is not a string, Path, or list of strings/Paths.
             ValueError:
                 If model_name is unknown, process_res is invalid, or model_variant is unsupported.
             RuntimeError:
@@ -135,19 +135,43 @@ class DepthAnything3Adapter:
                 f"process_res must be a positive multiple of 14, received process_res={process_res}."
             )
 
-        if not isinstance(model_name, str):
+        if not isinstance(model_name, (str, Path, list, tuple)):
             raise TypeError(
-                f"model_name must be a string preset, received {type(model_name).__name__}."
+                f"model_name must be a string preset, path, or list of paths, received {type(model_name).__name__}."
             )
 
-        if model_name not in MODEL_REGISTRY:
+        # Resolve model files and default metric status
+        if isinstance(model_name, (list, tuple)):
+            models_to_load = [str(item) for item in model_name]
+            # Infer metric behavior if multiple sessions or any filename contains 'metric'
+            is_metric = len(models_to_load) > 1 or any(
+                "metric" in Path(p).stem.lower() for p in models_to_load
+            )
+        elif isinstance(model_name, Path) or (
+            isinstance(model_name, str)
+            and (
+                model_name.lower().endswith(".onnx")
+                or Path(model_name).exists()
+                or "/" in model_name
+                or "\\" in model_name
+            )
+        ):
+            path_obj = Path(model_name)
+            models_to_load = [str(path_obj)]
+            stem = path_obj.stem.lower()
+            if stem in MODEL_REGISTRY:
+                is_metric = MODEL_REGISTRY[stem]["is_metric"]
+            else:
+                is_metric = "metric" in stem
+        elif model_name in MODEL_REGISTRY:
+            registry_entry = MODEL_REGISTRY[model_name]
+            models_to_load = registry_entry["files"]
+            is_metric = registry_entry["is_metric"]
+        else:
             presets = ", ".join(sorted(MODEL_REGISTRY.keys()))
             raise ValueError(
                 f"Unsupported model_name '{model_name}'. Supported presets: {presets}."
             )
-
-        registry_entry = MODEL_REGISTRY[model_name]
-        models_to_load = registry_entry["files"]
 
         # Resolve model variant ('metric' or 'relative')
         if model_variant is not None:
@@ -155,7 +179,7 @@ class DepthAnything3Adapter:
                 raise ValueError(f"model_variant must be 'relative' or 'metric', got '{model_variant}'.")
             self.model_variant = model_variant
         else:
-            self.model_variant = "metric" if registry_entry["is_metric"] else "relative"
+            self.model_variant = "metric" if is_metric else "relative"
 
         logger.info("Detected DA3 variant: %s", self.model_variant)
 
@@ -163,10 +187,11 @@ class DepthAnything3Adapter:
 
         # Resolve and load ONNX session(s) using core runtime helpers
         for filename in models_to_load:
+            file_path = Path(filename)
             resolved_path = resolve_model_path(
-                model_path=filename if Path(filename).exists() else None,
+                model_path=filename if file_path.exists() else None,
                 repo_id="SpatialHub/depth-anything-3-onnx",
-                filename=filename,
+                filename=file_path.name,
             )
 
             session = create_ort_session(
@@ -187,7 +212,7 @@ class DepthAnything3Adapter:
         images: list[np.ndarray | str],
         extrinsics: list[np.ndarray] | None = None,
         intrinsics: list[np.ndarray] | None = None,
-    ) -> DepthPredictionResult:
+    ) -> DepthMap:
         """Estimate depth and camera parameters across one or more input images.
 
         Args:
@@ -199,9 +224,9 @@ class DepthAnything3Adapter:
                 Optional camera intrinsics matrices of shape (N, 3, 3).
 
         Returns:
-            DepthPredictionResult:
-                Structured prediction dataclass containing depth maps, confidence maps,
-                and aligned camera intrinsics/extrinsics.
+            DepthMap:
+                Structured depth dataclass containing depth maps, confidence maps,
+                and aligned camera intrinsic/extrinsic parameters.
         """
         if not getattr(self, "ort_sessions", None):
             raise RuntimeError("Inference session has been closed or was not initialized.")
@@ -247,13 +272,12 @@ class DepthAnything3Adapter:
             original_extrinsics=orig_extrinsics,
         )
 
-        return DepthPredictionResult(
-            image=images,
+        return DepthMap(
             depth=depth,
-            conf=conf,
-            extrinsics=pred_ext,
-            intrinsics=np_inputs.get("original_intrinsics") if np_inputs.get("original_intrinsics") is not None else pred_int,
+            confidence=conf,
             depth_type=self.model_variant,
+            intrinsics=np_inputs.get("original_intrinsics") if np_inputs.get("original_intrinsics") is not None else pred_int,
+            extrinsics=pred_ext,
         )
 
     def _preprocess(
@@ -332,10 +356,19 @@ class DepthAnything3Adapter:
         extrinsics = raw_output.get("extrinsics_out", None)
         if extrinsics is not None and extrinsics.size > 0 and extrinsics.flat[0] != -1.0:
             extrinsics = np.squeeze(extrinsics, axis=0)
+            if extrinsics.shape[-2:] == (3, 4):
+                h_ext = np.zeros((*extrinsics.shape[:-2], 4, 4), dtype=extrinsics.dtype)
+                h_ext[..., :3, :4] = extrinsics
+                h_ext[..., 3, 3] = 1.0
+                extrinsics = h_ext
+        else:
+            extrinsics = None
 
         intrinsics = raw_output.get("intrinsics_out", None)
         if intrinsics is not None and intrinsics.size > 0 and intrinsics.flat[0] != -1.0:
             intrinsics = np.squeeze(intrinsics, axis=0)
+        else:
+            intrinsics = None
 
         return depth, conf, sky, extrinsics, intrinsics
 
@@ -419,15 +452,4 @@ class DepthAnything3Adapter:
         """Release underlying runtime inference session(s) and memory resources."""
         if getattr(self, "ort_sessions", None) is not None:
             self.ort_sessions.clear()
-
-    def visualize(self, depth: np.ndarray) -> np.ndarray:
-        """Visualize raw depth array using colormap.
-
-        Args:
-            depth: Single depth map of shape (H, W).
-
-        Returns:
-            RGB visualization array of shape (H, W, 3).
-        """
-        return visualize_depth(depth)
 

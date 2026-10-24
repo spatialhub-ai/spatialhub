@@ -58,7 +58,7 @@ graph TD
     I -- "Yes (N=1)" --> K["Adopt Reference World Pose Directly"]
     I -- "Yes (N=2)" --> L["Scale Depth by Camera Baseline Ratio & Adopt Reference Pose"]
     I -- "Yes (N>=3)" --> M["Sim(3) Umeyama Alignment (Rescale Depth & Align Trajectory)"]
-    J --> N["DepthPredictionResult"]
+    J --> N["DepthMap"]
     K --> N
     L --> N
     M --> N
@@ -108,26 +108,26 @@ The adapter handles camera intrinsics and extrinsics dynamically based on whethe
 +----------------------------------------------------------------------------------------------------+
 |  Input Parameter      |  Execution Mode    |  Behavior & Depth Scaling   |  Returned Result        |
 +-----------------------+--------------------+-----------------------------+-------------------------+
-|  extrinsics = None    |  Unposed Sequence  |  Camera decoder estimates   |  result.extrinsics      |
+|  extrinsics = None    |  Unposed Sequence  |  Camera decoder estimates   |  result.extrinsic       |
 |                       |                    |  relative camera poses      |  contains predicted     |
 |                       |                    |  in internal canonical      |  trajectory (N, 4, 4)   |
 |                       |                    |  coordinate frame.          |                         |
 +-----------------------+--------------------+-----------------------------+-------------------------+
-|  extrinsics provided  |  Posed Single-View |  No scaling performed.      |  result.extrinsics      |
+|  extrinsics provided  |  Posed Single-View |  No scaling performed.      |  result.extrinsic       |
 |  (N = 1)              |  (N = 1)           |  Input world pose adopted.  |  matches input pose.    |
 +-----------------------+--------------------+-----------------------------+-------------------------+
 |  extrinsics provided  |  Posed Two-View    |  Scale computed from camera |  Depth scaled by 1/s;   |
-|  (N = 2)              |  (N = 2)           |  center baseline ratio:     |  result.extrinsics      |
+|  (N = 2)              |  (N = 2)           |  center baseline ratio:     |  result.extrinsic       |
 |                       |                    |  s = ||ΔC_pred|| / ||ΔC_gt|||  matches input poses.   |
 +-----------------------+--------------------+-----------------------------+-------------------------+
 |  extrinsics provided  |  Posed Multi-View  |  Umeyama Sim(3) fit aligns  |  Depth scaled by 1/s;   |
-|  (N >= 3)             |  (N >= 3)          |  predicted trajectory to GT |  result.extrinsics      |
+|  (N >= 3)             |  (N >= 3)          |  predicted trajectory to GT |  result.extrinsic       |
 |                       |                    |  (with RANSAC if N >= 10).  |  matches input poses.   |
 +-----------------------+--------------------+-----------------------------+-------------------------+
-|  intrinsics = None    |  Uncalibrated      |  Pinhole focal & principal  |  result.intrinsics      |
+|  intrinsics = None    |  Uncalibrated      |  Pinhole focal & principal  |  result.intrinsic       |
 |                       |                    |  points estimated by head.  |  contains (N, 3, 3).    |
 +-----------------------+--------------------+-----------------------------+-------------------------+
-|  intrinsics provided  |  Calibrated        |  Model conditioned on input |  result.intrinsics      |
+|  intrinsics provided  |  Calibrated        |  Model conditioned on input |  result.intrinsic       |
 |                       |                    |  calibration parameters.    |  contains (N, 3, 3).    |
 +----------------------------------------------------------------------------------------------------+
 ```
@@ -1009,16 +1009,16 @@ Evaluates sequential dual-session forward execution (`main_session` + `da3metric
 ### Single-View Relative Depth Estimation
 
 ```python
-import cv2
 from spatialhub import DepthAnything3
+from spatialhub.utils import save_image, visualize_depth
 
 # Initialize adapter with DA3 Base preset
 with DepthAnything3(model_name="da3_base", providers=["CUDAExecutionProvider"]) as estimator:
     result = estimator.estimate_depth(images=["room_view.jpg"])
 
     # Visualize colorized depth map
-    colorized_depth = estimator.visualize(result.depth[0])
-    cv2.imwrite("depth_output.png", cv2.cvtColor(colorized_depth, cv2.COLOR_RGB2BGR))
+    vis = visualize_depth(result.depth)
+    save_image(vis, "depth_output.png")
 ```
 
 ### Multi-View Trajectory Alignment & Depth Scaling
@@ -1038,7 +1038,8 @@ with DepthAnything3(
     )
 
     print("Estimated depth shape:", result.depth.shape)
-    print("Aligned camera extrinsics shape:", result.extrinsics.shape)
+    if result.extrinsics is not None:
+        print("Aligned camera extrinsics shape:", result.extrinsics.matrix.shape)
 ```
 
 ### Direct Metric Depth Estimation
@@ -1141,14 +1142,13 @@ uv run tools/benchmark/profile_depth_anything_3.py \
 
 ## Returned Result Data Structure
 
-Returns a [`DepthPredictionResult`](https://spatialhub-ai.github.io/spatialhub/core-and-utils/structures/depth_prediction_result/) dataclass:
+Returns a [`DepthMap`](https://spatialhub-ai.github.io/spatialhub/structures/scene_and_bounds/#depthmap) dataclass:
 
 | Attribute | Type | Shape | Description |
 | :--- | :--- | :--- | :--- |
-| `image` | `np.ndarray | str | Path | list` | `(N, H, W, 3)`, `(H, W, 3)`, or path | Input image array(s) or file paths in native resolution. |
-| `depth` | `DepthMap` | `(N, H, W)` float32 | Predicted depth maps in meters or relative scale. Promoted from `(H, W)` if single-image. |
-| `conf` | `ConfidenceMap | None` | `(N, H, W)` float32 | Per-pixel prediction confidence maps in `[0.0, 1.0]`. |
-| `intrinsics` | `Intrinsics3x3 | None` | `(N, 3, 3)` float32 | Pinhole camera intrinsic calibration matrices `[[fx, 0, cx], [0, fy, cy], [0, 0, 1]]`. |
-| `extrinsics` | `CameraToWorld | None` | `(N, 4, 4)` float32 | Estimated or aligned rigid camera-to-world transformation matrices. |
+| `depth` | `np.ndarray` | `(N, H, W)` float32 | Predicted depth maps in meters or relative scale. Promoted from `(H, W)` if single-image. |
+| `confidence` | `np.ndarray | None` | `(N, H, W)` float32 | Optional per-pixel prediction confidence maps. |
 | `depth_type` | `Literal["metric", "relative", "inverse", "disparity"]` | N/A | Scale interpretation identifier. |
+| `intrinsics` | `CameraIntrinsics | None` | `(N, 3, 3)` float32 | Camera intrinsic calibration matrices mapping 3D points to pixel coordinates. |
+| `extrinsics` | `CameraExtrinsics | None` | `(N, 4, 4)` float32 | Camera extrinsic transformation matrices in SE(3) mapping world to camera frame. |
 

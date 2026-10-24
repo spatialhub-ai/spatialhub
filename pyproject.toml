@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "spatialhub"
 dynamic = ["version"]
-description = "High-performance, zero-PyTorch spatial AI and perception library with unified ONNX Runtime inference."
+description = "Zero-PyTorch Python library for composing deep vision models and geometric algorithms into spatial perception pipelines."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Apache-2.0" }

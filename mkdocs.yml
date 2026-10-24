@@ -1,5 +1,5 @@
 site_name: SpatialHub
-site_description: High-performance, zero-PyTorch spatial AI and perception library.
+site_description: Zero-PyTorch Python library for composing deep vision models and geometric algorithms into spatial perception pipelines.
 site_url: https://spatialhub-ai.github.io/spatialhub/
 repo_url: https://github.com/spatialhub-ai/spatialhub
 repo_name: spatialhub-ai/spatialhub

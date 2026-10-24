@@ -1,6 +1,6 @@
 <div align="center">
   <img src="docs/assets/logo.svg" alt="SpatialHub Logo" width="340" />
-  <p><strong>High-performance, zero-PyTorch spatial AI and perception library with unified ONNX Runtime inference.</strong></p>
+  <p><strong>Zero-PyTorch Python library for composing deep vision models and geometric algorithms into spatial perception pipelines.</strong></p>
 
   [![PyPI version](https://badge.fury.io/py/spatialhub.svg)](https://badge.fury.io/py/spatialhub)
   [![Documentation](https://img.shields.io/badge/docs-spatialhub--ai.github.io-blue)](https://spatialhub-ai.github.io/spatialhub/)

@@ -1,300 +1,248 @@
 """Comprehensive unit tests for spatialhub.utils.image module."""
 
+from __future__ import annotations
+
 from pathlib import Path
-import tempfile
 import cv2
 import numpy as np
 import pytest
 
+from spatialhub.utils.constants import IMAGENET_MEAN, IMAGENET_STD
 from spatialhub.utils.image import (
-    IMAGENET_MEAN,
-    IMAGENET_STD,
-    extract_foreground_bbox,
     load_image,
-    non_max_suppression,
+    mask_to_bbox,
+    nms_boxes,
     normalize_image,
-    square_crop_and_resize,
+    pad_to_square,
+    save_image,
+    scale_depth,
 )
 
 
+@pytest.fixture
+def sample_image_file(tmp_path: Path) -> Path:
+    img_path = tmp_path / "test_image.png"
+    arr = np.zeros((100, 120, 3), dtype=np.uint8)
+    arr[20:80, 30:90] = [255, 128, 64]  # RGB
+    # Write as BGR via OpenCV
+    cv2.imwrite(str(img_path), cv2.cvtColor(arr, cv2.COLOR_RGB2BGR))
+    return img_path
+
+
 class TestLoadImage:
-    """Test suite for load_image function across diverse formats and inputs."""
+    """Test suite for load_image across color modes and file formats."""
 
-    def test_load_image_from_file_rgb(self, sample_image_file: str):
+    def test_load_image_rgb(self, sample_image_file: Path) -> None:
         img = load_image(sample_image_file, color_mode="RGB")
-        assert isinstance(img, np.ndarray)
-        assert img.ndim == 3
-        assert img.shape[2] == 3
+        assert img.shape == (100, 120, 3)
+        assert img.dtype == np.uint8
+        assert np.array_equal(img[50, 50], [255, 128, 64])
 
-    def test_load_image_from_file_rgba(self, sample_image_file: str):
+    def test_load_image_rgba(self, sample_image_file: Path) -> None:
         img = load_image(sample_image_file, color_mode="RGBA")
-        assert isinstance(img, np.ndarray)
-        assert img.ndim == 3
-        assert img.shape[2] == 4
+        assert img.shape == (100, 120, 4)
+        assert img[50, 50, 3] == 255
 
-    def test_load_image_from_file_gray(self, sample_image_file: str):
+    def test_load_image_gray(self, sample_image_file: Path) -> None:
         img = load_image(sample_image_file, color_mode="GRAY")
-        assert isinstance(img, np.ndarray)
-        assert img.ndim == 2
+        assert img.shape == (100, 120)
 
-    @pytest.mark.parametrize("mode", ["rgb", "rgba", "gray", "RGB", "RGBA", "GRAY"])
-    def test_load_image_case_insensitive_color_mode(self, sample_image_file: str, mode: str):
-        img = load_image(sample_image_file, color_mode=mode)
-        assert isinstance(img, np.ndarray)
+    def test_load_image_raw_mode(self, sample_image_file: Path) -> None:
+        img = load_image(sample_image_file, color_mode=None)
+        assert img.ndim == 3
 
-    def test_load_image_from_array_2d_gray(self):
-        arr = np.zeros((100, 120), dtype=np.uint8)
-        gray = load_image(arr, color_mode="GRAY")
-        assert gray.shape == (100, 120)
+    def test_load_image_case_insensitive(self, sample_image_file: Path) -> None:
+        img = load_image(sample_image_file, color_mode="rgb")
+        assert img.shape == (100, 120, 3)
 
-        rgb = load_image(arr, color_mode="RGB")
-        assert rgb.shape == (100, 120, 3)
-
-        rgba = load_image(arr, color_mode="RGBA")
-        assert rgba.shape == (100, 120, 4)
-
-    def test_load_image_from_array_3d_single_channel(self):
-        arr = np.zeros((100, 120, 1), dtype=np.uint8)
-        gray = load_image(arr, color_mode="GRAY")
-        assert gray.shape == (100, 120)
-
-        rgb = load_image(arr, color_mode="RGB")
-        assert rgb.shape == (100, 120, 3)
-
-    def test_load_image_from_array_3d_rgb(self):
-        arr = np.zeros((100, 120, 3), dtype=np.uint8)
-        rgb = load_image(arr, color_mode="RGB")
-        assert rgb.shape == (100, 120, 3)
-
-        rgba = load_image(arr, color_mode="RGBA")
-        assert rgba.shape == (100, 120, 4)
-
-        gray = load_image(arr, color_mode="GRAY")
-        assert gray.shape == (100, 120)
-
-    def test_load_image_from_array_4d_rgba(self):
-        arr = np.zeros((100, 120, 4), dtype=np.uint8)
-        rgba = load_image(arr, color_mode="RGBA")
-        assert rgba.shape == (100, 120, 4)
-
-        rgb = load_image(arr, color_mode="RGB")
-        assert rgb.shape == (100, 120, 3)
-
-        gray = load_image(arr, color_mode="GRAY")
-        assert gray.shape == (100, 120)
-
-    def test_load_image_missing_file_raises_filenotfound(self):
+    def test_nonexistent_file_raises(self, tmp_path: Path) -> None:
         with pytest.raises(FileNotFoundError, match="Could not read image"):
-            load_image("non_existent_image_file_12345.png")
+            load_image(tmp_path / "missing.png")
 
-    def test_load_image_invalid_mode_raises_valueerror(self, sample_image_file: str):
-        with pytest.raises(ValueError, match="Unsupported color_mode"):
-            load_image(sample_image_file, color_mode="CMYK")
+    def test_invalid_path_type_raises(self) -> None:
+        with pytest.raises(TypeError, match="path must be a str or Path"):
+            load_image(12345)  # type: ignore[arg-type]
 
-    def test_load_image_invalid_dimensions_raises_valueerror(self):
-        arr_5d = np.zeros((1, 2, 3, 4, 5), dtype=np.uint8)
-        with pytest.raises(ValueError, match="Unsupported image dimensions"):
-            load_image(arr_5d)
+
+class TestSaveImage:
+    """Test suite for save_image."""
+
+    def test_save_rgb_image(self, tmp_path: Path) -> None:
+        arr = np.zeros((64, 64, 3), dtype=np.uint8)
+        arr[:, :, 0] = 255
+        target = tmp_path / "subdir" / "output.png"
+
+        saved_path = save_image(arr, target, color_mode="RGB")
+        assert saved_path == target
+        assert target.exists()
+
+        loaded = load_image(target, color_mode="RGB")
+        assert np.array_equal(loaded, arr)
+
+    def test_save_boolean_mask(self, tmp_path: Path) -> None:
+        mask = np.zeros((32, 32), dtype=bool)
+        mask[10:20, 10:20] = True
+        target = tmp_path / "mask.png"
+
+        save_image(mask, target, color_mode="GRAY")
+        assert target.exists()
+
+        loaded = load_image(target, color_mode="GRAY")
+        assert loaded[15, 15] == 255
+        assert loaded[0, 0] == 0
+
+    def test_invalid_shape_raises(self, tmp_path: Path) -> None:
+        with pytest.raises(ValueError, match="Unsupported number of image channels"):
+            save_image(np.zeros((32, 32, 5), dtype=np.uint8), tmp_path / "out.png")
+
+
+class TestScaleDepth:
+    """Test suite for scale_depth."""
+
+    def test_metric_units(self) -> None:
+        d_mm = np.full((10, 10), 1000.0, dtype=np.float32)
+        d_m = scale_depth(d_mm, depth_unit="mm")
+        assert np.allclose(d_m, 1.0)
+
+        d_cm = np.full((10, 10), 100.0, dtype=np.float32)
+        assert np.allclose(scale_depth(d_cm, depth_unit="cm"), 1.0)
+
+        d_meters = np.full((10, 10), 1.0, dtype=np.float32)
+        assert np.allclose(scale_depth(d_meters, depth_unit="m"), 1.0)
+
+    def test_custom_float_multiplier(self) -> None:
+        depth = np.ones((5, 5), dtype=np.float32)
+        scaled = scale_depth(depth, depth_unit=0.005)
+        assert np.allclose(scaled, 0.005)
+
+    def test_invalid_unit_raises(self) -> None:
+        depth = np.ones((5, 5), dtype=np.float32)
+        with pytest.raises(ValueError, match="Unsupported depth_unit 'km'"):
+            scale_depth(depth, depth_unit="km")
+
+        with pytest.raises(ValueError, match="depth_unit multiplier must be positive"):
+            scale_depth(depth, depth_unit=-1.0)
 
 
 class TestNormalizeImage:
-    """Test suite for normalize_image function."""
+    """Test suite for normalize_image."""
 
-    def test_normalize_image_default_params(self, sample_rgb_image: np.ndarray):
-        img_float = sample_rgb_image.astype(np.float32) / 255.0
-        normed = normalize_image(img_float, to_chw=True)
-
+    def test_normalize_default_imagenet(self) -> None:
+        img = np.ones((10, 10, 3), dtype=np.float32)
+        normed = normalize_image(img, to_chw=True)
+        assert normed.shape == (3, 10, 10)
         assert normed.dtype == np.float32
-        assert normed.shape == (3, sample_rgb_image.shape[0], sample_rgb_image.shape[1])
 
-    def test_normalize_image_to_chw_false(self, sample_rgb_image: np.ndarray):
-        img_float = sample_rgb_image.astype(np.float32) / 255.0
-        normed = normalize_image(img_float, to_chw=False)
+        expected_ch0 = (1.0 - IMAGENET_MEAN[0]) / IMAGENET_STD[0]
+        assert np.isclose(normed[0, 0, 0], expected_ch0)
 
-        assert normed.dtype == np.float32
-        assert normed.shape == (sample_rgb_image.shape[0], sample_rgb_image.shape[1], 3)
+    def test_normalize_without_chw(self) -> None:
+        img = np.zeros((10, 10, 3), dtype=np.float32)
+        normed = normalize_image(img, to_chw=False)
+        assert normed.shape == (10, 10, 3)
 
-    def test_normalize_image_custom_mean_std(self):
-        img = np.ones((50, 50, 3), dtype=np.float32) * 2.0
-        custom_mean = np.array([1.0, 1.0, 1.0], dtype=np.float32)
-        custom_std = np.array([2.0, 2.0, 2.0], dtype=np.float32)
-
-        normed = normalize_image(img, mean=custom_mean, std=custom_std, to_chw=False)
-        expected = (2.0 - 1.0) / 2.0
-        assert np.allclose(normed, expected)
+    def test_normalize_batched(self) -> None:
+        batch_img = np.ones((2, 16, 16, 3), dtype=np.float32)
+        normed = normalize_image(batch_img, to_chw=True)
+        assert normed.shape == (2, 3, 16, 16)
 
 
-class TestExtractForegroundBbox:
-    """Test suite for extract_foreground_bbox."""
+class TestMaskToBbox:
+    """Test suite for mask_to_bbox."""
 
-    def test_extract_foreground_bbox_rgb(self):
-        img = np.zeros((100, 100, 3), dtype=np.uint8)
-        # Put a 20x20 foreground square at y: 30..50, x: 40..60
-        img[30:50, 40:60] = [255, 128, 64]
+    def test_standard_bbox_extraction(self) -> None:
+        mask = np.zeros((100, 100), dtype=np.uint8)
+        mask[20:60, 30:80] = 1
 
-        x_min, y_min, x_max, y_max = extract_foreground_bbox(img)
-        assert x_min == 40
-        assert y_min == 30
-        assert x_max == 60
-        assert y_max == 50
+        bbox = mask_to_bbox(mask)
+        assert bbox == (30, 20, 80, 60)
 
-    def test_extract_foreground_bbox_rgba_alpha(self):
-        img = np.zeros((100, 100, 4), dtype=np.uint8)
-        # Alpha channel > 0 at y: 10..30, x: 20..40
-        img[10:30, 20:40, 3] = 255
+    def test_all_zeros_mask_fallback(self) -> None:
+        mask = np.zeros((100, 120), dtype=np.uint8)
+        bbox = mask_to_bbox(mask)
+        assert bbox == (0, 0, 120, 100)
 
-        x_min, y_min, x_max, y_max = extract_foreground_bbox(img)
-        assert x_min == 20
-        assert y_min == 10
-        assert x_max == 40
-        assert y_max == 30
-
-    def test_extract_foreground_bbox_all_black_fallback_full_frame(self):
-        img = np.zeros((80, 120, 3), dtype=np.uint8)
-        x_min, y_min, x_max, y_max = extract_foreground_bbox(img)
-        assert (x_min, y_min, x_max, y_max) == (0, 0, 120, 80)
-
-    def test_extract_foreground_bbox_all_transparent_fallback_full_frame(self):
-        img = np.zeros((80, 120, 4), dtype=np.uint8)
-        x_min, y_min, x_max, y_max = extract_foreground_bbox(img)
-        assert (x_min, y_min, x_max, y_max) == (0, 0, 120, 80)
+    def test_single_channel_3d_mask(self) -> None:
+        mask = np.zeros((50, 50, 1), dtype=bool)
+        mask[10:30, 15:40, 0] = True
+        bbox = mask_to_bbox(mask)
+        assert bbox == (15, 10, 40, 30)
 
 
-class TestSquareCropAndResize:
-    """Test suite for square_crop_and_resize."""
+class TestPadToSquare:
+    """Test suite for pad_to_square."""
 
-    def test_square_crop_and_resize_wide_bbox(self):
-        img = np.zeros((100, 100, 3), dtype=np.uint8)
-        # Wide bbox: width=40, height=20
-        bbox = (10, 10, 50, 30)
-        cropped = square_crop_and_resize(img, bbox, target_size=None)
-        assert cropped.shape == (40, 40, 3)
+    def test_already_square_preserved(self) -> None:
+        img = np.ones((50, 50, 3), dtype=np.float32)
+        padded = pad_to_square(img)
+        assert padded.shape == (50, 50, 3)
+        assert padded is not img
 
-    def test_square_crop_and_resize_tall_bbox(self):
-        img = np.zeros((100, 100, 3), dtype=np.uint8)
-        # Tall bbox: width=20, height=60
-        bbox = (10, 10, 30, 70)
-        cropped = square_crop_and_resize(img, bbox, target_size=None)
-        assert cropped.shape == (60, 60, 3)
+    def test_landscape_padding(self) -> None:
+        # H=40, W=100 -> target (100, 100)
+        img = np.ones((40, 100, 3), dtype=np.uint8) * 255
+        padded = pad_to_square(img, pad_value=0)
+        assert padded.shape == (100, 100, 3)
 
-    def test_square_crop_and_resize_with_target_size(self):
-        img = np.zeros((200, 200, 3), dtype=np.uint8)
-        bbox = (20, 20, 80, 80)
-        cropped = square_crop_and_resize(img, bbox, target_size=224)
-        assert cropped.shape == (224, 224, 3)
+        # Padding 60 pixels total: 30 top, 30 bottom
+        assert np.all(padded[:30, :, :] == 0)
+        assert np.all(padded[30:70, :, :] == 255)
+        assert np.all(padded[70:, :, :] == 0)
 
-    def test_square_crop_and_resize_2d_grayscale(self):
-        img = np.zeros((100, 100), dtype=np.uint8)
-        bbox = (10, 10, 50, 30)
-        cropped = square_crop_and_resize(img, bbox, target_size=64)
-        assert cropped.shape == (64, 64)
+    def test_portrait_padding_2d_grayscale(self) -> None:
+        # H=100, W=60 -> target (100, 100)
+        img = np.ones((100, 60), dtype=np.uint8) * 128
+        padded = pad_to_square(img, pad_value=0)
+        assert padded.shape == (100, 100)
+        assert np.all(padded[:, :20] == 0)
+        assert np.all(padded[:, 20:80] == 128)
+        assert np.all(padded[:, 80:] == 0)
 
-    def test_square_crop_and_resize_negative_coords_raises(self):
-        img = np.zeros((100, 100, 3), dtype=np.uint8)
-        with pytest.raises(ValueError, match="non-negative"):
-            square_crop_and_resize(img, bbox=(-5, 10, 50, 50))
-
-    def test_square_crop_and_resize_inverted_coords_raises(self):
-        img = np.zeros((100, 100, 3), dtype=np.uint8)
-        # x_min >= x_max
-        with pytest.raises(ValueError, match="Invalid bounding box dimensions"):
-            square_crop_and_resize(img, bbox=(50, 10, 20, 50))
-        # y_min >= y_max
-        with pytest.raises(ValueError, match="Invalid bounding box dimensions"):
-            square_crop_and_resize(img, bbox=(10, 50, 50, 20))
-
-    def test_square_crop_and_resize_out_of_bounds_raises(self):
-        img = np.zeros((100, 100, 3), dtype=np.uint8)
-        # x_max exceeds width 100
-        with pytest.raises(ValueError, match="exceeds image bounds"):
-            square_crop_and_resize(img, bbox=(10, 10, 120, 50))
-        # y_max exceeds height 100
-        with pytest.raises(ValueError, match="exceeds image bounds"):
-            square_crop_and_resize(img, bbox=(10, 10, 50, 120))
-
-    def test_square_crop_and_resize_invalid_length_raises(self):
-        img = np.zeros((100, 100, 3), dtype=np.uint8)
-        with pytest.raises(ValueError, match="Expected bbox with 4 elements"):
-            square_crop_and_resize(img, bbox=(10, 10, 50))
-
-    def test_square_crop_and_resize_invalid_target_size_raises(self):
-        img = np.zeros((100, 100, 3), dtype=np.uint8)
-        with pytest.raises(ValueError, match="positive integer"):
-            square_crop_and_resize(img, bbox=(10, 10, 50, 50), target_size=0)
+    def test_batched_padding(self) -> None:
+        batch_img = np.zeros((2, 40, 80, 3), dtype=np.float32)
+        padded = pad_to_square(batch_img)
+        assert padded.shape == (2, 80, 80, 3)
 
 
-class TestNonMaxSuppression:
-    """Test suite for non_max_suppression."""
+class TestNmsBoxes:
+    """Test suite for nms_boxes."""
 
-    def test_non_max_suppression_empty(self):
-        boxes = np.empty((0, 4), dtype=np.float32)
-        scores = np.empty((0,), dtype=np.float32)
-        keep = non_max_suppression(boxes, scores, iou_threshold=0.5)
-        assert keep == []
-
-    def test_non_max_suppression_single_box(self):
-        boxes = np.array([[10.0, 10.0, 50.0, 50.0]], dtype=np.float32)
-        scores = np.array([0.9], dtype=np.float32)
-        keep = non_max_suppression(boxes, scores, iou_threshold=0.5)
-        assert keep == [0]
-
-    def test_non_max_suppression_overlapping_suppression(self):
+    def test_nms_overlapping_boxes(self) -> None:
+        # Box 0: (10, 10, 50, 50), score 0.9
+        # Box 1: (12, 12, 52, 52), score 0.8 (high overlap with Box 0)
+        # Box 2: (100, 100, 150, 150), score 0.7 (distinct)
         boxes = np.array([
             [10.0, 10.0, 50.0, 50.0],
-            [12.0, 12.0, 48.0, 48.0],  # High overlap with box 0
-            [100.0, 100.0, 200.0, 200.0],  # Distinct box
+            [12.0, 12.0, 52.0, 52.0],
+            [100.0, 100.0, 150.0, 150.0],
         ], dtype=np.float32)
-        scores = np.array([0.9, 0.8, 0.95], dtype=np.float32)
-
-        keep = non_max_suppression(boxes, scores, iou_threshold=0.5)
-        assert 0 in keep
-        assert 2 in keep
-        assert 1 not in keep
-
-    def test_non_max_suppression_threshold_extremes(self):
-        boxes = np.array([
-            [10.0, 10.0, 50.0, 50.0],
-            [15.0, 15.0, 50.0, 50.0],
-        ], dtype=np.float32)
-        scores = np.array([0.9, 0.8], dtype=np.float32)
-
-        # Threshold 1.0 keeps all boxes
-        keep_all = non_max_suppression(boxes, scores, iou_threshold=1.0)
-        assert len(keep_all) == 2
-
-        # Threshold 0.0 suppresses any overlapping box
-        keep_strict = non_max_suppression(boxes, scores, iou_threshold=0.0)
-        assert keep_strict == [0]
-
-    def test_non_max_suppression_negative_coords_raises(self):
-        boxes = np.array([[-10.0, 10.0, 50.0, 50.0]], dtype=np.float32)
-        scores = np.array([0.9], dtype=np.float32)
-        with pytest.raises(ValueError, match="non-negative"):
-            non_max_suppression(boxes, scores, iou_threshold=0.5)
-
-    def test_non_max_suppression_inverted_coords_raises(self):
-        boxes = np.array([[50.0, 10.0, 20.0, 50.0]], dtype=np.float32)
-        scores = np.array([0.9], dtype=np.float32)
-        with pytest.raises(ValueError, match="satisfy x1 < x2"):
-            non_max_suppression(boxes, scores, iou_threshold=0.5)
-
-    def test_non_max_suppression_invalid_iou_threshold_raises(self):
-        boxes = np.array([[10.0, 10.0, 50.0, 50.0]], dtype=np.float32)
-        scores = np.array([0.9], dtype=np.float32)
-        with pytest.raises(ValueError, match="between 0.0 and 1.0"):
-            non_max_suppression(boxes, scores, iou_threshold=-0.1)
-        with pytest.raises(ValueError, match="between 0.0 and 1.0"):
-            non_max_suppression(boxes, scores, iou_threshold=1.5)
-
-    def test_non_max_suppression_mismatched_lengths_raises(self):
-        boxes = np.array([[10.0, 10.0, 50.0, 50.0], [20.0, 20.0, 60.0, 60.0]], dtype=np.float32)
-        scores = np.array([0.9], dtype=np.float32)  # length 1 vs 2
-        with pytest.raises(ValueError, match="Mismatch between boxes shape"):
-            non_max_suppression(boxes, scores, iou_threshold=0.5)
-
-    def test_non_max_suppression_invalid_shape_raises(self):
-        boxes = np.zeros((3, 3), dtype=np.float32)
         scores = np.array([0.9, 0.8, 0.7], dtype=np.float32)
-        with pytest.raises(ValueError, match="Expected boxes of shape"):
-            non_max_suppression(boxes, scores, iou_threshold=0.5)
 
+        surviving = nms_boxes(boxes, scores, iou_threshold=0.5)
+        assert surviving == [0, 2]
+
+    def test_nms_empty_boxes(self) -> None:
+        boxes = np.zeros((0, 4), dtype=np.float32)
+        scores = np.zeros((0,), dtype=np.float32)
+        assert nms_boxes(boxes, scores) == []
+
+    def test_nms_mismatch_raises(self) -> None:
+        boxes = np.zeros((3, 4), dtype=np.float32)
+        scores = np.zeros((2,), dtype=np.float32)
+        with pytest.raises(ValueError, match="Mismatch between boxes shape"):
+            nms_boxes(boxes, scores)
+
+    def test_nms_invalid_coords_raises(self) -> None:
+        boxes_neg = np.array([[-1.0, 0.0, 10.0, 10.0]], dtype=np.float32)
+        with pytest.raises(ValueError, match="Bounding box coordinates must be non-negative"):
+            nms_boxes(boxes_neg, np.array([0.5], dtype=np.float32))
+
+        boxes_inverted = np.array([[20.0, 20.0, 10.0, 10.0]], dtype=np.float32)
+        with pytest.raises(ValueError, match="all boxes must satisfy x1 < x2 and y1 < y2"):
+            nms_boxes(boxes_inverted, np.array([0.5], dtype=np.float32))
+
+    def test_nms_invalid_threshold_raises(self) -> None:
+        boxes = np.array([[0.0, 0.0, 10.0, 10.0]], dtype=np.float32)
+        scores = np.array([0.5], dtype=np.float32)
+        with pytest.raises(ValueError, match=r"iou_threshold must be between 0.0 and 1.0"):
+            nms_boxes(boxes, scores, iou_threshold=1.5)

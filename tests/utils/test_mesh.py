@@ -1,191 +1,195 @@
 """Comprehensive unit tests for spatialhub.utils.mesh module."""
 
+from __future__ import annotations
+
+from pathlib import Path
 import numpy as np
 import pytest
 
-try:
-    import trimesh
-    TRIMESH_AVAILABLE = True
-except ImportError:
-    TRIMESH_AVAILABLE = False
+pytestmark = pytest.mark.skipif(
+    pytest.importorskip("trimesh", reason="trimesh dependency required for mesh tests") is None,
+    reason="trimesh dependency required",
+)
 
-pytestmark = pytest.mark.skipif(not TRIMESH_AVAILABLE, reason="trimesh dependency required for mesh tests")
+import trimesh
 
-if TRIMESH_AVAILABLE:
-    from spatialhub.utils.mesh import (
-        MeshArrays,
-        center_mesh,
-        compute_mesh_diameter,
-        compute_obb,
-        invert_transform,
-        load_mesh,
-        look_at,
-        prepare_mesh_arrays,
-        read_mesh,
-        sample_sphere_poses,
-        scale_mesh,
-        to_single_mesh,
-    )
+from spatialhub.utils.mesh import (
+    MeshBuffers,
+    OrientedBoundingBox,
+    center_mesh,
+    compute_mesh_diameter,
+    compute_obb,
+    load_mesh,
+    prepare_mesh_buffers,
+    scale_mesh,
+)
 
 
-class TestMeshAtomicOperations:
-    """Test suite for atomic mesh reading, scaling, and centering."""
+@pytest.fixture
+def sample_box_mesh() -> trimesh.Trimesh:
+    box = trimesh.creation.box(extents=[2.0, 4.0, 6.0])
+    box.apply_translation([10.0, 20.0, 30.0])
+    return box
 
-    @pytest.fixture
-    def sample_box(self) -> "trimesh.Trimesh":
-        box = trimesh.creation.box(extents=[2.0, 4.0, 6.0])
-        box.apply_translation([10.0, 20.0, 30.0])
-        return box
 
-    def test_read_mesh_and_to_single_mesh(self, sample_box: "trimesh.Trimesh"):
-        mesh = read_mesh(sample_box)
-        assert len(mesh.vertices) == len(sample_box.vertices)
-        assert len(mesh.faces) == len(sample_box.faces)
+@pytest.fixture
+def temp_obj_file(tmp_path: Path, sample_box_mesh: trimesh.Trimesh) -> Path:
+    obj_path = tmp_path / "box.obj"
+    sample_box_mesh.export(str(obj_path))
+    return obj_path
 
-    def test_to_single_mesh_scene(self, sample_box: "trimesh.Trimesh"):
-        scene = trimesh.Scene(geometry=[sample_box])
-        single_mesh = to_single_mesh(scene)
-        assert isinstance(single_mesh, trimesh.Trimesh)
-        assert len(single_mesh.vertices) == len(sample_box.vertices)
 
-    def test_to_single_mesh_empty_scene_raises(self):
-        empty_scene = trimesh.Scene()
-        with pytest.raises(ValueError, match="loaded trimesh Scene is empty"):
-            to_single_mesh(empty_scene)
+class TestMeshContainers:
+    """Test suite for MeshBuffers and OrientedBoundingBox containers."""
 
-    def test_to_single_mesh_invalid_type_raises(self):
-        with pytest.raises(TypeError, match="Expected trimesh.Trimesh or trimesh.Scene"):
-            to_single_mesh("invalid_object")
+    def test_mesh_buffers_as_dict(self) -> None:
+        v = np.zeros((4, 3), dtype=np.float32)
+        f = np.zeros((2, 3), dtype=np.int32)
+        n = np.zeros((4, 3), dtype=np.float32)
+        buf = MeshBuffers(vertices=v, faces=f, normals=n)
 
-    @pytest.mark.parametrize(
-        "unit, expected_scale",
-        [
-            ("m", 1.0),
-            ("M", 1.0),
-            ("cm", 0.01),
-            ("CM", 0.01),
-            ("mm", 0.001),
-            ("MM", 0.001),
-            (0.5, 0.5),
-        ],
-    )
-    def test_scale_mesh_units(self, sample_box: "trimesh.Trimesh", unit: str | float, expected_scale: float):
-        scaled = scale_mesh(sample_box, model_unit=unit)
-        expected_extents = sample_box.extents * expected_scale
-        assert np.allclose(scaled.extents, expected_extents, atol=1e-5)
+        d = buf.as_dict()
+        assert "vertices" in d
+        assert "faces" in d
+        assert "normals" in d
+        assert "texture" not in d
+        assert "uvs" not in d
 
-    def test_scale_mesh_invalid_unit_raises(self, sample_box: "trimesh.Trimesh"):
+    def test_oriented_bounding_box_unpacking(self) -> None:
+        corners = np.zeros((8, 3), dtype=np.float32)
+        extents = np.array([1.0, 2.0, 3.0], dtype=np.float32)
+        to_origin = np.eye(4, dtype=np.float32)
+
+        obb = OrientedBoundingBox(corners=corners, extents=extents, to_origin=to_origin)
+        c, e, t = obb
+        assert np.array_equal(c, corners)
+        assert np.array_equal(e, extents)
+        assert np.array_equal(t, to_origin)
+
+        d = obb.as_dict()
+        assert len(d) == 3
+
+
+class TestLoadMesh:
+    """Test suite for load_mesh."""
+
+    def test_load_existing_mesh(self, temp_obj_file: Path) -> None:
+        mesh = load_mesh(temp_obj_file)
+        assert isinstance(mesh, trimesh.Trimesh)
+        assert len(mesh.vertices) > 0
+        assert len(mesh.faces) > 0
+
+    def test_nonexistent_file_raises(self, tmp_path: Path) -> None:
+        with pytest.raises(FileNotFoundError, match="Mesh file not found"):
+            load_mesh(tmp_path / "nonexistent.obj")
+
+    def test_invalid_type_raises(self) -> None:
+        with pytest.raises(TypeError, match="path must be a str or Path"):
+            load_mesh(12345)  # type: ignore[arg-type]
+
+
+class TestScaleMesh:
+    """Test suite for scale_mesh."""
+
+    def test_scale_units(self) -> None:
+        # mm -> m converts factor 0.001
+        box = trimesh.creation.box(extents=[1000.0, 1000.0, 1000.0])
+        scaled = scale_mesh(box, model_unit="mm")
+        assert np.allclose(scaled.extents, [1.0, 1.0, 1.0])
+
+        # cm -> m converts factor 0.01
+        box_cm = trimesh.creation.box(extents=[100.0, 100.0, 100.0])
+        scaled_cm = scale_mesh(box_cm, model_unit="cm")
+        assert np.allclose(scaled_cm.extents, [1.0, 1.0, 1.0])
+
+        # m -> m converts factor 1.0
+        box_m = trimesh.creation.box(extents=[1.0, 1.0, 1.0])
+        scaled_m = scale_mesh(box_m, model_unit="m")
+        assert np.allclose(scaled_m.extents, [1.0, 1.0, 1.0])
+
+    def test_custom_float_multiplier(self) -> None:
+        box = trimesh.creation.box(extents=[2.0, 2.0, 2.0])
+        scaled = scale_mesh(box, model_unit=0.5)
+        assert np.allclose(scaled.extents, [1.0, 1.0, 1.0])
+
+    def test_invalid_unit_raises(self) -> None:
+        box = trimesh.creation.box()
+        with pytest.raises(ValueError, match="Unsupported model_unit 'inches'"):
+            scale_mesh(box, model_unit="inches")
+
         with pytest.raises(TypeError, match="model_unit must be a string identifier"):
-            scale_mesh(sample_box, model_unit=["invalid"])
+            scale_mesh(box, model_unit=None)  # type: ignore[arg-type]
 
-    def test_center_mesh(self, sample_box: "trimesh.Trimesh"):
-        centered, offset = center_mesh(sample_box)
+
+class TestCenterMesh:
+    """Test suite for center_mesh."""
+
+    def test_center_mesh_moves_centroid_to_origin(self, sample_box_mesh: trimesh.Trimesh) -> None:
+        initial_centroid = sample_box_mesh.bounding_box.centroid.copy()
+        assert not np.allclose(initial_centroid, [0.0, 0.0, 0.0])
+
+        centered, offset = center_mesh(sample_box_mesh)
         assert np.allclose(centered.bounding_box.centroid, [0.0, 0.0, 0.0], atol=1e-5)
-        assert np.allclose(offset, -sample_box.bounding_box.centroid, atol=1e-5)
-
-    def test_compute_mesh_diameter(self, sample_box: "trimesh.Trimesh"):
-        # Box extents: [2, 4, 6] -> diagonal diameter = sqrt(2^2 + 4^2 + 6^2) = sqrt(56) ~ 7.4833
-        diameter = compute_mesh_diameter(sample_box)
-        expected_diameter = np.sqrt(2.0**2 + 4.0**2 + 6.0**2)
-        assert np.isclose(diameter, expected_diameter, atol=1e-3)
-
-    def test_load_mesh_composite(self, sample_box: "trimesh.Trimesh"):
-        loaded = load_mesh(sample_box, model_unit="mm", center=True)
-        assert np.allclose(loaded.bounding_box.centroid, [0.0, 0.0, 0.0], atol=1e-5)
-        assert np.isclose(loaded.extents[0], 0.002)
+        assert np.allclose(offset, -initial_centroid, atol=1e-5)
 
 
-class TestOrientedBoundingBoxAndTransforms:
-    """Test suite for OBB computation, camera look-at, and transformation matrix math."""
+class TestComputeMeshDiameter:
+    """Test suite for compute_mesh_diameter."""
 
-    @pytest.fixture
-    def canonical_box(self) -> "trimesh.Trimesh":
-        return trimesh.creation.box(extents=[1.0, 2.0, 3.0])
+    def test_cube_bounding_diameter(self) -> None:
+        # Cube of 2x2x2 has diameter sqrt(2^2 + 2^2 + 2^2) = sqrt(12) ~= 3.4641
+        cube = trimesh.creation.box(extents=[2.0, 2.0, 2.0])
+        diameter = compute_mesh_diameter(cube, num_dirs=128)
+        expected = np.sqrt(12.0)
+        assert np.isclose(diameter, expected, atol=0.1)
 
-    def test_compute_obb(self, canonical_box: "trimesh.Trimesh"):
-        corners, extents, to_origin = compute_obb(canonical_box)
-        assert corners.shape == (8, 3)
-        assert extents.shape == (3,)
-        assert to_origin.shape == (4, 4)
-        assert np.allclose(sorted(extents), [1.0, 2.0, 3.0], atol=1e-3)
-
-    def test_look_at_standard_and_degenerate(self):
-        # Camera at (0, 0, 5) looking at (0, 0, 0)
-        c2w = look_at(cam_location=np.array([0.0, 0.0, 5.0]), target_point=np.array([0.0, 0.0, 0.0]))
-        assert c2w.shape == (4, 4)
-        assert np.allclose(c2w[:3, 3], [0.0, 0.0, 5.0])
-
-        # Degenerate collinear case: cam_location == target_point
-        c2w_collinear = look_at(cam_location=np.array([0.0, 0.0, 0.0]), target_point=np.array([0.0, 0.0, 0.0]))
-        assert c2w_collinear.shape == (4, 4)
-
-    def test_invert_transform_single(self):
-        t_mat = np.eye(4, dtype=np.float32)
-        t_mat[:3, 3] = [1.0, 2.0, 3.0]
-        # 90 deg rotation around Z
-        t_mat[:3, :3] = [[0, -1, 0], [1, 0, 0], [0, 0, 1]]
-
-        t_inv = invert_transform(t_mat)
-        identity_test = t_mat @ t_inv
-        assert np.allclose(identity_test, np.eye(4), atol=1e-5)
-
-    def test_invert_transform_batch(self):
-        t_batch = np.tile(np.eye(4, dtype=np.float32)[None], (3, 1, 1))
-        t_batch[:, :3, 3] = [[1, 0, 0], [0, 2, 0], [0, 0, 3]]
-
-        inv_batch = invert_transform(t_batch)
-        assert inv_batch.shape == (3, 4, 4)
-        for i in range(3):
-            assert np.allclose(t_batch[i] @ inv_batch[i], np.eye(4), atol=1e-5)
-
-    def test_invert_transform_invalid_shape_raises(self):
-        with pytest.raises(ValueError, match="Expected transformation matrix"):
-            invert_transform(np.zeros((3, 3), dtype=np.float32))
+    def test_empty_mesh_raises(self) -> None:
+        empty = trimesh.Trimesh()
+        with pytest.raises(ValueError, match="Cannot compute diameter of an empty mesh"):
+            compute_mesh_diameter(empty)
 
 
-class TestSpherePoseSampling:
-    """Test suite for sample_sphere_poses."""
+class TestComputeOBB:
+    """Test suite for compute_obb."""
 
-    def test_sample_sphere_poses_fibonacci(self):
-        poses_obj = sample_sphere_poses(num_viewpoints=10, radius=1.0, sampling_method="fibonacci", pose_type="object_pose")
-        assert poses_obj.shape == (10, 4, 4)
-        assert poses_obj.dtype == np.float32
+    def test_compute_obb_box(self) -> None:
+        box = trimesh.creation.box(extents=[2.0, 4.0, 6.0])
+        obb = compute_obb(box)
 
-        poses_cam = sample_sphere_poses(num_viewpoints=10, radius=1.0, sampling_method="fibonacci", pose_type="camera_pose")
-        assert poses_cam.shape == (10, 4, 4)
-
-    def test_sample_sphere_poses_icosphere(self):
-        poses_ico = sample_sphere_poses(num_viewpoints=12, radius=0.8, sampling_method="icosphere", pose_type="camera_pose")
-        assert poses_ico.ndim == 3 and poses_ico.shape[1:] == (4, 4)
-
-    def test_sample_sphere_poses_invalid_num_viewpoints_raises(self):
-        with pytest.raises(ValueError, match="num_viewpoints must be greater than 1"):
-            sample_sphere_poses(num_viewpoints=1, sampling_method="fibonacci")
-
-    def test_sample_sphere_poses_invalid_method_raises(self):
-        with pytest.raises(ValueError, match="Unsupported sampling_method"):
-            sample_sphere_poses(num_viewpoints=10, sampling_method="invalid_method")
-
-    def test_sample_sphere_poses_invalid_pose_type_raises(self):
-        with pytest.raises(ValueError, match="Unsupported pose_type"):
-            sample_sphere_poses(num_viewpoints=10, pose_type="invalid_type")
+        assert obb.corners.shape == (8, 3)
+        assert obb.extents.shape == (3,)
+        assert obb.to_origin is not None and obb.to_origin.shape == (4, 4)
+        # Sorted extents should match box dimensions
+        assert np.allclose(sorted(obb.extents), [2.0, 4.0, 6.0], atol=1e-4)
 
 
-class TestPrepareMeshArrays:
-    """Test suite for prepare_mesh_arrays and MeshArrays container."""
+class TestPrepareMeshBuffers:
+    """Test suite for prepare_mesh_buffers."""
 
-    def test_prepare_mesh_arrays_vertex_colors(self):
-        box = trimesh.creation.box(extents=[0.1, 0.1, 0.1])
-        mesh_arr = prepare_mesh_arrays(box)
+    def test_prepare_untextured_mesh(self, sample_box_mesh: trimesh.Trimesh) -> None:
+        buf = prepare_mesh_buffers(sample_box_mesh)
+        assert isinstance(buf, MeshBuffers)
+        assert buf.vertices.shape == (len(sample_box_mesh.vertices), 3)
+        assert buf.faces.shape == (len(sample_box_mesh.faces), 3)
+        assert buf.normals.shape == (len(sample_box_mesh.vertex_normals), 3)
+        assert buf.vertex_colors is not None
+        assert buf.vertex_colors.shape == (len(sample_box_mesh.vertices), 3)
+        assert buf.texture is None
 
-        assert isinstance(mesh_arr, MeshArrays)
-        assert mesh_arr.pos.shape == (len(box.vertices), 3)
-        assert mesh_arr.faces.shape == (len(box.faces), 3)
-        assert mesh_arr.vnormals.shape == (len(box.vertices), 3)
-        assert mesh_arr.vertex_color is not None
-        assert mesh_arr.vertex_color.shape == (len(box.vertices), 3)
+    def test_prepare_textured_mesh(self) -> None:
+        # Create a textured mesh with visual material and UVs
+        mesh = trimesh.creation.box(extents=[1.0, 1.0, 1.0])
+        uv = np.random.rand(len(mesh.vertices), 2).astype(np.float32)
+        img = np.random.randint(0, 255, (32, 32, 3), dtype=np.uint8)
 
-        buf_dict = mesh_arr.as_dict()
-        assert "pos" in buf_dict
-        assert "faces" in buf_dict
-        assert "vnormals" in buf_dict
+        mesh.visual = trimesh.visual.texture.TextureVisuals(
+            uv=uv,
+            image=img,
+        )
+
+        buf = prepare_mesh_buffers(mesh, max_tex_size=16, flip_uv=True)
+        assert buf.texture is not None
+        assert buf.texture.shape[1] <= 16
+        assert buf.texture.shape[2] <= 16
+        assert buf.uvs is not None
+        assert buf.uvs.shape == (len(mesh.vertices), 2)

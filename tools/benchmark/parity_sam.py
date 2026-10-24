@@ -57,8 +57,8 @@ from segment_anything.utils.onnx import SamOnnxModel
 
 from spatialhub.core.runtime import resolve_model_path
 from spatialhub.models.sam.adapter import SAMAdapter
-from spatialhub.utils.image import load_image
-from utils import get_available_ort_providers
+from spatialhub.utils import load_image
+from utils import collect_images, get_available_ort_providers
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -189,49 +189,6 @@ def resolve_onnx_model_paths(variant: str, custom_dir: Path | None = None) -> tu
         filename=dec_filename,
     )
     return resolved_enc, resolved_dec
-
-
-def collect_images(data_dir: Path | str, max_images: int = 20) -> list[Path]:
-    """Scan dataset directory for image files, falling back to synthetic patterns if empty.
-
-    Args:
-        data_dir: Path to directory containing image files.
-        max_images: Maximum number of images to return.
-
-    Returns:
-        List of Path objects to valid image files.
-    """
-    img_dir = Path(data_dir)
-    image_paths: list[Path] = []
-
-    valid_extensions = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
-
-    if img_dir.exists() and img_dir.is_dir():
-        for file in sorted(img_dir.iterdir()):
-            if file.suffix.lower() in valid_extensions and file.is_file():
-                image_paths.append(file)
-            if len(image_paths) >= max_images:
-                break
-
-    if not image_paths:
-        logger.warning("No image files found in %s. Generating synthetic test images in %s...", img_dir, img_dir)
-        img_dir.mkdir(parents=True, exist_ok=True)
-
-        for idx in range(min(max_images, 10)):
-            h, w = 480, 640
-            img = np.zeros((h, w, 3), dtype=np.uint8)
-            xx, yy = np.meshgrid(np.linspace(0, 255, w), np.linspace(0, 255, h))
-            img[:, :, 0] = (xx + idx * 20) % 256
-            img[:, :, 1] = (yy + idx * 30) % 256
-            img[:, :, 2] = ((xx + yy) / 2 + idx * 10) % 256
-            cv2.circle(img, (150 + idx * 30, 200), 50 + idx * 5, (255, 255, 255), -1)
-            cv2.rectangle(img, (300, 100 + idx * 10), (500, 300), (50, 180, 240), -1)
-
-            synth_path = img_dir / f"synthetic_sample_{idx:02d}.jpg"
-            cv2.imwrite(str(synth_path), cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
-            image_paths.append(synth_path)
-
-    return image_paths[:max_images]
 
 
 def compute_box_iou(box1: np.ndarray, box2: np.ndarray) -> float:

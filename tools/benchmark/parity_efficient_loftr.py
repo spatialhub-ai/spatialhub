@@ -58,7 +58,7 @@ if str(UPSTREAM_DIR) not in sys.path:
 from src.loftr import LoFTR, full_default_cfg, opt_default_cfg, reparameter
 from spatialhub.models.efficient_loftr.adapter import EfficientLoFTRAdapter
 from spatialhub.core.runtime import resolve_model_path
-from spatialhub.utils.image import load_image
+from spatialhub.utils import load_image
 from utils import get_available_ort_providers
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")

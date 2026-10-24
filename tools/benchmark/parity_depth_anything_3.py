@@ -314,9 +314,9 @@ def evaluate_single_parity(
         )
 
     ort_depth = ort_result.depth
-    ort_conf = ort_result.conf
-    ort_ext = ort_result.extrinsics
-    ort_int = ort_result.intrinsics
+    ort_conf = ort_result.confidence
+    ort_ext = ort_result.extrinsics.matrix if ort_result.extrinsics is not None else None
+    ort_int = ort_result.intrinsics.matrix if ort_result.intrinsics is not None else None
 
     torch_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     pt_ext_input = extrinsics if is_posed else None

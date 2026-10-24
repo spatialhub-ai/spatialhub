@@ -1,258 +1,341 @@
+"""Standardized spatial and geometric data structures."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Annotated, Literal
+from typing import ClassVar, Literal
 
-import cv2
 import numpy as np
 
-from spatialhub.utils import draw_3d_axis, draw_3d_box, visualize_masks, visualize_matches
-
-Intrinsics3x3 = Annotated[
-    np.ndarray, "shape: (3, 3) | (N, 3, 3), dtype: float32, pinhole camera intrinsic matrix [[fx, 0, cx], [0, fy, cy], [0, 0, 1]]"
-]
-CameraToWorld = Annotated[
-    np.ndarray, "shape: (4, 4) | (N, 4, 4), dtype: float32, SE(3) camera-to-world rigid transform matrix"
-]
-ObjectToCamera = Annotated[
-    np.ndarray, "shape: (4, 4) | (N, 4, 4), dtype: float32, SE(3) object-to-camera rigid transform matrix"
-]
-RigidTransform = Annotated[
-    np.ndarray, "shape: (4, 4) | (N, 4, 4), dtype: float32, SE(3) homogeneous transform matrix"
-]
-
-BoxCorners3D = Annotated[
-    np.ndarray, "shape: (8, 3) | (N, 8, 3), dtype: float32, 3D bounding box corners in canonical mesh space"
-]
-Boxes2D = Annotated[
-    np.ndarray, "shape: (N, 4), dtype: float32, 2D bounding boxes in [x1, y1, x2, y2] pixel format"
-]
-Keypoints2D = Annotated[
-    np.ndarray, "shape: (N, 2), dtype: float32, 2D keypoint coordinates [x, y] in pixel space"
-]
-
-DepthMap = Annotated[
-    np.ndarray, "shape: (N, H, W) | (H, W), dtype: float32, depth maps in meters or relative scale"
-]
-ConfidenceMap = Annotated[
-    np.ndarray, "shape: (N, H, W) | (H, W), dtype: float32, per-pixel prediction confidence"
-]
-BinaryMask = Annotated[
-    np.ndarray, "shape: (N, H, W), dtype: bool, binary instance masks"
-]
-
-ImageRGB = Annotated[
-    np.ndarray, "shape: (H, W, 3) | (N, H, W, 3), dtype: uint8, RGB channel order"
-]
-Scores = Annotated[
-    np.ndarray, "shape: (N,), dtype: float32, confidence scores in [0.0, 1.0]"
-]
-FeatureEmbedding = Annotated[
-    np.ndarray, "shape: (N, D) | (N, H, W, D) | (N, C, H, W), dtype: float32, feature embeddings"
-]
-
-
-def _check_array(
-    name: str,
-    arr: np.ndarray | None,
-    *,
-    ndim: int | tuple[int, ...] | None = None,
-    shape_suffix: tuple[int, ...] | None = None,
-    optional: bool = False,
-) -> None:
-    """Validates array type, ndim, and trailing dimensions.
-
-    Args:
-        name: Name of the attribute being validated.
-        arr: Array instance or None.
-        ndim: Expected number of dimensions or tuple of acceptable dimensions.
-        shape_suffix: Expected trailing dimension tuple (e.g. (3, 3) or (4,)).
-        optional: If True, allows None values without raising an error.
-
-    Raises:
-        TypeError: If arr is not an instance of np.ndarray and not None.
-        ValueError: If ndim or shape_suffix does not match the array shape.
-    """
-    if arr is None:
-        if not optional:
-            raise ValueError(f"{name} is required and cannot be None")
-        return
-
-    if not isinstance(arr, np.ndarray):
-        raise TypeError(f"{name} must be a numpy.ndarray, got {type(arr).__name__}")
-
-    if ndim is not None:
-        valid_ndim = (arr.ndim in ndim) if isinstance(ndim, tuple) else (arr.ndim == ndim)
-        if not valid_ndim:
-            raise ValueError(f"{name} expected ndim={ndim}, got ndim={arr.ndim} with shape {arr.shape}")
-
-    if shape_suffix is not None:
-        actual_suffix = arr.shape[-len(shape_suffix):]
-        if actual_suffix != shape_suffix:
-            raise ValueError(
-                f"{name} trailing dimensions must be {shape_suffix}, got shape {arr.shape}"
-            )
+from .utils.validation import validate_array
 
 
 @dataclass
-class MatchResult:
-    """Dataclass holding the results of a 2D feature matching operation.
+class _BatchedArray:
+    """Base container for batched arrays with fixed trailing dimensions.
 
     Attributes:
-        image_a: First input image path or RGB array of shape (H, W, 3).
-        image_b: Second input image path or RGB array of shape (H, W, 3).
-        keypoints_a: Matched keypoints in image_a of shape (N, 2) in (x, y) coordinates.
-        keypoints_b: Matched keypoints in image_b of shape (N, 2) in (x, y) coordinates.
+        _array_field: Name of the primary array field.
+        _shape_suffix: Expected trailing dimension tuple.
+    """
+
+    _array_field: ClassVar[str] = "array"
+    _shape_suffix: ClassVar[tuple[int, ...]] = ()
+
+    def __post_init__(self) -> None:
+        """Validate array dimensions and standardize the leading batch dimension."""
+        arr = getattr(self, self._array_field)
+        validate_array(self._array_field, arr, ndim=(2, 3), shape_suffix=self._shape_suffix, dtype=np.floating,)
+        if arr.ndim == 2:
+            setattr(self, self._array_field, arr[np.newaxis, ...])
+
+    def __len__(self) -> int:
+        """Return the batch size along the leading dimension."""
+        return len(getattr(self, self._array_field))
+
+    def __getitem__(self, index: int | slice | np.ndarray):
+        """Slice the array along the leading batch dimension.
+
+        Args:
+            index: Integer index, slice, or boolean/integer array.
+
+        Returns:
+            A new instance of the same class containing the sliced array.
+        """
+        arr = getattr(self, self._array_field)
+        sliced = arr[index]
+        if isinstance(index, int):
+            sliced = sliced[np.newaxis, ...]
+        return self.__class__(**{self._array_field: sliced})
+
+
+@dataclass
+class RigidTransform3D(_BatchedArray):
+    """Rigid 3D transformation matrices in SE(3).
+
+    Attributes:
+        matrix: Homogeneous transformation matrices of shape (N, 4, 4) mapping
+            3D homogeneous coordinates between reference frames.
+    """
+
+    matrix: np.ndarray
+    _array_field: ClassVar[str] = "matrix"
+    _shape_suffix: ClassVar[tuple[int, ...]] = (4, 4)
+
+
+@dataclass
+class CameraIntrinsics(_BatchedArray):
+    """Camera intrinsic calibration matrices.
+
+    Attributes:
+        matrix: Calibration matrices of shape (N, 3, 3) mapping 3D camera-frame
+            coordinates to 2D homogeneous pixel coordinates.
+    """
+
+    matrix: np.ndarray
+    _array_field: ClassVar[str] = "matrix"
+    _shape_suffix: ClassVar[tuple[int, ...]] = (3, 3)
+
+
+@dataclass
+class CameraExtrinsics(RigidTransform3D):
+    """Rigid transformation matrices defining camera pose in SE(3).
+
+    Attributes:
+        matrix: Homogeneous transformation matrices of shape (N, 4, 4) mapping
+            coordinates between camera space and an external reference frame.
+    """
+
+    pass
+
+
+@dataclass
+class BoundingBox3D(_BatchedArray):
+    """3D bounding box corner vertices in a 3D coordinate frame.
+
+    Attributes:
+        corners: Bounding box corner coordinates of shape (N, 8, 3) defining
+            eight 3D vertices per box.
+    """
+
+    corners: np.ndarray
+    _array_field: ClassVar[str] = "corners"
+    _shape_suffix: ClassVar[tuple[int, ...]] = (8, 3)
+
+
+@dataclass
+class KeypointMatches:
+    """Pairwise 2D keypoint correspondences between two views.
+
+    Attributes:
+        keypoints_a: Matched keypoints in view A of shape (N, 2) in (x, y) coordinates.
+        keypoints_b: Matched keypoints in view B of shape (N, 2) in (x, y) coordinates.
         confidence: Match confidence scores of shape (N,) in [0.0, 1.0].
     """
 
-    image_a: str | Path | np.ndarray
-    image_b: str | Path | np.ndarray
-    keypoints_a: Keypoints2D
-    keypoints_b: Keypoints2D
-    confidence: Scores
+    keypoints_a: np.ndarray
+    keypoints_b: np.ndarray
+    confidence: np.ndarray
 
     def __post_init__(self) -> None:
-        """Validates keypoint coordinates and confidence array dimensions."""
-        _check_array("keypoints_a", self.keypoints_a, ndim=2, shape_suffix=(2,))
-        _check_array("keypoints_b", self.keypoints_b, ndim=2, shape_suffix=(2,))
-        _check_array("confidence", self.confidence, ndim=1)
+        """Validate keypoint coordinates, confidence array dimensions, and dtypes."""
+        validate_array("keypoints_a", self.keypoints_a, ndim=2, shape_suffix=(2,), dtype=np.floating)
+        validate_array("keypoints_b", self.keypoints_b, ndim=2, shape_suffix=(2,), dtype=np.floating)
+        validate_array("confidence", self.confidence, ndim=1, dtype=np.floating)
         if not (len(self.keypoints_a) == len(self.keypoints_b) == len(self.confidence)):
             raise ValueError(
                 f"Array length mismatch: keypoints_a ({len(self.keypoints_a)}), "
                 f"keypoints_b ({len(self.keypoints_b)}), confidence ({len(self.confidence)})"
             )
 
-    def visualize(
-        self,
-        conf_thresh: float = 0.5,
-        max_side: int = 800,
-        top_k: int | None = None,
-        save_path: str | Path | None = None,
-    ) -> np.ndarray:
-        """Visualizes top-k matches between two images using keypoints and confidence scores.
+    def __len__(self) -> int:
+        """Return the number of matched keypoint pairs."""
+        return len(self.confidence)
+
+    def __getitem__(self, index: int | slice | np.ndarray) -> KeypointMatches:
+        """Slice keypoints and confidence scores along the correspondence dimension.
 
         Args:
-            conf_thresh: Minimum confidence score threshold.
-            max_side: Maximum canvas dimension in pixels.
-            top_k: Optional limit on the number of matches to display.
-            save_path: Optional output path to write the annotated image.
+            index: Integer index, slice, or boolean/integer array.
 
         Returns:
-            Visualization canvas as a uint8 BGR array.
+            A new KeypointMatches instance with sliced correspondences.
         """
-        return visualize_matches(
-            self.image_a,
-            self.image_b,
-            self.keypoints_a,
-            self.keypoints_b,
-            self.confidence,
-            conf_thresh,
-            max_side,
-            top_k,
-            save_path,
+        kpts_a = self.keypoints_a[index]
+        kpts_b = self.keypoints_b[index]
+        conf = self.confidence[index]
+
+        if isinstance(index, int):
+            kpts_a = kpts_a[np.newaxis, ...]
+            kpts_b = kpts_b[np.newaxis, ...]
+            conf = conf[np.newaxis, ...]
+
+        return KeypointMatches(
+            keypoints_a=kpts_a,
+            keypoints_b=kpts_b,
+            confidence=conf,
         )
 
 
 @dataclass
-class DepthPredictionResult:
-    """Output of a monocular or multi-view depth estimation model.
+class DepthMap:
+    """Estimated depth field in camera coordinate frame.
 
     Attributes:
-        image: Original input image array, path, or batch list.
         depth: Depth maps of shape (N, H, W) in meters or relative scale.
-        conf: Optional per-pixel confidence maps of shape (N, H, W).
-        intrinsics: Optional pinhole camera intrinsic matrices of shape (N, 3, 3).
-        extrinsics: Optional camera-to-world rigid transforms of shape (N, 4, 4).
+        confidence: Optional per-pixel confidence maps of shape (N, H, W).
         depth_type: Representation scale of the predicted depth.
+        intrinsics: Optional camera intrinsic calibration matrices.
+        extrinsics: Optional camera extrinsic transformation matrices in SE(3).
     """
 
-    image: np.ndarray | str | Path | list[np.ndarray | str | Path]
-    depth: DepthMap
-    conf: ConfidenceMap | None = None
-    intrinsics: Intrinsics3x3 | None = None
-    extrinsics: CameraToWorld | None = None
+    depth: np.ndarray
+    confidence: np.ndarray | None = None
     depth_type: Literal["metric", "relative", "inverse", "disparity"] = "metric"
+    intrinsics: CameraIntrinsics | np.ndarray | None = None
+    extrinsics: CameraExtrinsics | np.ndarray | None = None
 
     def __post_init__(self) -> None:
-        """Normalizes and validates depth maps and camera matrices."""
-        _check_array("depth", self.depth, ndim=(2, 3))
+        """Validate array dimensions, dtypes, and standardize the leading batch dimension."""
+        validate_array("depth", self.depth, ndim=(2, 3), dtype=np.floating)
         if self.depth.ndim == 2:
             self.depth = self.depth[np.newaxis, ...]
 
-        if self.conf is not None:
-            _check_array("conf", self.conf, ndim=(2, 3))
-            if self.conf.ndim == 2:
-                self.conf = self.conf[np.newaxis, ...]
-            if self.conf.shape != self.depth.shape:
+        if self.confidence is not None:
+            validate_array("confidence", self.confidence, ndim=(2, 3), dtype=np.floating)
+            if self.confidence.ndim == 2:
+                self.confidence = self.confidence[np.newaxis, ...]
+            if self.confidence.shape != self.depth.shape:
                 raise ValueError(
-                    f"conf shape {self.conf.shape} must match depth shape {self.depth.shape}"
+                    f"confidence shape {self.confidence.shape} must match depth shape {self.depth.shape}"
                 )
 
         if self.intrinsics is not None:
-            _check_array("intrinsics", self.intrinsics, ndim=(2, 3), shape_suffix=(3, 3))
-            if self.intrinsics.ndim == 2:
-                self.intrinsics = self.intrinsics[np.newaxis, ...]
+            if isinstance(self.intrinsics, np.ndarray):
+                self.intrinsics = CameraIntrinsics(self.intrinsics)
+            elif not isinstance(self.intrinsics, CameraIntrinsics):
+                raise TypeError(
+                    f"intrinsics must be CameraIntrinsics, np.ndarray, or None, got {type(self.intrinsics).__name__}"
+                )
+            if len(self.intrinsics) != len(self.depth):
+                raise ValueError(
+                    f"intrinsics batch size ({len(self.intrinsics)}) must match depth batch size ({len(self.depth)})"
+                )
 
         if self.extrinsics is not None:
-            _check_array("extrinsics", self.extrinsics, ndim=(2, 3), shape_suffix=(4, 4))
-            if self.extrinsics.ndim == 2:
-                self.extrinsics = self.extrinsics[np.newaxis, ...]
+            if isinstance(self.extrinsics, np.ndarray):
+                self.extrinsics = CameraExtrinsics(self.extrinsics)
+            elif not isinstance(self.extrinsics, CameraExtrinsics):
+                raise TypeError(
+                    f"extrinsics must be CameraExtrinsics, np.ndarray, or None, got {type(self.extrinsics).__name__}"
+                )
+            if len(self.extrinsics) != len(self.depth):
+                raise ValueError(
+                    f"extrinsics batch size ({len(self.extrinsics)}) must match depth batch size ({len(self.depth)})"
+                )
+
+    def __len__(self) -> int:
+        """Return the batch size along the leading dimension."""
+        return len(self.depth)
+
+    def __getitem__(self, index: int | slice | np.ndarray) -> DepthMap:
+        """Slice depth, confidence, and camera geometry along the leading batch dimension.
+
+        Args:
+            index: Integer index, slice, or boolean/integer array.
+
+        Returns:
+            A new DepthMap instance containing the sliced arrays.
+        """
+        sliced_depth = self.depth[index]
+        if isinstance(index, int):
+            sliced_depth = sliced_depth[np.newaxis, ...]
+
+        sliced_conf = None
+        if self.confidence is not None:
+            sliced_conf = self.confidence[index]
+            if isinstance(index, int):
+                sliced_conf = sliced_conf[np.newaxis, ...]
+
+        sliced_intrinsics = self.intrinsics[index] if self.intrinsics is not None else None
+        sliced_extrinsics = self.extrinsics[index] if self.extrinsics is not None else None
+
+        return DepthMap(
+            depth=sliced_depth,
+            confidence=sliced_conf,
+            depth_type=self.depth_type,
+            intrinsics=sliced_intrinsics,
+            extrinsics=sliced_extrinsics,
+        )
 
 
 @dataclass
-class FeatureExtractionResult:
-    """Result produced by dense or global feature representation models.
+class FeatureEmbedding:
+    """Batched global or dense feature representations.
 
     Attributes:
-        images: Original input image array or batched images.
         features: Feature embedding tensor of shape (N, D) for global embeddings,
-            or (N, H, W, D) / (N, C, H, W) for dense embeddings.
+            or (N, H, W, D) for dense embeddings.
         embedding_type: Representation type ('global' or 'dense').
-        l2_normalized: Whether embeddings are L2-normalized.
+        l2_normalized: Whether embeddings are unit L2-normalized.
     """
 
-    images: np.ndarray | list[np.ndarray | str | Path] | str | Path
-    features: FeatureEmbedding
+    features: np.ndarray
     embedding_type: Literal["global", "dense"] = "global"
     l2_normalized: bool = False
 
     def __post_init__(self) -> None:
-        """Validates feature embedding array dimensions."""
-        _check_array("features", self.features, ndim=(2, 3, 4))
+        """Validate feature embedding array dimensions and dtypes."""
+        validate_array("features", self.features, ndim=(2, 3, 4), dtype=np.floating)
         if self.embedding_type == "global" and self.features.ndim != 2:
             raise ValueError(
                 f"Global feature embeddings must have ndim=2 (N, D), got shape {self.features.shape}"
             )
 
+        if self.embedding_type == "dense" and self.features.ndim != 4:
+            raise ValueError(
+                f"Dense feature embeddings must have ndim=4 (N, H, W, D), got shape {self.features.shape}"
+            )
+
+    def __len__(self) -> int:
+        """Return the batch size along the leading dimension."""
+        return len(self.features)
+
+    def __getitem__(self, index: int | slice | np.ndarray) -> FeatureEmbedding:
+        """Slice feature embeddings along the leading batch dimension.
+
+        Args:
+            index: Integer index, slice, or boolean/integer array.
+
+        Returns:
+            A new FeatureEmbedding instance containing sliced features.
+        """
+        sliced_features = self.features[index]
+
+        if isinstance(index, int):
+            sliced_features = sliced_features[np.newaxis, ...]
+
+        return FeatureEmbedding(
+            features=sliced_features,
+            embedding_type=self.embedding_type,
+            l2_normalized=self.l2_normalized,
+        )
+
 
 @dataclass
-class SegmentationResult:
-    """Result produced by instance segmentation or zero-shot mask proposal models.
+class InstanceSegmentation:
+    """Detected 2D object instances with binary masks and bounding boxes.
 
     Attributes:
-        image: Original RGB input image of shape (H, W, 3).
+        masks: Binary masks of shape (N, H, W) as boolean or uint8 array.
         boxes: Bounding boxes of shape (N, 4) in [x1, y1, x2, y2] coordinate format.
-        masks: Binary masks of shape (N, H, W) as boolean array.
-        scores: Confidence scores of shape (N,) as float array.
-        class_ids: Optional class identifier indices of shape (N,).
-        class_names: Optional class label names of length N.
+        scores: Confidence scores of shape (N,) as float array in [0.0, 1.0].
+        ids: Optional class or instance identifier indices of shape (N,).
+        names: Optional class label names of length N.
     """
 
-    image: ImageRGB
-    boxes: Boxes2D
-    masks: BinaryMask
-    scores: Scores
-    class_ids: np.ndarray | None = None
-    class_names: list[str] | None = None
+    masks: np.ndarray
+    boxes: np.ndarray
+    scores: np.ndarray
+    ids: np.ndarray | None = None
+    names: list[str] | None = None
 
     def __post_init__(self) -> None:
-        """Validates segmentation arrays and coordinate bounds."""
-        _check_array("image", self.image, ndim=3)
-        _check_array("boxes", self.boxes, ndim=2, shape_suffix=(4,))
-        _check_array("masks", self.masks, ndim=3)
-        _check_array("scores", self.scores, ndim=1)
+        """Validate segmentation arrays, coordinate bounds, dtypes, and standardize batch dimensions."""
+        validate_array("masks", self.masks, ndim=(2, 3), dtype=(np.bool_, np.integer))
+        if self.masks.ndim == 2:
+            self.masks = self.masks[np.newaxis, ...]
+
+        validate_array("boxes", self.boxes, ndim=(1, 2), shape_suffix=(4,), dtype=(np.floating, np.integer))
+        if self.boxes.ndim == 1:
+            self.boxes = self.boxes[np.newaxis, ...]
+
+        if isinstance(self.scores, (int, float, np.generic)):
+            self.scores = np.asarray([self.scores], dtype=np.float32)
+        else:
+            validate_array("scores", self.scores, ndim=(0, 1), dtype=np.floating)
+            if self.scores.ndim == 0:
+                self.scores = self.scores[np.newaxis, ...]
 
         num_boxes = len(self.boxes)
         if len(self.masks) != num_boxes or len(self.scores) != num_boxes:
@@ -261,160 +344,308 @@ class SegmentationResult:
                 f"masks ({len(self.masks)}), scores ({len(self.scores)})"
             )
 
-        if self.class_ids is not None:
-            _check_array("class_ids", self.class_ids, ndim=1)
-            if len(self.class_ids) != num_boxes:
+        if self.ids is not None:
+            if isinstance(self.ids, (int, np.generic)):
+                self.ids = np.asarray([self.ids], dtype=np.int64)
+            else:
+                validate_array("ids", self.ids, ndim=(0, 1), dtype=np.integer)
+                if self.ids.ndim == 0:
+                    self.ids = self.ids[np.newaxis, ...]
+            if len(self.ids) != num_boxes:
                 raise ValueError(
-                    f"class_ids length ({len(self.class_ids)}) does not match boxes ({num_boxes})"
+                    f"ids length ({len(self.ids)}) does not match boxes ({num_boxes})"
                 )
 
-        if self.class_names is not None and len(self.class_names) != num_boxes:
+        if self.names is not None and len(self.names) != num_boxes:
             raise ValueError(
-                f"class_names length ({len(self.class_names)}) does not match boxes ({num_boxes})"
+                f"names length ({len(self.names)}) does not match boxes ({num_boxes})"
             )
 
-    def visualize_mask(self, save_path: str | Path | None = None) -> np.ndarray:
-        """Visualizes instance segmentation masks overlaid on the input image.
+    def __len__(self) -> int:
+        """Return the number of detected instances."""
+        return len(self.boxes)
+
+    def __getitem__(self, index: int | slice | np.ndarray) -> InstanceSegmentation:
+        """Slice instances across masks, boxes, scores, ids, and names.
 
         Args:
-            save_path: Optional output path to write the annotated image.
+            index: Integer index, slice, or boolean/integer array.
 
         Returns:
-            Annotated RGB image array of shape (H, W, 3).
+            A new InstanceSegmentation instance containing sliced detections.
         """
-        return visualize_masks(self.image, self.boxes, self.masks, self.scores, save_path=save_path)
+        sliced_names = None
+        if self.names is not None:
+            if isinstance(index, int):
+                sliced_names = [self.names[index]]
+            elif isinstance(index, slice):
+                sliced_names = self.names[index]
+            elif isinstance(index, np.ndarray) and np.issubdtype(index.dtype, np.bool_):
+                sliced_names = [name for name, keep in zip(self.names, index) if keep]
+            elif isinstance(index, list) and len(index) > 0 and isinstance(index[0], (bool, np.bool_)):
+                sliced_names = [name for name, keep in zip(self.names, index) if keep]
+            elif isinstance(index, (list, np.ndarray)):
+                sliced_names = [self.names[int(i)] for i in index]
+
+        sliced_masks = self.masks[index]
+        if isinstance(index, int):
+            sliced_masks = sliced_masks[np.newaxis, ...]
+
+        sliced_boxes = self.boxes[index]
+        if isinstance(index, int):
+            sliced_boxes = sliced_boxes[np.newaxis, ...]
+
+        sliced_scores = self.scores[index]
+        if isinstance(index, int):
+            sliced_scores = sliced_scores[np.newaxis, ...]
+
+        sliced_ids = None
+        if self.ids is not None:
+            sliced_ids = self.ids[index]
+            if isinstance(index, int):
+                sliced_ids = np.asarray([sliced_ids])
+
+        return InstanceSegmentation(
+            masks=sliced_masks,
+            boxes=sliced_boxes,
+            scores=sliced_scores,
+            ids=sliced_ids,
+            names=sliced_names,
+        )
 
 
 @dataclass
-class PoseEstimationResult:
-    """Output of a 6D rigid object pose estimation model.
+class ObjectPose6D:
+    """Estimated 6D rigid object poses in SE(3).
 
     Attributes:
-        image: Original RGB input image of shape (H, W, 3).
-        poses: Array of 4x4 object-to-camera transformation matrices of shape (N, 4, 4).
-        intrinsics: Camera intrinsic matrix of shape (3, 3) or (N, 3, 3).
+        pose: Array of 4x4 rigid transformation matrices of shape (N, 4, 4)
+            mapping 3D coordinates from an object's reference frame into a target
+            reference frame.
         scores: Optional confidence scores of shape (N,).
-        labels: Optional class or model names for each detected pose of length N.
-        bbox_3d: 3D bounding box corners of shape (N, 8, 3) or (8, 3) in canonical centered mesh space.
-        to_origin: Mesh centering transformation matrix of shape (N, 4, 4) or (4, 4).
+        ids: Optional class or instance identifier indices of shape (N,).
+        names: Optional class or model names for each detected pose of length N.
     """
 
-    image: ImageRGB
-    poses: ObjectToCamera
-    intrinsics: Intrinsics3x3
-    scores: Scores | None = None
-    labels: list[str] | None = None
-    bbox_3d: BoxCorners3D | None = None
-    to_origin: RigidTransform | None = None
+    pose: np.ndarray
+    scores: np.ndarray | None = None
+    ids: np.ndarray | None = None
+    names: list[str] | None = None
 
     def __post_init__(self) -> None:
-        """Standardizes array dimensions for poses, intrinsics, and scores."""
-        _check_array("image", self.image, ndim=3)
-        _check_array("poses", self.poses, ndim=(2, 3), shape_suffix=(4, 4))
-        if self.poses.ndim == 2:
-            self.poses = self.poses[np.newaxis, ...]
+        """Validate pose matrix dimensions, dtypes, and standardize the leading batch dimension."""
+        validate_array("pose", self.pose, ndim=(2, 3), shape_suffix=(4, 4), dtype=np.floating)
+        if self.pose.ndim == 2:
+            self.pose = self.pose[np.newaxis, ...]
 
-        _check_array("intrinsics", self.intrinsics, ndim=(2, 3), shape_suffix=(3, 3))
+        num_poses = len(self.pose)
 
         if self.scores is not None:
-            if isinstance(self.scores, (int, float)):
-                self.scores = np.array([self.scores], dtype=np.float32)
+            if isinstance(self.scores, (int, float, np.generic)):
+                self.scores = np.asarray([self.scores], dtype=np.float32)
             else:
-                _check_array("scores", self.scores, ndim=(0, 1))
+                validate_array("scores", self.scores, ndim=(0, 1), dtype=np.floating)
                 if self.scores.ndim == 0:
                     self.scores = self.scores[np.newaxis, ...]
-            if len(self.scores) != len(self.poses):
+            if len(self.scores) != num_poses:
                 raise ValueError(
-                    f"scores count ({len(self.scores)}) does not match poses count ({len(self.poses)})"
+                    f"scores count ({len(self.scores)}) does not match pose count ({num_poses})"
                 )
 
-        if self.labels is not None:
-            if isinstance(self.labels, str):
-                self.labels = [self.labels]
-            if len(self.labels) != len(self.poses):
+        if self.ids is not None:
+            if isinstance(self.ids, (int, np.generic)):
+                self.ids = np.asarray([self.ids], dtype=np.int64)
+            else:
+                validate_array("ids", self.ids, ndim=(0, 1), dtype=np.integer)
+                if self.ids.ndim == 0:
+                    self.ids = self.ids[np.newaxis, ...]
+            if len(self.ids) != num_poses:
                 raise ValueError(
-                    f"labels count ({len(self.labels)}) does not match poses count ({len(self.poses)})"
+                    f"ids count ({len(self.ids)}) does not match pose count ({num_poses})"
                 )
 
-        if self.bbox_3d is not None:
-            _check_array("bbox_3d", self.bbox_3d, ndim=(2, 3), shape_suffix=(8, 3))
-
-        if self.to_origin is not None:
-            _check_array("to_origin", self.to_origin, ndim=(2, 3), shape_suffix=(4, 4))
+        if self.names is not None:
+            if isinstance(self.names, str):
+                self.names = [self.names]
+            if len(self.names) != num_poses:
+                raise ValueError(
+                    f"names count ({len(self.names)}) does not match pose count ({num_poses})"
+                )
 
     def __len__(self) -> int:
-        """Returns the number of estimated poses."""
-        return len(self.poses)
+        """Return the number of estimated poses."""
+        return len(self.pose)
 
-    @property
-    def best_pose(self) -> np.ndarray:
-        """Returns the single top-scoring 4x4 pose matrix."""
-        if len(self.poses) == 1 or self.scores is None:
-            return self.poses[0]
-        return self.poses[int(np.argmax(self.scores))]
-
-    @property
-    def best_score(self) -> float | None:
-        """Returns the highest confidence score."""
-        if self.scores is None or len(self.scores) == 0:
-            return None
-        return float(np.max(self.scores))
-
-    def visualize(
-        self,
-        draw_bbox: bool = True,
-        draw_axes: bool = True,
-        axis_length: float = 0.05,
-        box_color: tuple[int, int, int] = (0, 255, 0),
-        save_path: str | Path | None = None,
-    ) -> np.ndarray:
-        """Visualizes estimated 6D poses by projecting 3D bounding boxes and coordinate axes.
+    def __getitem__(self, index: int | slice | np.ndarray) -> ObjectPose6D:
+        """Slice poses, scores, ids, and names along the instance dimension.
 
         Args:
-            draw_bbox: Whether to draw projected 3D bounding box wireframes.
-            draw_axes: Whether to draw 3D coordinate axes.
-            axis_length: Length of 3D axes in meters.
-            box_color: RGB tuple for bounding box edges.
-            save_path: Optional output path to write the annotated image.
+            index: Integer index, slice, or boolean/integer array.
 
         Returns:
-            Annotated RGB image array of shape (H, W, 3).
+            A new ObjectPose6D instance containing sliced poses and attributes.
         """
-        vis_img = self.image.copy()
+        sliced_pose = self.pose[index]
+        if isinstance(index, int):
+            sliced_pose = sliced_pose[np.newaxis, ...]
 
-        intr = self.intrinsics[0] if self.intrinsics.ndim == 3 else self.intrinsics
+        sliced_scores = None
+        if self.scores is not None:
+            sliced_scores = self.scores[index]
+            if isinstance(index, int):
+                sliced_scores = sliced_scores[np.newaxis, ...]
 
-        for i, pose in enumerate(self.poses):
-            if draw_bbox and self.bbox_3d is not None:
-                bbox = (
-                    self.bbox_3d[i]
-                    if self.bbox_3d.ndim == 3 and len(self.bbox_3d) == len(self.poses)
-                    else self.bbox_3d
+        sliced_ids = None
+        if self.ids is not None:
+            sliced_ids = self.ids[index]
+            if isinstance(index, int):
+                sliced_ids = np.asarray([sliced_ids])
+
+        sliced_names = None
+        if self.names is not None:
+            if isinstance(index, int):
+                sliced_names = [self.names[index]]
+            elif isinstance(index, slice):
+                sliced_names = self.names[index]
+            elif isinstance(index, np.ndarray) and np.issubdtype(index.dtype, np.bool_):
+                sliced_names = [name for name, keep in zip(self.names, index) if keep]
+            elif isinstance(index, list) and len(index) > 0 and isinstance(index[0], (bool, np.bool_)):
+                sliced_names = [name for name, keep in zip(self.names, index) if keep]
+            elif isinstance(index, (list, np.ndarray)):
+                sliced_names = [self.names[int(i)] for i in index]
+
+        return ObjectPose6D(
+            pose=sliced_pose,
+            scores=sliced_scores,
+            ids=sliced_ids,
+            names=sliced_names,
+        )
+
+
+@dataclass
+class ImageBuffers:
+    """Multimodal 2D image buffers aligned on the image plane.
+
+    Attributes:
+        rgba: Optional color images with alpha channel of shape (N, H, W, 4).
+        depth: Optional depth maps of shape (N, H, W).
+        normal: Optional surface normal vector maps of shape (N, H, W, 3).
+        mask: Optional binary foreground masks of shape (N, H, W).
+    """
+
+    rgba: np.ndarray | None = None
+    depth: np.ndarray | None = None
+    normal: np.ndarray | None = None
+    mask: np.ndarray | None = None
+
+    def __post_init__(self) -> None:
+        """Validate buffer dimensions, dtypes, and standardize leading batch dimensions."""
+        buffers = [b for b in (self.rgba, self.depth, self.normal, self.mask) if b is not None]
+        if not buffers:
+            raise ValueError("ImageBuffers requires at least one non-null buffer.")
+
+        num_views: int | None = None
+        spatial_hw: tuple[int, int] | None = None
+
+        if self.rgba is not None:
+            validate_array("rgba", self.rgba, ndim=(3, 4), shape_suffix=(4,), dtype=(np.uint8, np.integer))
+            if self.rgba.ndim == 3:
+                self.rgba = self.rgba[np.newaxis, ...]
+            num_views = len(self.rgba)
+            spatial_hw = self.rgba.shape[1:3]
+
+        if self.depth is not None:
+            validate_array("depth", self.depth, ndim=(2, 3), dtype=np.floating)
+            if self.depth.ndim == 2:
+                self.depth = self.depth[np.newaxis, ...]
+            if num_views is None:
+                num_views = len(self.depth)
+            elif len(self.depth) != num_views:
+                raise ValueError(
+                    f"depth count ({len(self.depth)}) does not match batch size ({num_views})"
                 )
-                vis_img = draw_3d_box(
-                    image=vis_img,
-                    pose=pose,
-                    intrinsics=intr,
-                    bbox_corners_3d=bbox,
-                    color=box_color,
-                )
-            if draw_axes and self.to_origin is not None:
-                to_orig = (
-                    self.to_origin[i]
-                    if self.to_origin.ndim == 3 and len(self.to_origin) == len(self.poses)
-                    else self.to_origin
-                )
-                vis_img = draw_3d_axis(
-                    image=vis_img,
-                    pose=pose,
-                    intrinsics=intr,
-                    axis_length=axis_length,
-                    to_origin=to_orig,
+            if spatial_hw is None:
+                spatial_hw = self.depth.shape[1:3]
+            elif self.depth.shape[1:3] != spatial_hw:
+                raise ValueError(
+                    f"depth resolution {self.depth.shape[1:3]} does not match buffer resolution {spatial_hw}"
                 )
 
-        if save_path is not None:
-            Path(save_path).parent.mkdir(parents=True, exist_ok=True)
-            cv2.imwrite(str(save_path), cv2.cvtColor(vis_img, cv2.COLOR_RGB2BGR))
+        if self.normal is not None:
+            validate_array("normal", self.normal, ndim=(3, 4), shape_suffix=(3,), dtype=np.floating)
+            if self.normal.ndim == 3:
+                self.normal = self.normal[np.newaxis, ...]
+            if num_views is None:
+                num_views = len(self.normal)
+            elif len(self.normal) != num_views:
+                raise ValueError(
+                    f"normal count ({len(self.normal)}) does not match batch size ({num_views})"
+                )
+            if spatial_hw is None:
+                spatial_hw = self.normal.shape[1:3]
+            elif self.normal.shape[1:3] != spatial_hw:
+                raise ValueError(
+                    f"normal resolution {self.normal.shape[1:3]} does not match buffer resolution {spatial_hw}"
+                )
 
-        return vis_img
+        if self.mask is not None:
+            validate_array("mask", self.mask, ndim=(2, 3), dtype=(np.bool_, np.integer))
+            if self.mask.ndim == 2:
+                self.mask = self.mask[np.newaxis, ...]
+            if num_views is None:
+                num_views = len(self.mask)
+            elif len(self.mask) != num_views:
+                raise ValueError(
+                    f"mask count ({len(self.mask)}) does not match batch size ({num_views})"
+                )
+            if spatial_hw is None:
+                spatial_hw = self.mask.shape[1:3]
+            elif self.mask.shape[1:3] != spatial_hw:
+                raise ValueError(
+                    f"mask resolution {self.mask.shape[1:3]} does not match buffer resolution {spatial_hw}"
+                )
 
+    def __len__(self) -> int:
+        """Return the number of frames along the leading batch dimension."""
+        for buf in (self.rgba, self.depth, self.normal, self.mask):
+            if buf is not None:
+                return len(buf)
+        return 0
+
+    def __getitem__(self, index: int | slice | np.ndarray) -> ImageBuffers:
+        """Slice all present image buffers along the leading batch dimension.
+
+        Args:
+            index: Integer index, slice, or boolean/integer array.
+
+        Returns:
+            A new ImageBuffers instance containing sliced buffers.
+        """
+        def _slice_opt(arr: np.ndarray | None) -> np.ndarray | None:
+            if arr is None:
+                return None
+            sub = arr[index]
+            if isinstance(index, int):
+                sub = sub[np.newaxis, ...]
+            return sub
+
+        return ImageBuffers(
+            rgba=_slice_opt(self.rgba),
+            depth=_slice_opt(self.depth),
+            normal=_slice_opt(self.normal),
+            mask=_slice_opt(self.mask),
+        )
+
+
+__all__ = [
+    "BoundingBox3D",
+    "CameraExtrinsics",
+    "CameraIntrinsics",
+    "DepthMap",
+    "FeatureEmbedding",
+    "ImageBuffers",
+    "InstanceSegmentation",
+    "KeypointMatches",
+    "ObjectPose6D",
+    "RigidTransform3D",
+]

@@ -227,13 +227,7 @@ with FoundationPose(
     print(f"Tracked pose translation: {next_pose.pose[0, :3, 3]}")
 ```
 
-<p align="center">
-  <video src="https://github.com/spatialhub-ai/spatialhub/raw/main/docs/assets/foundationpose_tracking.mp4" controls width="100%" poster="docs/assets/foundationpose_tracking.png">
-    <a href="https://github.com/spatialhub-ai/spatialhub/raw/main/docs/assets/foundationpose_tracking.mp4">
-      <img src="docs/assets/foundationpose_tracking.png" alt="FoundationPose 6D Pose Tracking" width="100%" />
-    </a>
-  </video>
-</p>
+https://github.com/user-attachments/assets/726ac4bc-338d-4bf9-af38-f0e037ca5f28
 
 ---
 

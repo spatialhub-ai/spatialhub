@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SpatialHub 3D Point Cloud Viewer</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #111216;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: #e2e8f0;
+    }
+    #viewport {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    .toolbar {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      right: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      pointer-events: none;
+      z-index: 10;
+    }
+    .btn-group {
+      display: inline-flex;
+      background: rgba(24, 26, 32, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 6px;
+      padding: 3px;
+      pointer-events: auto;
+      backdrop-filter: blur(8px);
+    }
+    .btn {
+      background: transparent;
+      border: none;
+      color: #94a3b8;
+      padding: 6px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .btn:hover {
+      color: #ffffff;
+      background: rgba(255, 255, 255, 0.06);
+    }
+    .btn.active {
+      color: #ffffff;
+      background: #3b82f6;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    }
+    .controls-right {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      pointer-events: auto;
+    }
+    .control-pill {
+      background: rgba(24, 26, 32, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 6px;
+      padding: 4px 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: #94a3b8;
+      backdrop-filter: blur(8px);
+    }
+    .control-pill input[type="range"] {
+      width: 80px;
+      height: 6px;
+      -webkit-appearance: none;
+      appearance: none;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 3px;
+      outline: none;
+      cursor: pointer;
+    }
+    .control-pill input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #3b82f6;
+      cursor: pointer;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+      transition: background 0.15s ease, transform 0.1s ease;
+    }
+    .control-pill input[type="range"]::-webkit-slider-thumb:hover {
+      background: #60a5fa;
+      transform: scale(1.15);
+    }
+    .control-pill input[type="range"]::-moz-range-thumb {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #3b82f6;
+      border: none;
+      cursor: pointer;
+    }
+    .btn-icon {
+      background: rgba(24, 26, 32, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 6px;
+      color: #94a3b8;
+      padding: 6px 10px;
+      font-size: 12px;
+      cursor: pointer;
+      backdrop-filter: blur(8px);
+      transition: all 0.15s ease;
+    }
+    .btn-icon:hover {
+      color: #ffffff;
+      background: rgba(255, 255, 255, 0.08);
+    }
+    .hint-bar {
+      position: absolute;
+      bottom: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(15, 17, 23, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 20px;
+      padding: 5px 14px;
+      font-size: 11px;
+      color: #64748b;
+      pointer-events: none;
+      backdrop-filter: blur(6px);
+      letter-spacing: 0.2px;
+    }
+    #loading {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: #94a3b8;
+      font-size: 13px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      pointer-events: none;
+    }
+    .spinner {
+      width: 28px;
+      height: 28px;
+      border: 2px solid rgba(255, 255, 255, 0.1);
+      border-top-color: #3b82f6;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/PLYLoader.js"></script>
+</head>
+<body>
+  <div class="toolbar">
+    <div class="btn-group">
+      <button id="btnPred" class="btn active" onclick="switchCloud('pred')">Predicted Depth (DA3)</button>
+      <button id="btnGt" class="btn" onclick="switchCloud('gt')">Ground Truth</button>
+    </div>
+    <div class="controls-right">
+      <div class="control-pill">
+        <span>Point Size</span>
+        <input id="sizeSlider" type="range" min="1.0" max="8.0" step="0.5" value="3.5" oninput="updatePointSize(this.value)">
+        <span id="sizeVal" style="min-width: 44px; text-align: right; font-variant-numeric: tabular-nums; color: #cbd5e1;">3.5 px</span>
+      </div>
+      <button class="btn-icon" onclick="resetCamera()">Reset View</button>
+    </div>
+  </div>
+
+  <div id="loading">
+    <div class="spinner"></div>
+    <span>Loading 3D Point Cloud...</span>
+  </div>
+
+  <div class="hint-bar">Left click to rotate &bull; Right click to pan &bull; Scroll to zoom</div>
+  <canvas id="viewport"></canvas>
+
+  <script>
+    const canvas = document.getElementById('viewport');
+    const loading = document.getElementById('loading');
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x13141a);
+
+    const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.05, 50.0);
+    const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, powerPreference: "high-performance" });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.12;
+    controls.rotateSpeed = 0.8;
+    controls.panSpeed = 0.8;
+    controls.zoomSpeed = 0.8;
+
+    let pointCloudPred = null;
+    let pointCloudGt = null;
+    let currentMode = 'pred';
+    let defaultCameraPos = new THREE.Vector3(0, 0, 0);
+    let defaultTarget = new THREE.Vector3(0, 0, 0);
+
+    const loader = new THREE.PLYLoader();
+    let currentPointSize = 3.5;
+
+    // Generate circular disc texture for smooth, non-aliased points
+    function createCircleTexture() {
+      const cvs = document.createElement('canvas');
+      cvs.width = 32;
+      cvs.height = 32;
+      const ctx = cvs.getContext('2d');
+      ctx.beginPath();
+      ctx.arc(16, 16, 14, 0, Math.PI * 2);
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+      return new THREE.CanvasTexture(cvs);
+    }
+    const circleTexture = createCircleTexture();
+
+    // Demand-driven rendering: only render when camera moves or input updates
+    let isAnimating = false;
+    let isVisible = true;
+
+    function requestRender() {
+      if (!isAnimating && isVisible) {
+        isAnimating = true;
+        requestAnimationFrame(tick);
+      }
+    }
+
+    function tick() {
+      if (!isVisible) {
+        isAnimating = false;
+        return;
+      }
+      const hasInertia = controls.update();
+      renderer.render(scene, camera);
+      if (hasInertia) {
+        requestAnimationFrame(tick);
+      } else {
+        isAnimating = false;
+      }
+    }
+
+    controls.addEventListener('change', requestRender);
+
+    // Pause rendering entirely when viewport scrolled away
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        isVisible = entry.isIntersecting;
+        if (isVisible) {
+          requestRender();
+        }
+      });
+    }, { threshold: 0.05 });
+    observer.observe(document.body);
+
+    function createPoints(geometry) {
+      geometry.computeVertexNormals();
+      const material = new THREE.PointsMaterial({
+        size: currentPointSize,
+        vertexColors: true,
+        sizeAttenuation: false,
+        map: circleTexture,
+        alphaTest: 0.5,
+        transparent: false
+      });
+      const points = new THREE.Points(geometry, material);
+      points.rotation.x = Math.PI;
+      return points;
+    }
+
+    loader.load('room_point_cloud_pred_web.ply', function(geometry) {
+      pointCloudPred = createPoints(geometry);
+      scene.add(pointCloudPred);
+
+      geometry.computeBoundingBox();
+      const box = geometry.boundingBox;
+      const center = new THREE.Vector3();
+      box.getCenter(center);
+      defaultTarget = new THREE.Vector3(center.x, -center.y, -center.z);
+      controls.target.copy(defaultTarget);
+
+      const size = new THREE.Vector3();
+      box.getSize(size);
+      const maxDim = Math.max(size.x, size.y, size.z);
+      defaultCameraPos = new THREE.Vector3(defaultTarget.x, defaultTarget.y + 0.3 * maxDim, defaultTarget.z - 1.2 * maxDim);
+      camera.position.copy(defaultCameraPos);
+      controls.update();
+
+      loading.style.display = 'none';
+      requestRender();
+
+      // Preload GT point cloud in background
+      loader.load('room_point_cloud_gt_web.ply', function(gtGeom) {
+        pointCloudGt = createPoints(gtGeom);
+        pointCloudGt.visible = false;
+        scene.add(pointCloudGt);
+      });
+    });
+
+    function switchCloud(mode) {
+      currentMode = mode;
+      document.getElementById('btnPred').classList.toggle('active', mode === 'pred');
+      document.getElementById('btnGt').classList.toggle('active', mode === 'gt');
+
+      if (pointCloudPred) pointCloudPred.visible = (mode === 'pred');
+      if (pointCloudGt) pointCloudGt.visible = (mode === 'gt');
+      requestRender();
+    }
+
+    function updatePointSize(val) {
+      currentPointSize = parseFloat(val);
+      const valLabel = document.getElementById('sizeVal');
+      if (valLabel) valLabel.textContent = currentPointSize.toFixed(1) + ' px';
+      if (pointCloudPred) pointCloudPred.material.size = currentPointSize;
+      if (pointCloudGt) pointCloudGt.material.size = currentPointSize;
+      requestRender();
+    }
+
+    function resetCamera() {
+      camera.position.copy(defaultCameraPos);
+      controls.target.copy(defaultTarget);
+      controls.update();
+      requestRender();
+    }
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      requestRender();
+    });
+  </script>
+</body>
+</html>

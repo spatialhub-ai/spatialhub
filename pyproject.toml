@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Apache-2.0" }
 authors = [
-    { name = "Pankaj Kaushik" }
+    { name = "Pankaj Kaushik", email = "pankajkaushik12r@gmail.com" }
 ]
 dependencies = [
     "huggingface-hub>=1.22.0",

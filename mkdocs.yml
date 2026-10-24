@@ -10,6 +10,12 @@ extra:
     - icon: fontawesome/brands/github
       link: https://github.com/spatialhub-ai/spatialhub
       name: SpatialHub on GitHub
+    - icon: fontawesome/solid/user
+      link: https://github.com/pankajkaushik12
+      name: Pankaj Kaushik on GitHub
+    - icon: fontawesome/solid/envelope
+      link: mailto:pankajkaushik12r@gmail.com
+      name: Contact Author via Email
 
 theme:
   name: material

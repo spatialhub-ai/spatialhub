@@ -271,6 +271,16 @@ uv run python tools/export/export_depth_anything_3.py --model-name da3_base
 
 ---
 
+## Author & Contact
+
+Developed and maintained by **Pankaj Kaushik** ([@pankajkaushik12](https://github.com/pankajkaushik12)).
+
+* **Email**: pankajkaushik12r@gmail.com
+* **GitHub Issues**: [spatialhub-ai/spatialhub/issues](https://github.com/spatialhub-ai/spatialhub/issues)
+* **Documentation**: [spatialhub-ai.github.io/spatialhub](https://spatialhub-ai.github.io/spatialhub/)
+
+---
+
 ## License
 
 SpatialHub is released under the [Apache 2.0 License](LICENSE). Pretrained ONNX model weights fetched from Hugging Face Hub maintain their respective upstream licenses.

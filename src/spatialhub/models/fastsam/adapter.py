@@ -8,8 +8,9 @@ import cv2
 import numpy as np
 
 from spatialhub.core.runtime import create_ort_session, resolve_model_path
-from spatialhub.structures import SegmentationResult
-from spatialhub.utils import load_image, non_max_suppression
+from spatialhub.structures import InstanceSegmentation
+from spatialhub.utils import load_image, nms_boxes, to_color
+
 
 logger = logging.getLogger(__name__)
 
@@ -222,7 +223,7 @@ class FastSAMAdapter:
         scores = scores[valid]
         preds = preds[valid]
 
-        keep = non_max_suppression(boxes_xyxy, scores, iou_threshold)
+        keep = nms_boxes(boxes_xyxy, scores, iou_threshold)
         if max_det > 0 and len(keep) > max_det:
             keep = keep[:max_det]
 
@@ -346,7 +347,7 @@ class FastSAMAdapter:
         conf_threshold: float,
         iou_threshold: float,
         max_det: int | None = None,
-    ) -> SegmentationResult:
+    ) -> InstanceSegmentation:
         """Decode detections, evaluate mask prototypes, and map back to input coordinates.
 
         Args:
@@ -360,7 +361,7 @@ class FastSAMAdapter:
             max_det: Maximum number of detections to retain.
 
         Returns:
-            SegmentationResult: Filtered boxes, masks, and confidence scores.
+            InstanceSegmentation: Filtered boxes, masks, and confidence scores.
         """
         max_det = max_det if max_det is not None else self.default_max_det
         boxes, scores, mask_coeffs = self._decode_predictions(
@@ -371,10 +372,9 @@ class FastSAMAdapter:
         )
 
         if len(boxes) == 0:
-            return SegmentationResult(
-                image=image,
-                boxes=np.empty((0, 4), dtype=np.float32),
+            return InstanceSegmentation(
                 masks=np.empty((0, orig_h, orig_w), dtype=bool),
+                boxes=np.empty((0, 4), dtype=np.float32),
                 scores=np.empty((0,), dtype=np.float32),
             )
 
@@ -394,10 +394,9 @@ class FastSAMAdapter:
             letterbox=letterbox,
         )
 
-        return SegmentationResult(
-            image=image,
-            boxes=scaled_boxes.astype(np.float32),
+        return InstanceSegmentation(
             masks=masks,
+            boxes=scaled_boxes.astype(np.float32),
             scores=scores.astype(np.float32),
         )
 
@@ -407,24 +406,36 @@ class FastSAMAdapter:
         conf_threshold: float | None = None,
         iou_threshold: float | None = None,
         max_det: int | None = None,
-    ) -> SegmentationResult:
+    ) -> InstanceSegmentation:
         """Generate object proposals and instance segmentation masks.
 
         Args:
-            image: Input image (file path or RGB NumPy array).
+            image: Input image (file path or RGB NumPy array with pixel values in [0, 255]).
             conf_threshold: Overrides default confidence score threshold.
             iou_threshold: Overrides default NMS IoU threshold.
             max_det: Overrides default maximum detections threshold.
 
         Returns:
-            SegmentationResult: Dataclass containing image, bounding boxes, binary masks, and scores.
+            InstanceSegmentation: Dataclass containing bounding boxes, binary masks, and scores.
+
+        Raises:
+            RuntimeError: If called after the inference session has been closed.
+            TypeError: If image input type is unsupported.
+            ValueError: If image spatial shape or channel count is unsupported.
         """
+        if getattr(self, "session", None) is None:
+            raise RuntimeError("Inference session has been closed. Re-initialize adapter to generate masks.")
+
         conf_thresh = conf_threshold if conf_threshold is not None else self.default_conf_threshold
         iou_thresh = iou_threshold if iou_threshold is not None else self.default_iou_threshold
         max_detections = max_det if max_det is not None else self.default_max_det
 
         if isinstance(image, (str, Path)):
             image = load_image(image, color_mode="RGB")
+        elif isinstance(image, np.ndarray):
+            image = to_color(image, "RGB")
+        else:
+            raise TypeError(f"image must be a str, Path, or np.ndarray, got {type(image).__name__}")
 
         orig_h, orig_w = image.shape[:2]
 

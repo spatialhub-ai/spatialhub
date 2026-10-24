@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 
 from spatialhub.models.fastsam.adapter import FastSAMAdapter, crop_mask
-from spatialhub.structures import SegmentationResult
+from spatialhub.structures import InstanceSegmentation
 
 
 class TestFastSAMAdapterInit:
@@ -192,7 +192,7 @@ class TestFastSAMInference:
         dummy_img = np.zeros((480, 640, 3), dtype=np.uint8)
         result = adapter.generate_masks(dummy_img)
 
-        assert isinstance(result, SegmentationResult)
+        assert isinstance(result, InstanceSegmentation)
         assert result.boxes.shape == (1, 4)
         assert result.masks.shape == (1, 480, 640)
         assert result.masks.dtype == bool
@@ -233,7 +233,7 @@ class TestFastSAMInference:
             iou_threshold=0.7,
         )
 
-        assert isinstance(result, SegmentationResult)
+        assert isinstance(result, InstanceSegmentation)
         assert result.boxes.shape == (1, 4)
         assert result.masks.shape == (1, 480, 640)
         assert len(result.scores) == 1
@@ -249,7 +249,7 @@ class TestFastSAMInference:
         dummy_img = np.zeros((480, 640, 3), dtype=np.uint8)
         result = adapter.generate_masks(dummy_img, conf_threshold=0.5)
 
-        assert isinstance(result, SegmentationResult)
+        assert isinstance(result, InstanceSegmentation)
         assert result.boxes.shape == (0, 4)
         assert result.masks.shape == (0, 480, 640)
         assert result.scores.shape == (0,)
@@ -280,5 +280,34 @@ class TestFastSAMInference:
         adapter = self._create_mock_adapter(imgsz=640)
         adapter.close()
         dummy_img = np.zeros((480, 640, 3), dtype=np.uint8)
-        with pytest.raises(AttributeError):
+        with pytest.raises(RuntimeError, match="Inference session has been closed"):
             adapter.generate_masks(dummy_img)
+
+    def test_generate_masks_grayscale_and_rgba(self):
+        """Test mask generation with 2D grayscale and 4-channel RGBA array inputs."""
+        adapter = self._create_mock_adapter(imgsz=640)
+        out0 = np.zeros((1, 37, 10), dtype=np.float32)
+        out1 = np.ones((1, 32, 160, 160), dtype=np.float32)
+        adapter.session.run.return_value = [out0, out1]
+
+        gray_img = np.zeros((480, 640), dtype=np.uint8)
+        rgba_img = np.zeros((480, 640, 4), dtype=np.uint8)
+
+        res_gray = adapter.generate_masks(gray_img)
+        assert isinstance(res_gray, InstanceSegmentation)
+
+        res_rgba = adapter.generate_masks(rgba_img)
+        assert isinstance(res_rgba, InstanceSegmentation)
+
+    def test_generate_masks_invalid_input_raises(self):
+        """Test exception handling on invalid image types and dimensions."""
+        adapter = self._create_mock_adapter(imgsz=640)
+        with pytest.raises(TypeError, match="image must be a str, Path, or np.ndarray"):
+            adapter.generate_masks(12345)
+
+        with pytest.raises(ValueError, match="Expected 2D or 3D image array"):
+            adapter.generate_masks(np.zeros((1, 2, 3, 4), dtype=np.uint8))
+
+        with pytest.raises(ValueError, match="Unsupported number of image channels"):
+            adapter.generate_masks(np.zeros((100, 100, 5), dtype=np.uint8))
+

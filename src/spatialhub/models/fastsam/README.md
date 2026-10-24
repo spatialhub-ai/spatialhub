@@ -25,7 +25,7 @@ graph TD
     B --> C["ONNX Runtime Forward Pass"]
     C --> D["Box Decoding & NMS Filtering"]
     C --> E["Prototype Mask Synthesis & Resampling"]
-    D --> F["SegmentationResult"]
+    D --> F["InstanceSegmentation"]
     E --> F
 ```
 
@@ -170,6 +170,10 @@ Latency, throughput, and memory footprint measured across $10$ unmeasured warmup
 
 ```python
 from spatialhub import FastSAM
+from spatialhub.utils import blend_masks, draw_boxes_2d, load_image, save_image
+
+# Load image
+image = load_image("scene.png", color_mode="RGB")
 
 # Initialize FastSAM adapter
 segmentor = FastSAM(
@@ -181,10 +185,12 @@ segmentor = FastSAM(
 )
 
 # Generate segment proposals
-result = segmentor.generate_masks("scene.png", conf_threshold=0.25, iou_threshold=0.7, max_det=50)
+result = segmentor.generate_masks(image, conf_threshold=0.25, iou_threshold=0.7, max_det=50)
 
 # Render colorized segment overlay image
-result.visualize_mask(save_path="fastsam_masks.png")
+overlay = blend_masks(image, result.masks, alpha=0.5)
+overlay = draw_boxes_2d(overlay, result.boxes, scores=result.scores)
+save_image(overlay, "fastsam_masks.png")
 ```
 
 ---
@@ -268,14 +274,13 @@ uv run tools/benchmark/profile_fastsam.py \
 
 ## Returned Result Data Structure
 
-Returns a [`SegmentationResult`](https://spatialhub-ai.github.io/spatialhub/core-and-utils/structures/segmentation_result/) dataclass:
+Returns an [`InstanceSegmentation`](https://spatialhub-ai.github.io/spatialhub/structures/perception_primitives/#instancesegmentation) dataclass:
 
 | Attribute | Type | Shape | Description |
 | :--- | :--- | :--- | :--- |
-| `image` | `ImageRGB` | `(H, W, 3)` uint8 | Input RGB image array. |
-| `boxes` | `Boxes2D` | `(N, 4)` float32 | Bounding box coordinates in `[x1, y1, x2, y2]` pixel format. |
-| `masks` | `BinaryMask` | `(N, H, W)` bool | Binary spatial segment masks. |
-| `scores` | `Scores` | `(N,)` float32 | Detection confidence scores in `[0.0, 1.0]`. |
-| `class_ids` | `np.ndarray | None` | `(N,)` int | Numerical class index array. |
-| `class_names` | `list[str] | None` | Length `N` | Class label name list. |
+| `masks` | `np.ndarray` | `(N, H, W)` bool | Binary spatial segment masks. |
+| `boxes` | `np.ndarray` | `(N, 4)` float32 | Bounding box coordinates in `[x1, y1, x2, y2]` pixel format. |
+| `scores` | `np.ndarray` | `(N,)` float32 | Detection confidence scores in `[0.0, 1.0]`. |
+| `ids` | `np.ndarray | None` | `(N,)` int | Numerical class index array. |
+| `names` | `list[str] | None` | Length `N` | Class label name list. |
 

@@ -1,9 +1,4 @@
-"""
-Hierarchical execution profiling and benchmarking utilities for SpatialHub.
-
-Provides context managers, function decorators, and benchmark runners to measure
-wall-clock elapsed time, CPU time, throughput (FPS), and RAM/VRAM footprint deltas.
-"""
+"""Hierarchical execution profiling, timing, and benchmarking utilities."""
 
 from __future__ import annotations
 
@@ -17,7 +12,6 @@ from typing import Any, Callable
 
 logger = logging.getLogger(__name__)
 
-# Graceful optional dependency loading for system process RAM tracking
 HAS_PSUTIL = True
 _process: Any | None = None
 try:
@@ -31,11 +25,10 @@ except ImportError:
 
 
 def get_ram_mb() -> float:
-    """
-    Return the current process Resident Set Size (RSS) memory consumption in megabytes.
+    """Return the current process RSS memory consumption in megabytes.
 
     Returns:
-        Process RSS memory in megabytes (MB) if psutil is available, otherwise 0.0.
+        RSS in megabytes if psutil is available, otherwise 0.0.
     """
     if HAS_PSUTIL and _process is not None:
         try:
@@ -138,8 +131,7 @@ def get_gpu_vram_mb(device_id: int = 0) -> GPUMemoryInfo | None:
 
 
 class ProfileNode:
-    """
-    Represents a single execution scope node in the hierarchical profiling call tree.
+    """Represents a single execution scope node in the hierarchical profiling call tree.
 
     Attributes:
         name: Identifier name of the execution scope or function.
@@ -147,46 +139,57 @@ class ProfileNode:
         total_wall_time: Cumulative real-world elapsed wall time in seconds.
         total_cpu_time: Cumulative process CPU execution time in seconds.
         peak_ram_delta_mb: Maximum observed RAM memory allocation delta in megabytes.
+        peak_vram_delta_mb: Maximum observed VRAM memory allocation delta in megabytes.
         children: Dictionary mapping child scope names to their respective ProfileNode instances.
     """
 
     def __init__(self, name: str):
-        """
-        Initialize a profiling node.
-
-        Args:
-            name: Identifier name for the execution scope.
-        """
         self.name = name
         self.calls = 0
         self.total_wall_time = 0.0
         self.total_cpu_time = 0.0
         self.peak_ram_delta_mb = 0.0
+        self.peak_vram_delta_mb = 0.0
         self.children: dict[str, ProfileNode] = {}
 
 
 class HierarchicalProfiler:
-    """
-    Tracks nested function execution times, CPU process time, and RAM footprint deltas.
+    """Tracks nested execution times, CPU process time, and RAM/VRAM footprint deltas.
 
-    Maintains a call stack of execution nodes, allowing fine-grained breakdown of performance
-    bottlenecks across complex computer vision pipelines.
+    Maintains a call stack of execution nodes for fine-grained stage-by-stage breakdowns.
     """
 
-    def __init__(self, name: str = "Root"):
-        """
-        Initialize the hierarchical profiler root node and call stack.
+    def __init__(
+        self,
+        name: str = "Root",
+        device: str = "CPU",
+        track_ram: bool = True,
+        track_vram: bool | None = None,
+        sync_cuda: bool | None = None,
+        device_id: int = 0,
+    ):
+        """Initialize the hierarchical profiler root node, device options, and call stack.
 
         Args:
             name: Identifier name for the root profiling scope (default: "Root").
+            device: Execution target label ('CPU', 'CUDA', etc.).
+            track_ram: Whether to track host process RAM allocation deltas (default: True).
+            track_vram: Whether to track device VRAM deltas (defaults to True if device is CUDA).
+            sync_cuda: Whether to synchronize CUDA device queues (defaults to True if device is CUDA).
+            device_id: Target GPU device ordinal (default: 0).
         """
         self.root_name = name
+        self.device = device
+        self.track_ram = track_ram
+        is_cuda = "cuda" in device.lower()
+        self.track_vram = is_cuda if track_vram is None else track_vram
+        self.sync_cuda = is_cuda if sync_cuda is None else sync_cuda
+        self.device_id = device_id
         self.root = ProfileNode(self.root_name)
         self.stack = [self.root]
 
     def push(self, name: str) -> ProfileNode:
-        """
-        Push a new or existing execution scope onto the call stack.
+        """Push a new or existing execution scope onto the call stack.
 
         Args:
             name: Identifier name of the nested execution scope.
@@ -211,84 +214,173 @@ class HierarchicalProfiler:
         self.root = ProfileNode(self.root_name)
         self.stack = [self.root]
 
+    def scope(
+        self,
+        name: str,
+        track_ram: bool | None = None,
+        track_vram: bool | None = None,
+        sync_cuda: bool | None = None,
+    ) -> Timer:
+        """Return a Timer context manager bound to this profiler instance.
+
+        Args:
+            name: Identifier name for the execution scope.
+            track_ram: Optional override for RAM tracking.
+            track_vram: Optional override for VRAM tracking.
+            sync_cuda: Optional override for CUDA synchronization.
+
+        Returns:
+            Timer context manager.
+        """
+        return Timer(
+            name=name,
+            profiler=self,
+            track_memory=self.track_ram if track_ram is None else track_ram,
+            track_vram=self.track_vram if track_vram is None else track_vram,
+            sync_cuda=self.sync_cuda if sync_cuda is None else sync_cuda,
+            device_id=self.device_id,
+        )
+
+    def __call__(
+        self,
+        name: str,
+        track_ram: bool | None = None,
+        track_vram: bool | None = None,
+        sync_cuda: bool | None = None,
+    ) -> Timer:
+        """Shorthand context manager invocation: `with profiler("stage"):`."""
+        return self.scope(
+            name=name,
+            track_ram=track_ram,
+            track_vram=track_vram,
+            sync_cuda=sync_cuda,
+        )
+
+    def timeit(
+        self,
+        name: str | None = None,
+        track_ram: bool | None = None,
+        track_vram: bool | None = None,
+        sync_cuda: bool | None = None,
+    ) -> Callable[..., Any]:
+        """Decorator bound to this profiler instance.
+
+        Args:
+            name: Optional scope identifier (defaults to decorated function name).
+            track_ram: Optional override for RAM tracking.
+            track_vram: Optional override for VRAM tracking.
+            sync_cuda: Optional override for CUDA synchronization.
+
+        Returns:
+            Decorated wrapper function.
+        """
+        def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+            scope_name = name if name else func.__name__
+
+            @wraps(func)
+            def wrapper(*args: Any, **kwargs: Any) -> Any:
+                with self.scope(
+                    scope_name,
+                    track_ram=track_ram,
+                    track_vram=track_vram,
+                    sync_cuda=sync_cuda,
+                ):
+                    return func(*args, **kwargs)
+
+            return wrapper
+
+        return decorator
+
     def summary(self) -> None:
-        """Log a formatted tree view showing call counts, wall time, CPU time, and RAM deltas."""
+        """Log a formatted tree view showing call counts, wall time, CPU time, and RAM/VRAM deltas."""
         logger.info("\n=== Hierarchical Profiling Summary ===")
         self._print_tree(self.root, depth=0)
         logger.info("======================================")
 
     def _print_tree(self, node: ProfileNode, depth: int) -> None:
-        """
-        Recursively print formatted profiling metrics for a node and its child scopes.
+        """Recursively print formatted profiling metrics for a node and its child scopes.
 
         Args:
             node: The ProfileNode to format and log.
-            depth: Current tree depth level for indentation layout.
+            depth: Current tree depth for indentation.
         """
         if depth > 0:
             indent = "  " * (depth - 1) + "|-" if depth > 1 else ""
             avg_wall = node.total_wall_time / node.calls if node.calls > 0 else 0.0
             avg_cpu = node.total_cpu_time / node.calls if node.calls > 0 else 0.0
 
-            # Compute CPU utilization ratio
             cpu_util = (avg_cpu / avg_wall * 100.0) if avg_wall > 0 else 0.0
-
-            # RAM delta display (only logged if allocation exceeded threshold)
             ram_info = f" [RAM: +{node.peak_ram_delta_mb:.1f}MB]" if node.peak_ram_delta_mb > 1.0 else ""
+            vram_info = f" [VRAM: +{node.peak_vram_delta_mb:.1f}MB]" if node.peak_vram_delta_mb > 1.0 else ""
 
             logger.info(
                 f"{indent}{node.name:<32} | Calls: {node.calls:<4} | "
-                f"Wall: {avg_wall:.4f}s | CPU: {avg_cpu:.4f}s ({cpu_util:.0f}%){ram_info}"
+                f"Wall: {avg_wall:.4f}s | CPU: {avg_cpu:.4f}s ({cpu_util:.0f}%){ram_info}{vram_info}"
             )
 
         for child in node.children.values():
             self._print_tree(child, depth + 1)
 
 
-# Global profiler instance for library-wide usage
-profiler = HierarchicalProfiler()
-
-
 class Timer:
-    """
-    Context manager for measuring wall-clock time, CPU process time, and RAM footprint deltas.
+    """Context manager for measuring wall-clock time, CPU process time, and RAM/VRAM footprint deltas.
 
     Uses try...finally block execution to guarantee stack popping and prevent profiler state
     corruption even when exceptions occur inside the profiled block.
     """
 
-    def __init__(self, name: str, track_memory: bool = True):
-        """
-        Initialize the Timer context manager.
+    def __init__(
+        self,
+        name: str,
+        profiler: HierarchicalProfiler | None = None,
+        track_memory: bool = True,
+        track_vram: bool = False,
+        sync_cuda: bool = False,
+        device_id: int = 0,
+    ):
+        """Initialize the Timer context manager.
 
         Args:
             name: Identifier name for the profiled execution block.
-            track_memory: Whether to track process RAM memory allocation deltas (default: True).
+            profiler: Optional HierarchicalProfiler instance to record into.
+            track_memory: Whether to track host process RAM allocation deltas (default: True).
+            track_vram: Whether to track device VRAM allocation deltas (default: False).
+            sync_cuda: Whether to synchronize CUDA hardware execution queues (default: False).
+            device_id: Target GPU device ordinal (default: 0).
         """
         self.name = name
+        self.profiler = profiler
         self.track_memory = track_memory
+        self.track_vram = track_vram
+        self.sync_cuda = sync_cuda
+        self.device_id = device_id
 
+        self.sync_fn: Callable[[], None] | None = get_cuda_sync_fn() if sync_cuda else None
         self.node: ProfileNode | None = None
         self.start_wall: float = 0.0
         self.start_cpu: float = 0.0
         self.start_ram: float = 0.0
+        self.start_vram_used: float = 0.0
         self.elapsed_wall: float = 0.0
         self.elapsed_cpu: float = 0.0
         self.ram_delta_mb: float = 0.0
+        self.vram_delta_mb: float = 0.0
 
     def __enter__(self) -> Timer:
-        """
-        Enter the profiled scope, record starting timestamps, and push node to the call stack.
+        """Enter the profiled scope, record starting timestamps, and push node to profiler."""
+        if self.sync_fn is not None:
+            self.sync_fn()
 
-        Returns:
-            The Timer instance.
-        """
-        self.node = profiler.push(self.name)
+        if self.profiler is not None:
+            self.node = self.profiler.push(self.name)
 
         if self.track_memory:
             self.start_ram = get_ram_mb()
 
-        # Measure CPU and wall-clock execution time
+        if self.track_vram:
+            vram_info = get_gpu_vram_mb(self.device_id)
+            self.start_vram_used = vram_info.used_mb if vram_info is not None else 0.0
+
         self.start_cpu = time.process_time()
         self.start_wall = time.perf_counter()
         return self
@@ -299,46 +391,66 @@ class Timer:
         exc_val: BaseException | None,
         exc_tb: Any | None,
     ) -> None:
-        """
-        Exit the profiled scope, record elapsed metrics, and pop node from the call stack.
-
-        Ensures call stack integrity via a try...finally safety wrapper.
-        """
+        """Exit the profiled scope, record elapsed metrics, and pop node from profiler."""
         try:
+            if self.sync_fn is not None:
+                self.sync_fn()
+
             self.elapsed_wall = time.perf_counter() - self.start_wall
             self.elapsed_cpu = time.process_time() - self.start_cpu
 
-            if self.node:
+            if self.track_memory:
+                self.ram_delta_mb = max(0.0, get_ram_mb() - self.start_ram)
+
+            if self.track_vram:
+                end_vram_info = get_gpu_vram_mb(self.device_id)
+                end_vram_used = end_vram_info.used_mb if end_vram_info is not None else 0.0
+                self.vram_delta_mb = max(0.0, end_vram_used - self.start_vram_used)
+
+            if self.node is not None:
                 self.node.calls += 1
                 self.node.total_wall_time += self.elapsed_wall
                 self.node.total_cpu_time += self.elapsed_cpu
-
                 if self.track_memory:
-                    self.ram_delta_mb = max(0.0, get_ram_mb() - self.start_ram)
                     self.node.peak_ram_delta_mb = max(self.node.peak_ram_delta_mb, self.ram_delta_mb)
+                if self.track_vram:
+                    self.node.peak_vram_delta_mb = max(self.node.peak_vram_delta_mb, self.vram_delta_mb)
         finally:
-            # Guarantees the stack always pops even if exceptions occur during execution
-            profiler.pop()
+            if self.profiler is not None:
+                self.profiler.pop()
 
 
-def timeit(name: str | None = None, track_memory: bool = True) -> Callable[..., Any]:
-    """
-    Decorator to profile execution time and memory footprint of functions or methods.
+def timeit(
+    name: str | None = None,
+    profiler: HierarchicalProfiler | None = None,
+    track_memory: bool = True,
+    track_vram: bool = False,
+    sync_cuda: bool = False,
+) -> Callable[..., Any]:
+    """Decorator to profile execution time and memory footprint of functions or methods.
 
     Args:
         name: Optional custom identifier name. Defaults to the decorated function's __name__.
+        profiler: Optional HierarchicalProfiler instance to record into.
         track_memory: Whether to track RAM allocation deltas during function execution.
+        track_vram: Whether to track device VRAM allocation deltas during function execution.
+        sync_cuda: Whether to synchronize CUDA device queues.
 
     Returns:
         Decorated wrapper function.
     """
-
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         timer_name = name if name else func.__name__
 
         @wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
-            with Timer(timer_name, track_memory=track_memory):
+            with Timer(
+                timer_name,
+                profiler=profiler,
+                track_memory=track_memory,
+                track_vram=track_vram,
+                sync_cuda=sync_cuda,
+            ):
                 return func(*args, **kwargs)
 
         return wrapper
@@ -348,23 +460,22 @@ def timeit(name: str | None = None, track_memory: bool = True) -> Callable[..., 
 
 @dataclass
 class BenchmarkStats:
-    """
-    Represents aggregated execution latency, throughput, and memory benchmark statistics.
+    """Aggregated latency, throughput, and memory statistics from a benchmark run.
 
     Attributes:
-        name: Name or description of the benchmarked target.
-        device: Execution provider or target device (e.g., 'CPU', 'CUDA', 'CUDAExecutionProvider').
-        mean_ms: Mean execution latency in milliseconds.
-        median_ms: Median execution latency in milliseconds.
-        std_ms: Standard deviation of execution latency in milliseconds.
-        p95_ms: 95th percentile execution latency in milliseconds.
-        min_ms: Minimum observed execution latency in milliseconds.
-        max_ms: Maximum observed execution latency in milliseconds.
-        fps: Calculated throughput in frames/inferences per second (1000 / mean_ms).
-        warmup_iters: Number of warmup iterations completed prior to measurement.
-        timed_iters: Number of timed iterations measured.
-        ram_delta_mb: Peak host RAM memory delta allocated during benchmark.
-        vram_delta_mb: Peak device VRAM memory delta allocated during benchmark (if CUDA).
+        name: Name of the benchmarked target.
+        device: Execution device label (e.g., 'CPU', 'CUDA').
+        mean_ms: Mean latency in milliseconds.
+        median_ms: Median latency in milliseconds.
+        std_ms: Latency standard deviation in milliseconds.
+        p95_ms: 95th percentile latency in milliseconds.
+        min_ms: Minimum observed latency in milliseconds.
+        max_ms: Maximum observed latency in milliseconds.
+        fps: Throughput in iterations per second (1000 / mean_ms).
+        warmup_iters: Number of un-timed warmup iterations.
+        timed_iters: Number of timed measurement iterations.
+        ram_delta_mb: Peak host RAM delta in megabytes.
+        vram_delta_mb: Peak device VRAM delta in megabytes.
     """
 
     name: str
@@ -412,46 +523,38 @@ def benchmark_callable(
     sync_fn: Callable[[], None] | None = None,
     **kwargs: Any,
 ) -> BenchmarkStats:
-    """
-    Run a standardized benchmark on any callable function or adapter method.
-
-    Executes a warmup cycle followed by timed iterations with high-resolution wall-clock
-    timing, device synchronization, and host/device memory footprint tracking.
+    """Benchmark a callable with warmup, timed iterations, and memory tracking.
 
     Args:
-        func: Callable function or method to benchmark.
+        func: Callable to benchmark.
         *args: Positional arguments passed to func.
-        name: Name identifier for the benchmark target.
-        device: Device identifier for logging ('CPU', 'CUDA', etc.).
+        name: Identifier for the benchmark target.
+        device: Device label for logging ('CPU', 'CUDA', etc.).
         num_warmup: Number of un-timed warmup iterations (default: 10).
         num_iters: Number of timed measurement iterations (default: 50).
         track_ram: Whether to measure host process RAM deltas (default: True).
         track_vram: Whether to measure device VRAM deltas if CUDA is active (default: True).
-        sync_fn: Optional callable hook to synchronize hardware execution queues (e.g. cuCtxSynchronize).
+        sync_fn: Optional callable to synchronize hardware execution queues.
         **kwargs: Keyword arguments passed to func.
 
     Returns:
-        BenchmarkStats instance containing aggregated latency, throughput, and memory stats.
+        BenchmarkStats containing aggregated latency, throughput, and memory stats.
     """
     if num_iters <= 0:
         raise ValueError(f"num_iters must be a positive integer, got {num_iters}")
 
-    # Auto-resolve sync_fn if CUDA device requested and no explicit hook provided
     if sync_fn is None and "cuda" in device.lower():
         sync_fn = get_cuda_sync_fn()
 
-    # Memory Baseline
     start_ram = get_ram_mb() if track_ram else 0.0
     start_vram_info = get_gpu_vram_mb() if (track_vram and "cuda" in device.lower()) else None
     start_vram_used = start_vram_info.used_mb if start_vram_info is not None else 0.0
 
-    # Warmup cycle
     for _ in range(num_warmup):
         func(*args, **kwargs)
         if sync_fn is not None:
             sync_fn()
 
-    # Timed Iterations
     latencies_sec: list[float] = []
     for _ in range(num_iters):
         if sync_fn is not None:
@@ -463,7 +566,6 @@ def benchmark_callable(
         t1 = time.perf_counter()
         latencies_sec.append(t1 - t0)
 
-    # Convert to milliseconds
     latencies_ms = [t * 1000.0 for t in latencies_sec]
     latencies_sorted = sorted(latencies_ms)
 
@@ -472,7 +574,6 @@ def benchmark_callable(
     variance = sum((x - mean_ms) ** 2 for x in latencies_ms) / len(latencies_ms)
     std_ms = math.sqrt(variance)
 
-    # 95th percentile
     p95_idx = int(math.ceil(0.95 * len(latencies_sorted))) - 1
     p95_ms = latencies_sorted[max(0, min(p95_idx, len(latencies_sorted) - 1))]
 
@@ -556,4 +657,17 @@ def format_benchmark_table(
     return "\n".join(lines)
 
 
+__all__ = [
+    "BenchmarkStats",
+    "GPUMemoryInfo",
+    "HierarchicalProfiler",
+    "ProfileNode",
+    "Timer",
+    "benchmark_callable",
+    "format_benchmark_table",
+    "get_cuda_sync_fn",
+    "get_gpu_vram_mb",
+    "get_ram_mb",
+    "timeit",
+]
 

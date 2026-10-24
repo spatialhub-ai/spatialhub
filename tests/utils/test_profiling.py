@@ -17,7 +17,6 @@ from spatialhub.utils.profiling import (
     benchmark_callable,
     format_benchmark_table,
     get_ram_mb,
-    profiler,
     timeit,
 )
 
@@ -33,6 +32,7 @@ class TestProfileNode:
         assert node.total_wall_time == 0.0
         assert node.total_cpu_time == 0.0
         assert node.peak_ram_delta_mb == 0.0
+        assert node.peak_vram_delta_mb == 0.0
         assert node.children == {}
 
 
@@ -41,9 +41,12 @@ class TestHierarchicalProfiler:
 
     def test_profiler_initialization(self):
         """Test custom and default root profiler initialization."""
-        hp = HierarchicalProfiler(name="CustomRoot")
+        hp = HierarchicalProfiler(name="CustomRoot", device="CUDA")
         assert hp.root_name == "CustomRoot"
         assert hp.root.name == "CustomRoot"
+        assert hp.device == "CUDA"
+        assert hp.track_vram is True
+        assert hp.sync_cuda is True
         assert len(hp.stack) == 1
         assert hp.stack[0] == hp.root
 
@@ -86,6 +89,37 @@ class TestHierarchicalProfiler:
         assert hp.root.children == {}
         assert len(hp.stack) == 1
 
+    def test_callable_context_manager(self):
+        """Test with profiler('stage') invocation."""
+        hp = HierarchicalProfiler()
+        with hp("preprocess"):
+            time.sleep(0.005)
+
+        assert "preprocess" in hp.root.children
+        assert hp.root.children["preprocess"].calls == 1
+
+    def test_scope_context_manager(self):
+        """Test with profiler.scope('stage') invocation."""
+        hp = HierarchicalProfiler()
+        with hp.scope("inference"):
+            time.sleep(0.005)
+
+        assert "inference" in hp.root.children
+        assert hp.root.children["inference"].calls == 1
+
+    def test_profiler_timeit_decorator(self):
+        """Test @profiler.timeit() decorator."""
+        hp = HierarchicalProfiler()
+
+        @hp.timeit("pipeline_step")
+        def step(x: int) -> int:
+            return x * 3
+
+        res = step(4)
+        assert res == 12
+        assert "pipeline_step" in hp.root.children
+        assert hp.root.children["pipeline_step"].calls == 1
+
     def test_summary_formatting(self, caplog: pytest.LogCaptureFixture):
         """Test tree summary logging output and formatting."""
         hp = HierarchicalProfiler()
@@ -94,6 +128,7 @@ class TestHierarchicalProfiler:
         node_a.total_wall_time = 0.5
         node_a.total_cpu_time = 0.4
         node_a.peak_ram_delta_mb = 2.5
+        node_a.peak_vram_delta_mb = 12.0
         hp.pop()
 
         node_b = hp.push("inference")
@@ -110,6 +145,7 @@ class TestHierarchicalProfiler:
         assert "preprocess" in caplog.text
         assert "inference" in caplog.text
         assert "RAM: +2.5MB" in caplog.text
+        assert "VRAM: +12.0MB" in caplog.text
 
 
 class TestTimer:
@@ -117,40 +153,48 @@ class TestTimer:
 
     def test_timer_basic_execution(self):
         """Test elapsed wall and CPU time accumulation in profiler."""
-        profiler.reset()
+        hp = HierarchicalProfiler()
 
-        with Timer("test_timer_block") as t:
+        with Timer("test_timer_block", profiler=hp) as t:
             time.sleep(0.01)
 
         assert t.elapsed_wall >= 0.005
         assert t.elapsed_cpu >= 0.0
-        assert "test_timer_block" in profiler.root.children
-        node = profiler.root.children["test_timer_block"]
+        assert "test_timer_block" in hp.root.children
+        node = hp.root.children["test_timer_block"]
         assert node.calls == 1
         assert node.total_wall_time >= 0.005
 
+    def test_timer_standalone_without_profiler(self):
+        """Test standalone Timer context manager without a HierarchicalProfiler instance."""
+        with Timer("standalone_block") as t:
+            time.sleep(0.005)
+
+        assert t.elapsed_wall >= 0.003
+        assert t.elapsed_cpu >= 0.0
+
     def test_timer_exception_safety(self):
         """Test profiler stack cleanup when an exception is raised inside the context."""
-        profiler.reset()
-        initial_stack_len = len(profiler.stack)
+        hp = HierarchicalProfiler()
+        initial_stack_len = len(hp.stack)
 
         with pytest.raises(RuntimeError, match="Controlled error"):
-            with Timer("failing_block"):
+            with Timer("failing_block", profiler=hp):
                 raise RuntimeError("Controlled error")
 
-        assert len(profiler.stack) == initial_stack_len
-        assert "failing_block" in profiler.root.children
-        assert profiler.root.children["failing_block"].calls == 1
+        assert len(hp.stack) == initial_stack_len
+        assert "failing_block" in hp.root.children
+        assert hp.root.children["failing_block"].calls == 1
 
     def test_timer_nested(self):
         """Test nested Timer contexts and hierarchical parent-child relationships."""
-        profiler.reset()
+        hp = HierarchicalProfiler()
 
-        with Timer("parent_scope"):
-            with Timer("child_scope"):
+        with Timer("parent_scope", profiler=hp):
+            with Timer("child_scope", profiler=hp):
                 time.sleep(0.005)
 
-        parent = profiler.root.children["parent_scope"]
+        parent = hp.root.children["parent_scope"]
         assert parent.calls == 1
         assert "child_scope" in parent.children
         assert parent.children["child_scope"].calls == 1
@@ -160,33 +204,59 @@ class TestTimer:
         with Timer("no_mem_block", track_memory=False) as t:
             assert t.track_memory is False
 
+    def test_timer_vram_tracking_mock(self):
+        """Test Timer VRAM tracking delta calculation with mocked GPU info."""
+        from spatialhub.utils.profiling import GPUMemoryInfo
+
+        hp = HierarchicalProfiler(track_vram=True)
+        vram_reads = [
+            GPUMemoryInfo(total_mb=8000.0, free_mb=6000.0, used_mb=2000.0),
+            GPUMemoryInfo(total_mb=8000.0, free_mb=5500.0, used_mb=2500.0),
+        ]
+
+        with patch("spatialhub.utils.profiling.get_gpu_vram_mb", side_effect=vram_reads):
+            with hp("vram_scope"):
+                pass
+
+        node = hp.root.children["vram_scope"]
+        assert node.peak_vram_delta_mb == 500.0
+
+    def test_timer_sync_cuda_called(self):
+        """Test that sync_cuda invokes the hardware synchronization callable."""
+        sync_called = []
+        with patch("spatialhub.utils.profiling.get_cuda_sync_fn", return_value=lambda: sync_called.append(1)):
+            with Timer("synced_block", sync_cuda=True):
+                pass
+
+        assert len(sync_called) == 2
+
 
 class TestTimeitDecorator:
     """Test suite for timeit function decorator."""
 
     def test_timeit_default_name(self):
         """Test decorator using target function name."""
-        profiler.reset()
+        hp = HierarchicalProfiler()
 
-        @timeit()
+        @timeit(profiler=hp)
         def sample_compute(val: int) -> int:
             return val * 2
 
         res = sample_compute(5)
         assert res == 10
-        assert "sample_compute" in profiler.root.children
-        assert profiler.root.children["sample_compute"].calls == 1
+        assert "sample_compute" in hp.root.children
+        assert hp.root.children["sample_compute"].calls == 1
 
     def test_timeit_custom_name(self):
         """Test decorator with explicit scope identifier."""
-        profiler.reset()
+        hp = HierarchicalProfiler()
 
-        @timeit("custom_scope_name")
+        @timeit("custom_scope_name", profiler=hp)
         def step():
             return True
 
         assert step() is True
-        assert "custom_scope_name" in profiler.root.children
+        assert "custom_scope_name" in hp.root.children
 
     def test_timeit_preserves_metadata(self):
         """Test decorator preserving wrapped function docstrings and attributes."""
@@ -201,30 +271,30 @@ class TestTimeitDecorator:
 
     def test_timeit_exception_safety(self):
         """Test stack integrity when decorated function raises exception."""
-        profiler.reset()
+        hp = HierarchicalProfiler()
 
-        @timeit("exploding_func")
+        @timeit("exploding_func", profiler=hp)
         def explode():
             raise ValueError("Boom")
 
         with pytest.raises(ValueError, match="Boom"):
             explode()
 
-        assert len(profiler.stack) == 1
-        assert "exploding_func" in profiler.root.children
+        assert len(hp.stack) == 1
+        assert "exploding_func" in hp.root.children
 
     def test_timeit_method_profiling(self):
         """Test decorator on class methods."""
-        profiler.reset()
+        hp = HierarchicalProfiler()
 
         class Worker:
-            @timeit("Worker.run")
+            @timeit("Worker.run", profiler=hp)
             def run(self, multiplier: int) -> int:
                 return 10 * multiplier
 
         worker = Worker()
         assert worker.run(3) == 30
-        assert "Worker.run" in profiler.root.children
+        assert "Worker.run" in hp.root.children
 
 
 class TestGetRamMb:

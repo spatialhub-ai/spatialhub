@@ -109,8 +109,7 @@ save_image(colored_depth, "depth_visualization.png")
 </p>
 
 <p align="center">
-  <img src="docs/assets/room_point_cloud_3d.png" alt="Reconstructed 3D Point Cloud in Camera Space" width="100%" /><br />
-  <em>Reconstructed 3D camera-space point cloud unprojected from predicted depth map. <a href="https://spatialhub-ai.github.io/spatialhub/getting_started/quickstart/#point-cloud-reprojection">Interactive 3D Viewer in Docs &rarr;</a></em>
+  <em>For an interactive 3D point cloud reconstruction with orbit controls, see <a href="https://spatialhub-ai.github.io/spatialhub/getting_started/quickstart/#reproject-to-3d">Reproject to 3D in the Quickstart Guide &rarr;</a></em>
 </p>
 
 ### Real-Time Instance Segmentation (FastSAM)

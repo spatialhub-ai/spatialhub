@@ -1,10 +1,9 @@
-"""
-Inference pipeline for FoundationPose 6D pose refinement and scoring.
-"""
+"""Inference pipeline for FoundationPose 6D pose refinement and scoring."""
 
 from __future__ import annotations
 
 import logging
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -12,18 +11,37 @@ import cv2
 import numpy as np
 
 from spatialhub.core.runtime import create_ort_session, resolve_model_path
-from spatialhub.structures import PoseEstimationResult
-from spatialhub.utils import compute_mesh_diameter, compute_obb, load_image, load_mesh, reproject_depth_to_3d
-from spatialhub.utils import create_moderngl_context
+from spatialhub.structures import (
+    CameraIntrinsics,
+    InstanceSegmentation,
+    ObjectPose6D,
+)
+from spatialhub.utils import (
+    center_mesh,
+    compute_mesh_diameter,
+    compute_obb,
+    create_moderngl_context,
+    load_image,
+    load_mesh,
+    prepare_mesh_buffers,
+    reproject_depth_to_3d,
+    scale_depth,
+    scale_mesh,
+    to_color,
+    validate_moderngl_context,
+)
+
+try:
+    import trimesh
+except ImportError:
+    trimesh = None
 
 from .filter import DepthFilter
 from .helper import (
-    MeshArrays,
     compute_crop_window_tf_batch,
     egocentric_delta_pose_to_pose,
     guess_translation,
     make_rotation_grid,
-    prepare_mesh_for_rendering,
     rotvec_to_rotmat_np,
     transform_batch,
 )
@@ -32,31 +50,99 @@ from .renderer import Renderer
 logger = logging.getLogger(__name__)
 
 
+def _parse_intrinsics(intrinsics: CameraIntrinsics | np.ndarray | Sequence[float]) -> np.ndarray:
+    """Standardize camera intrinsics input to a (3, 3) float32 matrix."""
+    if isinstance(intrinsics, CameraIntrinsics):
+        k = intrinsics.matrix[0].astype(np.float32)
+    elif isinstance(intrinsics, (list, tuple)) or (isinstance(intrinsics, np.ndarray) and intrinsics.ndim == 1):
+        if len(intrinsics) != 4:
+            raise ValueError("intrinsics sequence must contain 4 elements [fx, fy, cx, cy].")
+        fx, fy, cx, cy = [float(v) for v in intrinsics]
+        k = np.array([[fx, 0.0, cx], [0.0, fy, cy], [0.0, 0.0, 1.0]], dtype=np.float32)
+    else:
+        k = np.asarray(intrinsics, dtype=np.float32)
+        if k.ndim == 3 and k.shape[0] == 1:
+            k = k[0]
+    if k.shape != (3, 3):
+        raise ValueError(f"Expected camera intrinsics matrix of shape (3, 3), got {k.shape}")
+    return k
+
+
+def _parse_rgb(rgb: str | Path | np.ndarray) -> np.ndarray:
+    """Load and validate RGB image from path or array into (H, W, 3) uint8."""
+    if isinstance(rgb, (str, Path)):
+        return load_image(rgb, color_mode="RGB")
+    if isinstance(rgb, np.ndarray):
+        return to_color(rgb, "RGB")
+    raise TypeError(f"rgb must be a str, Path, or np.ndarray, got {type(rgb).__name__}")
+
+
+def _parse_depth(depth: str | Path | np.ndarray, depth_unit: str | float = "m") -> np.ndarray:
+    """Load and scale depth map from path or array into (H, W) float32 metric meters."""
+    if isinstance(depth, (str, Path)):
+        depth_path = Path(depth)
+        raw_depth = (
+            np.load(str(depth_path))
+            if depth_path.suffix.lower() == ".npy"
+            else load_image(depth_path, color_mode=None)
+        )
+    elif isinstance(depth, np.ndarray):
+        raw_depth = depth
+    else:
+        raise TypeError(f"depth must be a str, Path, or np.ndarray, got {type(depth).__name__}")
+
+    if raw_depth.ndim == 3 and raw_depth.shape[-1] == 1:
+        raw_depth = raw_depth.squeeze(-1)
+    return scale_depth(raw_depth, depth_unit=depth_unit)
+
+
+def _parse_mask(mask: InstanceSegmentation | str | Path | np.ndarray) -> np.ndarray:
+    """Extract binary object mask of shape (H, W) from segmentation result, path, or array."""
+    if isinstance(mask, InstanceSegmentation):
+        if len(mask.masks) == 0:
+            raise ValueError("InstanceSegmentation contains no masks.")
+        raw_mask = mask.masks[0]
+    elif isinstance(mask, (str, Path)):
+        mask_path = Path(mask)
+        raw_mask = (
+            np.load(str(mask_path))
+            if mask_path.suffix.lower() == ".npy"
+            else load_image(mask_path, color_mode="GRAY")
+        )
+    elif isinstance(mask, np.ndarray):
+        raw_mask = mask
+    else:
+        raise TypeError(f"mask must be a str, Path, np.ndarray, or InstanceSegmentation, got {type(mask).__name__}")
+
+    if raw_mask.ndim == 3 and raw_mask.shape[-1] == 1:
+        raw_mask = raw_mask.squeeze(-1)
+    return raw_mask > 0
+
+
 def make_crop_data_batch(
     render_size: tuple[int, int],
     ob_in_cams: np.ndarray,
     rgb: np.ndarray,
     depth: np.ndarray,
-    K: np.ndarray,
+    intrinsics: np.ndarray,
     crop_ratio: float,
     xyz_map: np.ndarray,
-    mesh_diameter: float,
+    model_diameter: float,
     normalize_xyz: bool,
     renderer: Renderer,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """
-    Generate cropped RGB and 3D coordinate inputs for pose refinement and scoring networks.
+    """Generate cropped RGB and 3D coordinate inputs for pose refinement and scoring networks.
 
     Args:
         render_size: Target crop spatial resolution as (width, height).
         ob_in_cams: Candidate pose array of shape (L, 4, 4).
         rgb: Input RGB image array of shape (H, W, 3).
         depth: Input metric depth map array of shape (H, W).
-        K: 3x3 camera intrinsic matrix.
+        intrinsics: 3x3 camera intrinsic matrix.
         crop_ratio: Spatial expansion factor around candidate bounding box.
         xyz_map: Reprojected 3D camera-space coordinate map of shape (H, W, 3).
-        mesh_diameter: 3D bounding mesh diameter in meters.
-        normalize_xyz: Whether to scale 3D coordinate channels by mesh radius.
+        model_diameter: 3D bounding model diameter in meters.
+        normalize_xyz: Whether to scale 3D coordinate channels by model radius.
         renderer: Renderer instance for synthetic template generation.
 
     Returns:
@@ -66,19 +152,18 @@ def make_crop_data_batch(
 
     # Compute 2D affine perspective crop transformation matrices
     tf_to_crops, bbox2d_ori = compute_crop_window_tf_batch(
-        pts=None,
         H=H,
         W=W,
         poses=ob_in_cams,
-        K=K,
+        intrinsics=intrinsics,
         crop_ratio=crop_ratio,
         out_size=render_size,
-        mesh_diameter=mesh_diameter,
+        model_diameter=model_diameter,
     )
 
     # Render synthetic RGB and XYZ templates across candidate poses
     rgb_rs, _, _, xyz_map_rs = renderer.render(
-        K=K,
+        intrinsics=intrinsics,
         H=H,
         W=W,
         ob_in_cams=ob_in_cams,
@@ -113,7 +198,7 @@ def make_crop_data_batch(
         xyz_mapAs=xyz_mapAs,
         xyz_mapBs=xyz_mapBs,
         poseA=ob_in_cams,
-        mesh_diameter=mesh_diameter,
+        model_diameter=model_diameter,
         normalize_xyz=normalize_xyz,
     )
 
@@ -121,23 +206,20 @@ def make_crop_data_batch(
 
 
 class PoseRefinePredictor:
-    """
-    Predictor for iterative 6D object pose refinement using learned translation and rotation deltas.
-    """
+    """Predictor for iterative 6D object pose refinement using learned translation and rotation deltas."""
 
     def __init__(
         self,
-        camera_intrinsic: np.ndarray,
+        intrinsics: CameraIntrinsics | np.ndarray | Sequence[float],
         renderer: Renderer,
         config: dict[str, Any],
         onnx_path: str | Path | None = None,
         providers: list[str] | str | None = None,
     ) -> None:
-        """
-        Initialize the pose refinement predictor and configuration parameters.
+        """Initialize the pose refinement predictor and configuration parameters.
 
         Args:
-            camera_intrinsic: 3x3 camera intrinsic matrix.
+            intrinsics: Camera intrinsics as CameraIntrinsics, 3x3 matrix, or [fx, fy, cx, cy].
             renderer: Renderer instance for synthetic template generation.
             config: Configuration dictionary specifying normalizers and crop settings.
             onnx_path: Optional path to local refine_net.onnx file. If None, resolves
@@ -182,12 +264,33 @@ class PoseRefinePredictor:
 
         self.rot_normalizer = self.cfg.setdefault("rot_normalizer", 0.349)
 
-        self.K = np.asarray(camera_intrinsic, dtype=np.float32)
+        self.K = _parse_intrinsics(intrinsics)
         self.renderer = renderer
         self.input_resize = self.cfg["input_resize"]
 
         self.last_trans_update = None
         self.last_rot_update = None
+
+    def __enter__(self) -> PoseRefinePredictor:
+        """Enter context manager scope."""
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: Any | None,
+    ) -> None:
+        """Exit context manager scope and release inference session resources."""
+        self.release()
+
+    def release(self) -> None:
+        """Release allocated ONNX inference session."""
+        self.ort_session = None
+
+    def close(self) -> None:
+        """Alias for release."""
+        self.release()
 
     def predict(
         self,
@@ -195,19 +298,18 @@ class PoseRefinePredictor:
         depth: np.ndarray,
         xyz_map: np.ndarray,
         ob_in_cams: np.ndarray,
-        mesh_diameter: float,
+        model_diameter: float,
         iteration: int = 5,
         batch_size: int = 4,
     ) -> np.ndarray:
-        """
-        Iteratively refine candidate 6D object poses.
+        """Iteratively refine candidate 6D object poses.
 
         Args:
             rgb: Input RGB image of shape (H, W, 3).
             depth: Input depth map of shape (H, W).
             xyz_map: Reprojected 3D camera-space coordinate map of shape (H, W, 3).
             ob_in_cams: Initial candidate poses of shape (B, 4, 4).
-            mesh_diameter: 3D bounding mesh diameter in meters.
+            model_diameter: 3D bounding model diameter in meters.
             iteration: Number of refinement iterations (default: 5).
             batch_size: Number of candidates to process per forward pass (default: 4).
 
@@ -224,10 +326,10 @@ class PoseRefinePredictor:
                 ob_in_cams=B_in_cams,
                 rgb=rgb,
                 depth=depth,
-                K=self.K,
+                intrinsics=self.K,
                 crop_ratio=self.cfg["crop_ratio"],
                 xyz_map=xyz_map,
-                mesh_diameter=mesh_diameter,
+                model_diameter=model_diameter,
                 normalize_xyz=self.cfg["normalize_xyz"],
                 renderer=self.renderer,
             )
@@ -258,7 +360,7 @@ class PoseRefinePredictor:
                 trans_delta = full_trans
 
             if self.cfg.get("normalize_xyz", False):
-                trans_delta *= mesh_diameter / 2.0
+                trans_delta *= model_diameter / 2.0
 
             rot_mat_delta = rotvec_to_rotmat_np(np.tanh(full_rot) * self.rot_normalizer)
             rot_mat_delta = rot_mat_delta.transpose(0, 2, 1)
@@ -272,23 +374,20 @@ class PoseRefinePredictor:
 
 
 class ScorePredictor:
-    """
-    Predictor for evaluating and ranking 6D pose hypotheses using pairwise tournament comparison.
-    """
+    """Predictor for evaluating and ranking 6D pose hypotheses using pairwise tournament comparison."""
 
     def __init__(
         self,
-        camera_intrinsic: np.ndarray,
+        intrinsics: CameraIntrinsics | np.ndarray | Sequence[float],
         renderer: Renderer,
         cfg: dict[str, Any],
         onnx_path: str | Path | None = None,
         providers: list[str] | str | None = None,
     ) -> None:
-        """
-        Initialize the hypothesis scoring predictor and configuration parameters.
+        """Initialize the hypothesis scoring predictor and configuration parameters.
 
         Args:
-            camera_intrinsic: 3x3 camera intrinsic matrix.
+            intrinsics: Camera intrinsics as CameraIntrinsics, 3x3 matrix, or [fx, fy, cx, cy].
             renderer: Renderer instance for synthetic template generation.
             cfg: Configuration dictionary containing input resolution and crop scale settings.
             onnx_path: Optional path to local score_net.onnx file. If None, resolves
@@ -318,11 +417,32 @@ class ScorePredictor:
         self.cfg.setdefault("crop_ratio", 1.2)
         self.cfg.setdefault("normalize_xyz", False)
 
-        self.K = np.asarray(camera_intrinsic, dtype=np.float32)
+        self.K = _parse_intrinsics(intrinsics)
         self.renderer = renderer
         self.input_resize = self.cfg["input_resize"]
         self.input_names = [i.name for i in self.ort_session.get_inputs()]
         self.output_names = [out.name for out in self.ort_session.get_outputs()]
+
+    def __enter__(self) -> ScorePredictor:
+        """Enter context manager scope."""
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: Any | None,
+    ) -> None:
+        """Exit context manager scope and release inference session resources."""
+        self.release()
+
+    def release(self) -> None:
+        """Release allocated ONNX inference session."""
+        self.ort_session = None
+
+    def close(self) -> None:
+        """Alias for release."""
+        self.release()
 
     def predict(
         self,
@@ -330,18 +450,17 @@ class ScorePredictor:
         depth: np.ndarray,
         xyz_map: np.ndarray,
         ob_in_cams: np.ndarray,
-        mesh_diameter: float,
+        model_diameter: float,
         batch_size: int = 4,
     ) -> tuple[np.ndarray, np.ndarray]:
-        """
-        Evaluate and rank candidate 6D poses using pairwise comparison tournament.
+        """Evaluate and rank candidate 6D poses using pairwise comparison tournament.
 
         Args:
             rgb: Input RGB image of shape (H, W, 3).
             depth: Input depth map of shape (H, W).
             xyz_map: Reprojected 3D camera-space coordinate map of shape (H, W, 3).
             ob_in_cams: Candidate pose hypotheses of shape (N, 4, 4).
-            mesh_diameter: 3D bounding mesh diameter in meters.
+            model_diameter: 3D bounding model diameter in meters.
             batch_size: Number of candidates to process per forward pass (default: 4).
 
         Returns:
@@ -356,10 +475,10 @@ class ScorePredictor:
             ob_in_cams=ob_in_cams,
             rgb=rgb,
             depth=depth,
-            K=self.K,
+            intrinsics=self.K,
             crop_ratio=self.cfg["crop_ratio"],
             xyz_map=xyz_map,
-            mesh_diameter=mesh_diameter,
+            model_diameter=model_diameter,
             normalize_xyz=self.cfg["normalize_xyz"],
             renderer=self.renderer,
         )
@@ -380,8 +499,7 @@ class ScorePredictor:
                 }
                 onnx_outputs = self.ort_session.run(None, onnx_feed)
                 out_dict = {o: val for o, val in zip(self.output_names, onnx_outputs)}
-
-                scores_cur = out_dict["score_logit"].reshape(-1)
+                scores_cur = out_dict.get("score_logit", onnx_outputs[0]).reshape(-1)
 
                 local_best = int(np.argmax(scores_cur)) + b
                 subgroup_winners.append(local_best)
@@ -419,71 +537,60 @@ class ScorePredictor:
 
 
 class FoundationPoseAdapter:
-    """
-    Pipeline for model-based 6D object pose registration and tracking from RGB-D observations.
-    """
+    """Pipeline for model-based 6D object pose registration and tracking from RGB-D observations."""
 
     def __init__(
         self,
-        mesh_file_path: str | Path,
-        camera_intrinsic: np.ndarray,
+        intrinsics: CameraIntrinsics | np.ndarray | Sequence[float],
+        model: str | Path | trimesh.Trimesh | None = None,
         model_name: str | None = None,
         model_unit: str | float = "m",
+        symmetry_tfs: np.ndarray | bool | None = None,
         scorenet_onnx_path: str | Path | None = None,
         refinenet_onnx_path: str | Path | None = None,
-        symmetry_tfs: np.ndarray | bool | None = None,
+        glctx: Any | None = None,
         providers: list[str] | str | None = None,
     ) -> None:
-        """
-        Initialize FoundationPose models, rendering context, mesh buffers, and candidate rotation grid.
+        """Initialize FoundationPose models, rendering context, and candidate pose estimators.
 
         Args:
-            mesh_file_path: Path to 3D mesh model file (.ply, .obj, etc.).
-            camera_intrinsic: 3x3 camera intrinsic matrix.
-            model_name: Optional name identifier for the 3D model. If None, derives from mesh file stem.
-            model_unit: Unit system of 3D CAD mesh ('m', 'cm', 'mm', or custom float multiplier).
-                Defaults to "m" (meters) matching load_mesh.
-            scorenet_onnx_path: Optional path to local score_net.onnx file. If None, resolves
-                automatically from Hugging Face Hub (SpatialHub/foundationpose).
-            refinenet_onnx_path: Optional path to local refine_net.onnx file. If None, resolves
-                automatically from Hugging Face Hub (SpatialHub/foundationpose).
+            intrinsics: Camera intrinsics as CameraIntrinsics, 3x3 matrix, or [fx, fy, cx, cy].
+            model: Optional 3D CAD model as file path (.ply, .obj) or trimesh geometry instance.
+            model_name: Optional string identifier for the target object.
+            model_unit: Unit system of CAD model ('m', 'cm', 'mm', or float multiplier). Defaults to "m" (meters).
             symmetry_tfs: Optional symmetry transformation matrices of shape (M, 4, 4) or boolean flag.
-                Defaults to None (identity transform).
-            providers: Optional execution providers.
+            scorenet_onnx_path: Optional path to local score_net.onnx file. If None, resolves automatically from Hugging Face Hub (SpatialHub/foundationpose).
+            refinenet_onnx_path: Optional path to local refine_net.onnx file. If None, resolves automatically from Hugging Face Hub (SpatialHub/foundationpose).
+            glctx: Optional ModernGL rendering context instance. If None, creates a new offscreen context.
+            providers: Optional execution providers for ONNX runtime.
 
         Raises:
-            FileNotFoundError: If the mesh file or model weights cannot be resolved.
+            FileNotFoundError: If the model file or weights cannot be resolved.
             RuntimeError: If model initialization fails.
         """
-        # Load and center mesh geometry in meters
-        self.mesh = load_mesh(mesh_input=mesh_file_path, model_unit=model_unit, center=True)
-        self.model_name = model_name if model_name is not None else Path(mesh_file_path).stem
+        self.K = _parse_intrinsics(intrinsics)
 
-        self.mesh_bounds, self.mesh_extents, self.to_origin = compute_obb(self.mesh)
-        self.mesh_diameter = compute_mesh_diameter(self.mesh)
-        self.K = np.asarray(camera_intrinsic, dtype=np.float32)
-
-        # Prepare continuous mesh buffers for rendering
-        self.mesh_arrays: MeshArrays = prepare_mesh_for_rendering(self.mesh)
-
-        # Parse symmetry transformation matrices
-        if symmetry_tfs is None or (isinstance(symmetry_tfs, bool) and not symmetry_tfs):
-            self.symmetry_tfs = np.eye(4, dtype=np.float32)[np.newaxis, ...]
-        elif isinstance(symmetry_tfs, bool) and symmetry_tfs:
-            self.symmetry_tfs = np.eye(4, dtype=np.float32)[np.newaxis, ...]
-        else:
-            self.symmetry_tfs = np.asarray(symmetry_tfs, dtype=np.float32)
-            if self.symmetry_tfs.ndim == 2:
-                self.symmetry_tfs = self.symmetry_tfs[np.newaxis, ...]
-
-        # Precompute candidate rotation grid over icosphere
-        self.rot_grid = make_rotation_grid(symmetry_tfs=self.symmetry_tfs)
+        self.model = None
+        self.model_name = None
+        self.model_bounds = None
+        self.model_extents = None
+        self.to_origin = None
+        self.model_diameter = None
+        self.mesh_buffers = None
+        self.symmetry_tfs = None
+        self.rot_grid = None
         self.pose_last = None
 
         # Setup rendering context, depth filter, and atlas renderer
-        self.glctx = create_moderngl_context()
+        if glctx is not None:
+            self.glctx = validate_moderngl_context(glctx)
+            self._own_glctx = False
+        else:
+            self.glctx = create_moderngl_context()
+            self._own_glctx = True
+
         self.depth_filter = DepthFilter(self.glctx)
-        self.renderer = Renderer(self.glctx, mesh_arrays=self.mesh_arrays)
+        self.renderer = Renderer(self.glctx, mesh_buffers=None)
 
         self.refiner_cfg = {
             "crop_ratio": 1.2,
@@ -500,160 +607,301 @@ class FoundationPoseAdapter:
         }
 
         self.refiner = PoseRefinePredictor(
-            camera_intrinsic=self.K,
+            intrinsics=self.K,
             renderer=self.renderer,
             config=self.refiner_cfg,
             onnx_path=refinenet_onnx_path,
             providers=providers,
         )
         self.scorer = ScorePredictor(
-            camera_intrinsic=self.K,
+            intrinsics=self.K,
             renderer=self.renderer,
             cfg=self.scorer_cfg,
             onnx_path=scorenet_onnx_path,
             providers=providers,
         )
 
+        if model is not None:
+            self.set_model(
+                model=model,
+                model_unit=model_unit,
+                symmetry_tfs=symmetry_tfs,
+                model_name=model_name,
+            )
+
+    def set_model(
+        self,
+        model: str | Path | trimesh.Trimesh,
+        model_unit: str | float = "m",
+        symmetry_tfs: np.ndarray | bool | None = None,
+        model_name: str | None = None,
+    ) -> None:
+        """Set or switch the active 3D CAD target model for registration and tracking.
+
+        Args:
+            model: 3D CAD model as file path (.ply, .obj) or trimesh geometry instance.
+            model_unit: Unit system of 3D CAD model ('m', 'cm', 'mm', or custom float multiplier).
+                Defaults to "m" (meters).
+            symmetry_tfs: Optional symmetry transformation matrices of shape (M, 4, 4) or boolean flag.
+            model_name: Optional identifier for the model. If None, derives from file path stem.
+
+        Raises:
+            FileNotFoundError: If the model file does not exist.
+            TypeError: If model is not a file path or trimesh.Trimesh instance.
+            ValueError: If model geometry cannot be parsed.
+        """
+        # Load and center model geometry in meters
+        if isinstance(model, (str, Path)):
+            mesh_obj = load_mesh(model)
+        elif trimesh is not None and isinstance(model, trimesh.Trimesh):
+            mesh_obj = model.copy()
+        elif hasattr(model, "vertices") and hasattr(model, "faces"):
+            mesh_obj = model.copy()
+        else:
+            raise TypeError(f"model must be a file path or trimesh.Trimesh instance, got {type(model).__name__}")
+
+        mesh_obj = scale_mesh(mesh_obj, model_unit=model_unit)
+        mesh_obj, _ = center_mesh(mesh_obj)
+        self.model = mesh_obj
+        if model_name is not None:
+            self.model_name = str(model_name)
+        elif isinstance(model, (str, Path)):
+            self.model_name = Path(model).stem
+        else:
+            self.model_name = "target_model"
+
+        self.model_bounds, self.model_extents, self.to_origin = compute_obb(self.model)
+        self.model_diameter = compute_mesh_diameter(self.model)
+
+        # Prepare continuous mesh buffers for rendering
+        self.mesh_buffers = prepare_mesh_buffers(self.model)
+
+        # Parse symmetry transformation matrices
+        if symmetry_tfs is None or (isinstance(symmetry_tfs, bool) and not symmetry_tfs):
+            self.symmetry_tfs = np.eye(4, dtype=np.float32)[np.newaxis, ...]
+        elif isinstance(symmetry_tfs, bool) and symmetry_tfs:
+            self.symmetry_tfs = np.eye(4, dtype=np.float32)[np.newaxis, ...]
+        else:
+            self.symmetry_tfs = np.asarray(symmetry_tfs, dtype=np.float32)
+            if self.symmetry_tfs.ndim == 2:
+                self.symmetry_tfs = self.symmetry_tfs[np.newaxis, ...]
+
+        # Precompute candidate rotation grid over icosphere
+        self.rot_grid = make_rotation_grid(symmetry_tfs=self.symmetry_tfs)
+        self.renderer.set_mesh(self.mesh_buffers)
+        self.pose_last = None
+
+    @property
+    def current_pose(self) -> np.ndarray | None:
+        """Get current estimated 6D object pose of shape (4, 4) in camera coordinates."""
+        return self.pose_last
+
+    @current_pose.setter
+    def current_pose(self, pose: np.ndarray | None) -> None:
+        """Set or override the current 6D object pose for sequential tracking.
+
+        Args:
+            pose: 4x4 rigid transformation matrix of shape (4, 4) or (1, 4, 4), or None to reset.
+        """
+        if pose is None:
+            self.pose_last = None
+            return
+
+        pose_arr = np.asarray(pose, dtype=np.float32)
+        if pose_arr.ndim == 3 and pose_arr.shape[0] == 1:
+            pose_arr = pose_arr[0]
+        if pose_arr.shape != (4, 4):
+            raise ValueError(f"Expected pose of shape (4, 4) or (1, 4, 4), got {pose_arr.shape}")
+        self.pose_last = pose_arr
+
+    def reset_tracking(self) -> None:
+        """Reset internal tracking state and clear previous frame pose estimate."""
+        self.pose_last = None
+
     def register(
         self,
-        rgb: str | Path | np.ndarray,
-        depth: str | Path | np.ndarray,
-        mask: str | Path | np.ndarray,
+        rgb: np.ndarray | str | Path,
+        depth: np.ndarray | str | Path,
+        mask: InstanceSegmentation | np.ndarray | str | Path,
+        depth_unit: str | float = "m",
         iteration: int = 5,
-    ) -> PoseEstimationResult:
-        """Register initial 6D pose for an object from an RGB-D observation and binary mask.
+        filter_depth: bool = True,
+        filter_radius: int = 2,
+    ) -> ObjectPose6D:
+        """Register initial 6D pose for an object from an RGB-D observation and mask.
 
         Args:
             rgb: Input RGB image (file path or NumPy array of shape (H, W, 3)).
             depth: Input metric depth map (file path or NumPy array of shape (H, W)).
-            mask: Binary object mask (file path or NumPy array of shape (H, W)).
+            mask: Binary object mask (file path, NumPy array, or InstanceSegmentation).
+            depth_unit: Unit system of input depth ('m', 'cm', 'mm', or float multiplier).
             iteration: Number of pose refinement iterations (default: 5).
+            filter_depth: Whether to apply erosion and bilateral smoothing to depth map (default: True).
+            filter_radius: Neighborhood pixel radius for depth filter passes (default: 2).
 
         Returns:
-            PoseEstimationResult container containing estimated 6D pose matrix.
+            ObjectPose6D container with estimated 6D pose matrix.
+
+        Raises:
+            RuntimeError: If target 3D CAD model has not been set.
+            ValueError: If input dimensions or shapes mismatch.
+            FileNotFoundError: If input file paths cannot be read.
         """
-        # Resolve file path inputs if provided
-        if isinstance(rgb, (str, Path)):
-            rgb = load_image(rgb, color_mode="RGB")
+        if self.model is None or self.rot_grid is None or self.model_diameter is None:
+            raise RuntimeError(
+                "Target 3D CAD model has not been set. Provide a model in __init__ or call set_model() before registration."
+            )
 
-        if isinstance(depth, (str, Path)):
-            depth_path = Path(depth)
-            if depth_path.suffix.lower() == ".npy":
-                depth = np.load(str(depth_path)).astype(np.float32)
-            else:
-                loaded = cv2.imread(str(depth_path), cv2.IMREAD_UNCHANGED)
-                if loaded is None:
-                    raise FileNotFoundError(f"Could not read depth file: {depth_path}")
-                depth = loaded.astype(np.float32)
+        # Resolve RGB image input
+        parsed_rgb = _parse_rgb(rgb)
 
-        if isinstance(mask, (str, Path)):
-            mask_path = Path(mask)
-            if mask_path.suffix.lower() == ".npy":
-                mask = np.load(str(mask_path))
-            else:
-                loaded_mask = cv2.imread(str(mask_path), cv2.IMREAD_UNCHANGED)
-                if loaded_mask is None:
-                    raise FileNotFoundError(f"Could not read mask file: {mask_path}")
-                if loaded_mask.ndim == 3:
-                    loaded_mask = loaded_mask[..., 0]
-                mask = loaded_mask
+        # Resolve depth map input and scale to meters
+        parsed_depth = _parse_depth(depth, depth_unit=depth_unit)
 
-        # Apply depth filtering and 2D-to-3D reprojection
-        depth = self.depth_filter.apply(depth, radius=2)
-        xyz_map = reproject_depth_to_3d(depth, self.K)
+        # Resolve mask input
+        binary_mask = _parse_mask(mask)
 
-        valid = (depth >= 0.001) & (mask > 0)
+        # Validate matching spatial dimensions
+        if parsed_rgb.shape[:2] != parsed_depth.shape[:2]:
+            raise ValueError(
+                f"Spatial resolution mismatch between rgb {parsed_rgb.shape[:2]} and depth {parsed_depth.shape[:2]}"
+            )
+        if parsed_rgb.shape[:2] != binary_mask.shape[:2]:
+            raise ValueError(
+                f"Spatial resolution mismatch between rgb {parsed_rgb.shape[:2]} and mask {binary_mask.shape[:2]}"
+            )
+
+        # Apply optional depth filtering and 2D-to-3D reprojection
+        if filter_depth:
+            filtered_depth = self.depth_filter.apply(parsed_depth, radius=filter_radius)
+        else:
+            filtered_depth = parsed_depth
+
+        xyz_map = reproject_depth_to_3d(filtered_depth, self.K)
+
+        valid = (filtered_depth >= 0.001) & (binary_mask > 0)
         if valid.sum() < 4:
             logger.info("Valid mask pixels below minimum threshold; returning initial translation guess.")
             pose = np.eye(4, dtype=np.float32)
-            pose[:3, 3] = guess_translation(depth=depth, mask=mask, K=self.K)
-            return PoseEstimationResult(
-                image=rgb,
-                poses=pose,
-                intrinsics=self.K,
+            pose[:3, 3] = guess_translation(depth=filtered_depth, mask=binary_mask, K=self.K)
+            return ObjectPose6D(
+                pose=pose,
                 scores=np.array([0.0], dtype=np.float32),
-                labels=[self.model_name] if self.model_name is not None else None,
-                bbox_3d=self.mesh_bounds,
-                to_origin=self.to_origin,
+                names=[self.model_name] if self.model_name is not None else None,
             )
 
         # Initialize candidate hypotheses from rotation grid and centroid translation guess
         hypotheses = self.rot_grid.copy()
-        hypotheses[:, :3, 3] = guess_translation(depth=depth, mask=mask, K=self.K)
+        hypotheses[:, :3, 3] = guess_translation(depth=filtered_depth, mask=binary_mask, K=self.K)
 
         # Coarse Refinement on full rotation grid
-        refined_poses = self.refiner.predict(rgb, depth, xyz_map, hypotheses, self.mesh_diameter, iteration=1)
+        refined_poses = self.refiner.predict(
+            parsed_rgb, filtered_depth, xyz_map, hypotheses, self.model_diameter, iteration=1
+        )
 
         # Hypothesis Scoring & Tournament Selection
-        sorted_poses, sorted_scores = self.scorer.predict(rgb, depth, xyz_map, refined_poses, self.mesh_diameter)
+        sorted_poses, sorted_scores = self.scorer.predict(
+            parsed_rgb, filtered_depth, xyz_map, refined_poses, self.model_diameter
+        )
 
         # Fine Refinement on top-scoring candidate
         refined_top_pose = self.refiner.predict(
-            rgb, depth, xyz_map, sorted_poses[:1], self.mesh_diameter, iteration=max(1, iteration - 1)
+            parsed_rgb,
+            filtered_depth,
+            xyz_map,
+            sorted_poses[:1],
+            self.model_diameter,
+            iteration=max(1, iteration - 1),
         )
 
         best_pose = refined_top_pose[0]
         best_score = float(sorted_scores[0])
         self.pose_last = best_pose
 
-        return PoseEstimationResult(
-            image=rgb,
-            poses=best_pose,
-            intrinsics=self.K,
+        return ObjectPose6D(
+            pose=best_pose,
             scores=np.array([best_score], dtype=np.float32),
-            labels=[self.model_name] if self.model_name is not None else None,
-            bbox_3d=self.mesh_bounds,
-            to_origin=self.to_origin,
+            names=[self.model_name] if self.model_name is not None else None,
         )
 
     def track(
         self,
-        rgb: str | Path | np.ndarray,
-        depth: str | Path | np.ndarray,
+        rgb: np.ndarray | str | Path,
+        depth: np.ndarray | str | Path,
+        depth_unit: str | float = "m",
         iteration: int = 2,
-    ) -> PoseEstimationResult:
+        verify_conf: bool = False,
+        filter_depth: bool = True,
+        filter_radius: int = 2,
+    ) -> ObjectPose6D:
         """Track 6D object pose sequentially across video frames starting from previous frame pose.
 
         Args:
             rgb: Current frame RGB image (file path or NumPy array of shape (H, W, 3)).
             depth: Current frame metric depth map (file path or NumPy array of shape (H, W)).
+            depth_unit: Unit system of input depth ('m', 'cm', 'mm', or float multiplier).
             iteration: Number of tracking refinement iterations (default: 2).
+            verify_conf: Whether to evaluate pose hypothesis confidence using ScorePredictor (default: False).
+            filter_depth: Whether to apply erosion and bilateral smoothing to depth map (default: True).
+            filter_radius: Neighborhood pixel radius for depth filter passes (default: 2).
 
         Returns:
-            PoseEstimationResult container with updated 6D pose matrix.
+            ObjectPose6D container with updated 6D pose matrix and confidence score.
+
+        Raises:
+            RuntimeError: If track() is called before an initial register() call or setting current_pose.
+            ValueError: If input dimensions mismatch.
         """
         if self.pose_last is None:
-            raise ValueError("First frame must be registered using register() before calling track().")
+            raise RuntimeError(
+                "No previous pose estimate found. Call register() or set current_pose before calling track()."
+            )
 
-        # Resolve file path inputs if provided
-        if isinstance(rgb, (str, Path)):
-            rgb = load_image(rgb, color_mode="RGB")
+        if self.model is None or self.model_diameter is None:
+            raise RuntimeError("Target 3D CAD model has not been set.")
 
-        if isinstance(depth, (str, Path)):
-            depth_path = Path(depth)
-            if depth_path.suffix.lower() == ".npy":
-                depth = np.load(str(depth_path)).astype(np.float32)
-            else:
-                loaded = cv2.imread(str(depth_path), cv2.IMREAD_UNCHANGED)
-                if loaded is None:
-                    raise FileNotFoundError(f"Could not read depth file: {depth_path}")
-                depth = loaded.astype(np.float32)
+        parsed_rgb = _parse_rgb(rgb)
+        parsed_depth = _parse_depth(depth, depth_unit=depth_unit)
 
-        depth = self.depth_filter.apply(depth, radius=2)
-        xyz_map = reproject_depth_to_3d(depth, self.K)
+        if parsed_rgb.shape[:2] != parsed_depth.shape[:2]:
+            raise ValueError(
+                f"Spatial resolution mismatch between rgb {parsed_rgb.shape[:2]} and depth {parsed_depth.shape[:2]}"
+            )
+
+        if filter_depth:
+            filtered_depth = self.depth_filter.apply(parsed_depth, radius=filter_radius)
+        else:
+            filtered_depth = parsed_depth
+
+        xyz_map = reproject_depth_to_3d(filtered_depth, self.K)
 
         # Refine pose starting from previous frame estimate
-        best_pose = self.refiner.predict(rgb, depth, xyz_map, self.pose_last[np.newaxis, ...], self.mesh_diameter, iteration=iteration)[0]
+        best_pose = self.refiner.predict(
+            parsed_rgb,
+            filtered_depth,
+            xyz_map,
+            self.pose_last[np.newaxis, ...],
+            self.model_diameter,
+            iteration=iteration,
+        )[0]
         self.pose_last = best_pose
 
-        return PoseEstimationResult(
-            image=rgb,
-            poses=best_pose,
-            intrinsics=self.K,
-            scores=np.array([1.0], dtype=np.float32),
-            labels=[self.model_name] if self.model_name is not None else None,
-            bbox_3d=self.mesh_bounds,
-            to_origin=self.to_origin,
+        if verify_conf:
+            _, scores = self.scorer.predict(
+                parsed_rgb,
+                filtered_depth,
+                xyz_map,
+                best_pose[np.newaxis, ...],
+                self.model_diameter,
+            )
+            score_val = float(scores[0])
+        else:
+            score_val = 1.0
+
+        return ObjectPose6D(
+            pose=best_pose,
+            scores=np.array([score_val], dtype=np.float32),
+            names=[self.model_name] if self.model_name is not None else None,
         )
 
     def __enter__(self) -> FoundationPoseAdapter:
@@ -666,11 +914,22 @@ class FoundationPoseAdapter:
         exc_val: BaseException | None,
         exc_tb: Any | None,
     ) -> None:
-        """Exit context manager scope and release allocated rendering resources."""
+        """Exit context manager scope and release allocated resources."""
         self.release()
 
     def release(self) -> None:
-        """Release allocated rendering resources upon teardown."""
-        self.depth_filter.release()
-        self.renderer.release()
-        self.glctx.release()
+        """Release allocated rendering resources and inference sessions."""
+        if hasattr(self, "depth_filter") and self.depth_filter is not None:
+            self.depth_filter.release()
+        if hasattr(self, "renderer") and self.renderer is not None:
+            self.renderer.release()
+        if hasattr(self, "refiner") and self.refiner is not None:
+            self.refiner.release()
+        if hasattr(self, "scorer") and self.scorer is not None:
+            self.scorer.release()
+        if hasattr(self, "glctx") and self.glctx is not None and getattr(self, "_own_glctx", True):
+            self.glctx.release()
+
+    def close(self) -> None:
+        """Alias for release."""
+        self.release()

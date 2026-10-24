@@ -1,45 +1,15 @@
-"""
-Geometric transformation, viewpoint sampling, and mesh buffer utilities for FoundationPose.
-"""
+"""Geometric transformation, viewpoint sampling, and pose utilities for FoundationPose."""
 
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
 
 import cv2
 import numpy as np
 
-from spatialhub.utils.mesh import sample_sphere_poses
+from spatialhub.utils import sample_icosphere_poses
 
 logger = logging.getLogger(__name__)
-
-# Delayed import for optional rendering dependency
-_trimesh_installed = True
-try:
-    import trimesh
-except ImportError:
-    _trimesh_installed = False
-
-from spatialhub.utils.mesh import MeshArrays, prepare_mesh_arrays
-
-random_seed = 0
-np.random.seed(random_seed)
-
-
-def _check_trimesh() -> None:
-
-    """
-    Verify that trimesh is installed prior to executing mesh generation functions.
-
-    Raises:
-        ImportError: If trimesh is not installed in the environment.
-    """
-    if not _trimesh_installed:
-        raise ImportError(
-            "FoundationPose helper functions require optional rendering dependencies ('trimesh'). "
-            "Install them with: uv sync --extra render (or pip install 'spatialhub[render]')"
-        )
 
 
 def cluster_poses(
@@ -120,7 +90,7 @@ def make_rotation_grid(
     Returns:
         Candidate pose array of shape (K, 4, 4) in float32.
     """
-    cam_in_obs = sample_sphere_poses(num_viewpoints=min_n_views, radius=1.0, sampling_method="icosphere", subdivisions=None, pose_type="camera_pose")
+    cam_in_obs = sample_icosphere_poses(min_n_views=min_n_views, radius=1.0)
     rot_grid = []
 
     for cam_in_ob in cam_in_obs:
@@ -204,37 +174,34 @@ def egocentric_delta_pose_to_pose(
 
 
 def compute_crop_window_tf_batch(
-    pts: np.ndarray | None = None,
-    H: int = 480,
-    W: int = 640,
-    poses: np.ndarray = None,
-    K: np.ndarray = None,
+    H: int,
+    W: int,
+    poses: np.ndarray,
+    intrinsics: np.ndarray,
     crop_ratio: float = 1.2,
     out_size: tuple[int, int] = (160, 160),
-    mesh_diameter: float = 0.2,
+    model_diameter: float = 0.2,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """
-    Compute 2D perspective affine crop transformation matrices for candidate poses.
+    """Compute 2D perspective affine crop transformation matrices for candidate poses.
 
     Args:
-        pts: Optional 3D vertex array (unused if mesh_diameter is provided).
         H: Source image height in pixels.
         W: Source image width in pixels.
         poses: Array of candidate 4x4 poses of shape (B, 4, 4).
-        K: 3x3 camera intrinsic matrix.
+        intrinsics: 3x3 camera intrinsic matrix.
         crop_ratio: Spatial expansion factor around candidate bounding box.
         out_size: Output spatial crop resolution as (width, height).
-        mesh_diameter: 3D bounding mesh diameter in meters.
+        model_diameter: 3D bounding model diameter in meters.
 
     Returns:
         Tuple of (tfs, bbox2d_ori) where tfs is (B, 3, 3) float32 transformations
         and bbox2d_ori is (B, 4) bounding box bounds [left, top, right, bottom].
     """
     poses = np.asarray(poses, dtype=np.float32)
-    K = np.asarray(K, dtype=np.float32)
+    K = np.asarray(intrinsics, dtype=np.float32)
     B = len(poses)
 
-    radius = float(mesh_diameter * crop_ratio / 2.0)
+    radius = float(model_diameter * crop_ratio / 2.0)
     offsets = np.array(
         [
             [0.0, 0.0, 0.0],
@@ -283,11 +250,10 @@ def transform_batch(
     xyz_mapAs: np.ndarray,
     xyz_mapBs: np.ndarray,
     poseA: np.ndarray,
-    mesh_diameter: float,
+    model_diameter: float,
     normalize_xyz: bool = False,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """
-    Format and normalize RGB and coordinate crop tensors for model input.
+    """Format and normalize RGB and coordinate crop tensors for model input.
 
     Args:
         rgbAs: Rendered synthetic RGB crops of shape (B, 3, H, W).
@@ -295,8 +261,8 @@ def transform_batch(
         xyz_mapAs: Rendered synthetic coordinate map crops of shape (B, 3, H, W).
         xyz_mapBs: Observed real coordinate map crops of shape (B, 3, H, W).
         poseA: Candidate pose array of shape (B, 4, 4).
-        mesh_diameter: 3D bounding mesh diameter in meters.
-        normalize_xyz: Whether to scale 3D coordinates by mesh radius.
+        model_diameter: 3D bounding model diameter in meters.
+        normalize_xyz: Whether to scale 3D coordinates by model radius.
 
     Returns:
         Tuple of (A_tensor, B_tensor) of shape (B, 6, H, W) in float32.
@@ -318,7 +284,7 @@ def transform_batch(
     xyz_mapBs = xyz_mapBs - center
 
     if normalize_xyz:
-        radius = float(mesh_diameter / 2.0)
+        radius = float(model_diameter / 2.0)
         xyz_mapAs /= radius
         xyz_mapBs /= radius
 
@@ -430,21 +396,4 @@ def special_gramschmidt_np(rot_6d: np.ndarray) -> np.ndarray:
     return np.stack([u1, u2, u3], axis=-1)
 
 
-def prepare_mesh_for_rendering(
-    mesh: trimesh.Trimesh,
-    max_tex_size: int | None = None,
-    flip_uv: bool = True,
-) -> MeshArrays:
-    """
-    Extract contiguous vertex, normal, UV, and texture buffer arrays from a mesh.
-
-    Args:
-        mesh: Input mesh instance.
-        max_tex_size: Optional maximum texture dimension limit in pixels.
-        flip_uv: Whether to invert vertical UV coordinates (1 - V).
-
-    Returns:
-        MeshArrays container containing formatted float32 and int32 arrays.
-    """
-    return prepare_mesh_arrays(mesh=mesh, max_tex_size=max_tex_size, flip_uv=flip_uv)
 

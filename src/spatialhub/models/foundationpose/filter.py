@@ -7,7 +7,7 @@ from __future__ import annotations
 import moderngl
 import numpy as np
 
-from spatialhub.utils import FullscreenShader
+from spatialhub.utils import FullscreenRenderer
 
 # Shader Definitions
 QUAD_VS = """
@@ -120,16 +120,11 @@ class DepthFilter:
             glctx: Execution context instance.
         """
         self.glctx = glctx
-        self.engine = FullscreenShader(glctx)
-        self.quad_vbo = self.engine.create_quad_vbo()
+        self.engine = FullscreenRenderer(glctx)
 
         # Compile shader programs
         self.erode_prog = self.engine.create_program(QUAD_VS, ERODE_FS)
         self.bilateral_prog = self.engine.create_program(QUAD_VS, BILATERAL_FS)
-
-        # Create Vertex Array Objects
-        self.erode_vao = self.engine.create_vao(self.erode_prog, self.quad_vbo)
-        self.bilateral_vao = self.engine.create_vao(self.bilateral_prog, self.quad_vbo)
 
     def apply(
         self,
@@ -159,38 +154,35 @@ class DepthFilter:
         depth = np.ascontiguousarray(depth, dtype=np.float32)
         H, W = depth.shape[:2]
 
-        # Phase 1: Upload input depth array
+        # Upload input depth array
         self.engine.upload(depth)
 
-        # Phase 2: Execute depth erosion pass
+        # Execute depth erosion pass
         self.erode_prog["resolution"].value = (float(W), float(H))
         self.erode_prog["radius"].value = int(radius)
         self.erode_prog["zfar"].value = float(zfar)
         self.erode_prog["depth_diff_thres"].value = float(depth_diff_thres)
         self.erode_prog["ratio_thres"].value = float(ratio_thres)
 
-        self.engine.render(self.erode_vao, self.erode_prog, texture_uniform_name="tex_depth")
+        self.engine.render_pass(self.erode_prog, texture_uniform_name="tex_depth")
 
         # Swap textures for sequential filtering pass
         self.engine.swap_buffers()
 
-        # Phase 3: Execute bilateral smoothing pass
+        # Execute bilateral smoothing pass
         self.bilateral_prog["resolution"].value = (float(W), float(H))
         self.bilateral_prog["radius"].value = int(radius)
         self.bilateral_prog["zfar"].value = float(zfar)
         self.bilateral_prog["sigmaD"].value = float(sigmaD)
         self.bilateral_prog["sigmaR"].value = float(sigmaR)
 
-        self.engine.render(self.bilateral_vao, self.bilateral_prog, texture_uniform_name="tex_depth")
+        self.engine.render_pass(self.bilateral_prog, texture_uniform_name="tex_depth")
 
-        # Phase 4: Retrieve filtered output array
+        # Retrieve filtered output array
         return self.engine.to_numpy()
 
     def release(self) -> None:
-        """Release compiled shader programs, vertex buffers, and framebuffer allocations."""
-        self.quad_vbo.release()
+        """Release compiled shader programs and engine resources."""
         self.erode_prog.release()
         self.bilateral_prog.release()
-        self.erode_vao.release()
-        self.bilateral_vao.release()
         self.engine.release_fbo()

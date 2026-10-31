@@ -15,6 +15,10 @@ from .colors import (
     to_color,
 )
 from .download import download_file
+from .geometry import (
+    estimate_relative_pose_2d,
+    solve_pnp_ransac,
+)
 from .image import (
     load_image,
     mask_to_bbox,
@@ -114,6 +118,8 @@ __all__ = [
     "intrinsics_to_projection_matrix",
     "opencv_to_opengl",
     "project_points_to_image",
+    "estimate_relative_pose_2d",
+    "solve_pnp_ransac",
     "create_moderngl_context",
     "validate_moderngl_context",
     "AtlasRenderer",

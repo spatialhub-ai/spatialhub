@@ -92,6 +92,7 @@ nav:
       - Images: utilities/image.md
       - Transforms: utilities/transform.md
       - Cameras: utilities/camera.md
+      - Geometry: utilities/geometry.md
       - Meshes: utilities/mesh.md
       - Visualization: utilities/visualization.md
   - Rendering:

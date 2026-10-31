@@ -99,7 +99,7 @@ print("RGBA buffer shape:", buffers.rgba.shape)  # (1, 256, 256, 4)
 
 - [`extents_to_corners`](../utilities/transform.md#extents_to_corners): Converts 3D bounding extents into 8-corner canonical vertices.
 - [`scale_depth`](../utilities/image.md#scale_depth): Scales metric depth maps or converts units to meters.
-- [`reproject_depth_to_3d`](../utilities/camera.md#reproject_depth_to_3d): Unprojects 2D depth fields into 3D Cartesian point clouds.
+- [`unproject_depth_map`](../utilities/camera.md#unproject_depth_map): Unprojects 2D depth fields into 3D Cartesian point clouds.
 - [`draw_3d_box`](../utilities/visualization.md#draw_3d_box): Projects and draws 3D bounding box edges onto 2D images.
 - [`visualize_depth`](../utilities/visualization.md#visualize_depth): Normalizes float depth maps and applies colormaps for inspection.
 - [`compute_obb`](../utilities/mesh.md#compute_obb): Computes minimum-volume oriented bounding boxes from 3D CAD meshes.

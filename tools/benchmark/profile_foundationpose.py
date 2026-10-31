@@ -25,7 +25,7 @@ if str(BENCHMARK_DIR) not in sys.path:
 from spatialhub.core.runtime import resolve_model_path
 from spatialhub.models.foundationpose.adapter import FoundationPoseAdapter
 from spatialhub.models.foundationpose.helper import guess_translation
-from spatialhub.utils import load_image, reproject_depth_to_3d, scale_depth
+from spatialhub.utils import load_image, unproject_depth_map, scale_depth
 from spatialhub.utils.profiling import (
     BenchmarkStats,
     benchmark_callable,
@@ -161,7 +161,7 @@ def profile_foundationpose_pipeline(
             raw_depth = scale_depth(load_image(depth, color_mode=None), depth_unit="m") if isinstance(depth, (str, Path)) else scale_depth(depth, depth_unit="m")
             raw_mask = (load_image(mask, color_mode="GRAY") > 0) if isinstance(mask, (str, Path)) else (mask > 0)
             filtered_depth = adapter.depth_filter.apply(raw_depth, radius=2)
-            xyz_map = reproject_depth_to_3d(filtered_depth, adapter.K)
+            xyz_map = unproject_depth_map(filtered_depth, adapter.K)
             return raw_rgb, filtered_depth, raw_mask, xyz_map
 
         stats_preprocess = benchmark_callable(

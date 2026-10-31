@@ -19,7 +19,7 @@ from spatialhub.utils import (
     blend_masks,
     draw_boxes_2d,
     load_image,
-    reproject_depth_to_3d,
+    unproject_depth_map,
     save_image,
     scale_depth,
     scale_intrinsics,
@@ -94,7 +94,7 @@ def main(save_panels: bool = False, update_docs: bool = False) -> None:
 
     # --8<-- [start:point_cloud_reprojection]
     # Reproject depth map into 3D camera coordinate frame
-    pred_points_3d = reproject_depth_to_3d(pred_depth_metric, intrinsics)
+    pred_points_3d = unproject_depth_map(pred_depth_metric, intrinsics)
 
     # Extract non-zero 3D vertices and assign corresponding RGB vertex colors
     pred_valid = (pred_depth_metric > 0) & np.isfinite(pred_depth_metric)
@@ -237,7 +237,7 @@ def _export_panels(
         web_pred_pcd = trimesh.PointCloud(vertices=pred_cloud[sub_indices], colors=pred_colors[sub_indices])
         web_pred_pcd.export(target_dir / "room_point_cloud_pred_web.ply")
 
-        gt_points_3d = reproject_depth_to_3d(gt_depth, intrinsics)
+        gt_points_3d = unproject_depth_map(gt_depth, intrinsics)
         gt_cloud = gt_points_3d[gt_valid]
         gt_colors = image[gt_valid]
         gt_sample_count = min(120_000, len(gt_cloud))

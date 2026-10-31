@@ -8,11 +8,12 @@ import pytest
 from spatialhub.utils.camera import (
     intrinsics_to_projection_matrix,
     project_points_to_image,
-    reproject_depth_to_3d,
     sample_icosphere_poses,
     sample_sphere_points,
     sample_sphere_poses,
     scale_intrinsics,
+    unproject_depth_map,
+    unproject_points,
 )
 
 
@@ -56,8 +57,83 @@ class TestScaleIntrinsics:
         assert np.isclose(k_scaled[0, 0, 0], 250.0)
 
 
-class TestReprojectDepthTo3D:
-    """Test suite for 3D depth reprojection."""
+class TestUnprojectPoints:
+    """Test suite for discrete 2D-to-3D point unprojection."""
+
+    @pytest.fixture
+    def intrinsics(self) -> np.ndarray:
+        return np.array([
+            [500.0, 0.0, 320.0],
+            [0.0, 500.0, 240.0],
+            [0.0, 0.0, 1.0],
+        ], dtype=np.float32)
+
+    def test_unproject_principal_point(self, intrinsics: np.ndarray) -> None:
+        pts_2d = np.array([[320.0, 240.0]], dtype=np.float32)
+        depth = np.array([2.0], dtype=np.float32)
+        pts_3d = unproject_points(pts_2d, depth, intrinsics)
+        assert pts_3d.shape == (1, 3)
+        assert np.allclose(pts_3d[0], [0.0, 0.0, 2.0], atol=1e-5)
+
+    def test_unproject_offset_point(self, intrinsics: np.ndarray) -> None:
+        # cx + fx = 320 + 500 = 820, cy + fy = 240 + 500 = 740
+        # At depth Z=3.0: X = 1.0 * 3.0 = 3.0, Y = 1.0 * 3.0 = 3.0, Z = 3.0
+        pts_2d = np.array([[820.0, 740.0]], dtype=np.float32)
+        depth = np.array([3.0], dtype=np.float32)
+        pts_3d = unproject_points(pts_2d, depth, intrinsics)
+        assert np.allclose(pts_3d[0], [3.0, 3.0, 3.0], atol=1e-5)
+
+    def test_unproject_batched(self, intrinsics: np.ndarray) -> None:
+        pts_2d = np.array([
+            [[320.0, 240.0], [820.0, 240.0]],
+            [[320.0, 740.0], [820.0, 740.0]],
+        ], dtype=np.float32)
+        depth = np.array([
+            [1.0, 2.0],
+            [3.0, 4.0],
+        ], dtype=np.float32)
+        pts_3d = unproject_points(pts_2d, depth, intrinsics)
+        assert pts_3d.shape == (2, 2, 3)
+        assert np.allclose(pts_3d[0, 0], [0.0, 0.0, 1.0], atol=1e-5)
+        assert np.allclose(pts_3d[0, 1], [2.0, 0.0, 2.0], atol=1e-5)
+
+    def test_unproject_batched_intrinsics(self) -> None:
+        k_batch = np.array([
+            [
+                [500.0, 0.0, 320.0],
+                [0.0, 500.0, 240.0],
+                [0.0, 0.0, 1.0],
+            ],
+            [
+                [250.0, 0.0, 160.0],
+                [0.0, 250.0, 120.0],
+                [0.0, 0.0, 1.0],
+            ],
+        ], dtype=np.float32)
+
+        pts_2d = np.array([
+            [[320.0, 240.0]],
+            [[160.0, 120.0]],
+        ], dtype=np.float32)
+        depth = np.array([
+            [2.0],
+            [4.0],
+        ], dtype=np.float32)
+
+        pts_3d = unproject_points(pts_2d, depth, k_batch)
+        assert pts_3d.shape == (2, 1, 3)
+        assert np.allclose(pts_3d[0, 0], [0.0, 0.0, 2.0], atol=1e-5)
+        assert np.allclose(pts_3d[1, 0], [0.0, 0.0, 4.0], atol=1e-5)
+
+    def test_unproject_mismatched_shape_raises(self, intrinsics: np.ndarray) -> None:
+        pts_2d = np.array([[320.0, 240.0], [100.0, 100.0]], dtype=np.float32)
+        depth = np.array([2.0], dtype=np.float32)
+        with pytest.raises(ValueError, match="Shape mismatch"):
+            unproject_points(pts_2d, depth, intrinsics)
+
+
+class TestUnprojectDepthMap:
+    """Test suite for dense depth map unprojection."""
 
     @pytest.fixture
     def camera_intrinsics(self) -> np.ndarray:
@@ -67,28 +143,28 @@ class TestReprojectDepthTo3D:
             [0.0, 0.0, 1.0],
         ], dtype=np.float32)
 
-    def test_reproject_principal_point(self, camera_intrinsics: np.ndarray) -> None:
+    def test_unproject_principal_point(self, camera_intrinsics: np.ndarray) -> None:
         depth = np.zeros((480, 640), dtype=np.float32)
         depth[240, 320] = 2.0  # At optical center (cx=320, cy=240), Z=2.0 -> X=0, Y=0, Z=2.0
 
-        pts = reproject_depth_to_3d(depth, camera_intrinsics)
+        pts = unproject_depth_map(depth, camera_intrinsics)
         assert pts.shape == (480, 640, 3)
         center_pt = pts[240, 320]
         assert np.allclose(center_pt, [0.0, 0.0, 2.0], atol=1e-4)
 
-    def test_reproject_depth_thresholding(self, camera_intrinsics: np.ndarray) -> None:
+    def test_unproject_depth_thresholding(self, camera_intrinsics: np.ndarray) -> None:
         depth = np.full((10, 10), 5.0, dtype=np.float32)
         depth[0, 0] = 0.0001  # below z_min
         depth[0, 1] = 100.0   # above z_max
 
-        pts = reproject_depth_to_3d(depth, camera_intrinsics, z_min=0.1, z_max=10.0)
+        pts = unproject_depth_map(depth, camera_intrinsics, z_min=0.1, z_max=10.0)
         assert np.allclose(pts[0, 0], [0.0, 0.0, 0.0])
         assert np.allclose(pts[0, 1], [0.0, 0.0, 0.0])
         assert not np.allclose(pts[5, 5], [0.0, 0.0, 0.0])
 
-    def test_reproject_batched_depth(self, camera_intrinsics: np.ndarray) -> None:
+    def test_unproject_batched_depth(self, camera_intrinsics: np.ndarray) -> None:
         depth_batch = np.ones((2, 100, 100), dtype=np.float32) * 3.0
-        pts_batch = reproject_depth_to_3d(depth_batch, camera_intrinsics)
+        pts_batch = unproject_depth_map(depth_batch, camera_intrinsics)
         assert pts_batch.shape == (2, 100, 100, 3)
         assert np.isclose(pts_batch[0, 50, 50, 2], 3.0)
 

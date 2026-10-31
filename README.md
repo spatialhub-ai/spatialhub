@@ -84,7 +84,7 @@ uv sync --extra gpu --extra render
 ```python
 import numpy as np
 from spatialhub import DepthAnything3
-from spatialhub.utils import load_image, reproject_depth_to_3d, save_image, visualize_depth
+from spatialhub.utils import load_image, unproject_depth_map, save_image, visualize_depth
 
 # Load RGB image and pinhole camera intrinsics matrix (3x3)
 image = load_image("examples/assets/room_image.jpg")
@@ -96,7 +96,7 @@ with DepthAnything3(model_name="da3metric_large") as estimator:
     pred_depth = depth_result.depth[0]
 
 # Unproject metric depth map to 3D camera-space point cloud (N, 3)
-point_cloud = reproject_depth_to_3d(depth=pred_depth, K=intrinsics)
+point_cloud = unproject_depth_map(depth=pred_depth, K=intrinsics)
 print(f"Reconstructed point cloud vertices: {point_cloud.shape}")
 
 # Save depth visualization

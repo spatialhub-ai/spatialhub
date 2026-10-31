@@ -48,7 +48,74 @@ def scale_intrinsics(
     return K_scaled
 
 
-def reproject_depth_to_3d(
+def unproject_points(
+    points_2d: np.ndarray,
+    depth: np.ndarray,
+    intrinsics: np.ndarray,
+) -> np.ndarray:
+    """Reproject 2D pixel coordinates and depth values into 3D camera-space points.
+
+    Given pixel coordinates (u, v) and depth Z:
+        X = (u - cx) * Z / fx
+        Y = (v - cy) * Z / fy
+        Z = Z
+
+    Coordinate frame convention:
+        - +X axis points right.
+        - +Y axis points downward.
+        - +Z axis points forward along the optical axis into the scene.
+
+    Args:
+        points_2d: Pixel coordinates (u, v) of shape (N, 2) or batched (..., N, 2).
+        depth: Depth values along optical axis of shape (N,) or batched (..., N).
+        intrinsics: Camera intrinsic calibration matrix (3, 3) or batched (..., 3, 3).
+
+    Returns:
+        3D coordinate array of shape (N, 3) or (..., N, 3) in float32.
+
+    Raises:
+        ValueError: If array dimensions or shapes do not conform to expected geometric formats.
+    """
+    pts = np.asarray(points_2d, dtype=np.float32)
+    z = np.asarray(depth, dtype=np.float32)
+    k = np.asarray(intrinsics, dtype=np.float32)
+
+    validate_array("points_2d", pts, shape_suffix=(2,))
+    validate_array("intrinsics", k, shape_suffix=(3, 3))
+
+    if pts.shape[:-1] != z.shape:
+        raise ValueError(
+            f"Shape mismatch: points_2d leading dimensions {pts.shape[:-1]} "
+            f"must match depth shape {z.shape}"
+        )
+
+    u = pts[..., 0]
+    v = pts[..., 1]
+
+    if k.ndim == 2:
+        fx, fy = float(k[0, 0]), float(k[1, 1])
+        cx, cy = float(k[0, 2]), float(k[1, 2])
+    elif k.ndim == 3 and z.ndim == 2:
+        fx = k[:, 0, 0, None]
+        fy = k[:, 1, 1, None]
+        cx = k[:, 0, 2, None]
+        cy = k[:, 1, 2, None]
+    elif k.ndim == 3 and z.ndim == 3:
+        fx = k[:, 0, 0, None, None]
+        fy = k[:, 1, 1, None, None]
+        cx = k[:, 0, 2, None, None]
+        cy = k[:, 1, 2, None, None]
+    else:
+        raise ValueError(f"Incompatible shapes: intrinsics {k.shape} and depth {z.shape}")
+
+    xs = (u - cx) * z / fx
+    ys = (v - cy) * z / fy
+    zs = z
+
+    return np.stack((xs, ys, zs), axis=-1).astype(np.float32)
+
+
+def unproject_depth_map(
     depth: np.ndarray,
     K: np.ndarray,
     z_min: float = 0.001,
@@ -93,17 +160,15 @@ def reproject_depth_to_3d(
         indexing="ij",
     )
 
-    fx = k_arr[..., 0:1, 0:1]
-    fy = k_arr[..., 1:2, 1:2]
-    cx = k_arr[..., 0:1, 2:3]
-    cy = k_arr[..., 1:2, 2:3]
+    batch_shape = depth_arr.shape[:-2]
+    if batch_shape:
+        us = np.broadcast_to(us, (*batch_shape, h, w))
+        vs = np.broadcast_to(vs, (*batch_shape, h, w))
 
-    zs = depth_arr
-    xs = (us - cx) * zs / fx
-    ys = (vs - cy) * zs / fy
+    pts_2d = np.stack((us, vs), axis=-1)
+    xyz = unproject_points(pts_2d, depth_arr, k_arr)
 
-    xyz = np.stack((xs, ys, zs), axis=-1).astype(np.float32)
-    invalid_mask = (zs < z_min) | (zs > z_max)
+    invalid_mask = (depth_arr < z_min) | (depth_arr > z_max)
     xyz[invalid_mask] = 0.0
 
     return xyz
@@ -412,7 +477,8 @@ __all__ = [
     "sample_sphere_points",
     "intrinsics_to_projection_matrix",
     "project_points_to_image",
-    "reproject_depth_to_3d",
+    "unproject_points",
+    "unproject_depth_map",
     "sample_icosphere_poses",
     "sample_sphere_poses",
     "scale_intrinsics",

@@ -122,7 +122,7 @@ Depth maps are colormapped from $0.0\,\text{m}$ (dark purple) to $4.5\,\text{m}$
 
 ### Reproject to 3D
 
-Depth fields are unprojected into 3D camera space via [`reproject_depth_to_3d`](../utilities/camera.md#reproject_depth_to_3d) using camera intrinsics $K$:
+Depth fields are unprojected into 3D camera space via [`unproject_depth_map`](../utilities/camera.md#unproject_depth_map) using camera intrinsics $K$:
 
 $$X = \frac{(u - c_x) \cdot Z}{f_x}, \quad Y = \frac{(v - c_y) \cdot Z}{f_y}$$
 

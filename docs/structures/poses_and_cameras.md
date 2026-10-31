@@ -143,6 +143,6 @@ print("Detected object name:", poses.names[0])
 - [`transform_points`](../utilities/transform.md#transform_points): Transforms 3D point arrays using an $\mathrm{SE}(3)$ matrix.
 - [`opencv_to_opengl`](../utilities/transform.md#opencv_to_opengl): Converts transformation matrices between OpenCV and OpenGL coordinate frames.
 - [`scale_intrinsics`](../utilities/camera.md#scale_intrinsics): Adjusts focal lengths and optical centers for resized views.
-- [`reproject_depth_to_3d`](../utilities/camera.md#reproject_depth_to_3d): Unprojects 2D depth fields into 3D Cartesian point clouds.
+- [`unproject_depth_map`](../utilities/camera.md#unproject_depth_map): Unprojects 2D depth fields into 3D Cartesian point clouds.
 - [`project_points_to_image`](../utilities/camera.md#project_points_to_image): Projects 3D points onto the camera image plane.
 - [`draw_3d_axis`](../utilities/visualization.md#draw_3d_axis): Renders 3D coordinate axes representing object poses onto images.

@@ -72,7 +72,7 @@ from spatialhub.utils import (
     download_file,
     load_image,
     scale_depth,
-    reproject_depth_to_3d,
+    unproject_depth_map,
 )
 from utils import compute_rotation_geodesic_degrees, get_available_ort_providers
 
@@ -581,7 +581,7 @@ def evaluate_sequence_parity(
                     pose_last = pose_last[0]
             else:
                 filtered_depth = adapter.depth_filter.apply(raw_depth, radius=2)
-                xyz_map = reproject_depth_to_3d(filtered_depth, adapter.K)
+                xyz_map = unproject_depth_map(filtered_depth, adapter.K)
 
                 a_crop, b_crop = make_crop_data_batch(
                     render_size=(160, 160),

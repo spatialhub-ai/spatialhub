@@ -47,12 +47,62 @@ print("Scaled principal point:", k_scaled[0, 2], k_scaled[1, 2])
 
 ---
 
-### `reproject_depth_to_3d`
+### `unproject_points`
+
+Unprojects discrete 2D pixel coordinates and corresponding depth values into 3D Cartesian coordinates in the camera reference frame.
+
+```python
+def unproject_points(
+    points_2d: np.ndarray,
+    depth: np.ndarray,
+    intrinsics: np.ndarray,
+) -> np.ndarray
+```
+
+#### Mathematical Formulation
+
+For each 2D coordinate $(u, v)$ with depth $Z$:
+
+$$X = \frac{u - c_x}{f_x} \cdot Z, \quad Y = \frac{v - c_y}{f_y} \cdot Z, \quad Z = Z$$
+
+#### Inputs
+
+| Argument | Type / Shape | Dtype | Description |
+| :--- | :--- | :--- | :--- |
+| `points_2d` | `(N, 2)` or `(..., N, 2)` | `float32` | 2D pixel coordinates $(u, v)$. |
+| `depth` | `(N,)` or `(..., N)` | `float32` | Measured depth values along the optical axis in meters. |
+| `intrinsics` | `(3, 3)` or `(..., 3, 3)` | `float32` | Pinhole camera calibration matrix $K$. |
+
+#### Outputs
+
+- Returns 3D point coordinate array of shape `(N, 3)` or `(..., N, 3)`, dtype `float32`.
+
+#### Example
+
+```python
+import numpy as np
+from spatialhub.utils import unproject_points
+
+points_2d = np.array([[320.0, 240.0], [420.0, 290.0]], dtype=np.float32)
+depth = np.array([2.0, 2.5], dtype=np.float32)
+intrinsics = np.array([
+    [500.0, 0.0, 320.0],
+    [0.0, 500.0, 240.0],
+    [0.0, 0.0, 1.0],
+], dtype=np.float32)
+
+points_3d = unproject_points(points_2d, depth, intrinsics)
+print("3D points:", points_3d)
+```
+
+---
+
+### `unproject_depth_map`
 
 Unprojects a 2D depth map into a 3D Cartesian point cloud in the camera reference frame.
 
 ```python
-def reproject_depth_to_3d(
+def unproject_depth_map(
     depth: np.ndarray,
     intrinsics: np.ndarray,
 ) -> np.ndarray
@@ -81,7 +131,7 @@ Pixels with $Z \le 0$ or non-finite values are assigned `0.0`.
 
 ```python
 import numpy as np
-from spatialhub.utils import reproject_depth_to_3d
+from spatialhub.utils import unproject_depth_map
 
 depth = np.ones((480, 640), dtype=np.float32) * 1.5
 intrinsics = np.array([
@@ -90,7 +140,7 @@ intrinsics = np.array([
     [0.0, 0.0, 1.0],
 ], dtype=np.float32)
 
-points_3d = reproject_depth_to_3d(depth, intrinsics)
+points_3d = unproject_depth_map(depth, intrinsics)
 print("Point cloud shape:", points_3d.shape)
 print("Center optical depth Z:", points_3d[240, 320, 2])
 ```

@@ -5,10 +5,11 @@ from .camera import (
     sample_sphere_points,
     intrinsics_to_projection_matrix,
     project_points_to_image,
-    reproject_depth_to_3d,
     sample_icosphere_poses,
     sample_sphere_poses,
     scale_intrinsics,
+    unproject_depth_map,
+    unproject_points,
 )
 from .colors import (
     to_color,
@@ -108,7 +109,8 @@ __all__ = [
     "MeshBuffers",
     "prepare_mesh_buffers",
     "scale_intrinsics",
-    "reproject_depth_to_3d",
+    "unproject_points",
+    "unproject_depth_map",
     "intrinsics_to_projection_matrix",
     "opencv_to_opengl",
     "project_points_to_image",

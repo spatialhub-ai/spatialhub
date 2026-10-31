@@ -24,7 +24,7 @@ from spatialhub.utils import (
     load_image,
     load_mesh,
     prepare_mesh_buffers,
-    reproject_depth_to_3d,
+    unproject_depth_map,
     scale_depth,
     scale_mesh,
     to_color,
@@ -777,7 +777,7 @@ class FoundationPoseAdapter:
         else:
             filtered_depth = parsed_depth
 
-        xyz_map = reproject_depth_to_3d(filtered_depth, self.K)
+        xyz_map = unproject_depth_map(filtered_depth, self.K)
 
         valid = (filtered_depth >= 0.001) & (binary_mask > 0)
         if valid.sum() < 4:
@@ -873,7 +873,7 @@ class FoundationPoseAdapter:
         else:
             filtered_depth = parsed_depth
 
-        xyz_map = reproject_depth_to_3d(filtered_depth, self.K)
+        xyz_map = unproject_depth_map(filtered_depth, self.K)
 
         # Refine pose starting from previous frame estimate
         best_pose = self.refiner.predict(

@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SpatialHub 3D Scene Fusion Viewer</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #0f172a;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: #e2e8f0;
+    }
+    #viewport {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    .toolbar {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      right: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      pointer-events: none;
+      z-index: 10;
+    }
+    .btn-group {
+      display: inline-flex;
+      background: rgba(15, 23, 42, 0.88);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 6px;
+      padding: 3px;
+      pointer-events: auto;
+      backdrop-filter: blur(8px);
+    }
+    .btn {
+      background: transparent;
+      border: none;
+      color: #94a3b8;
+      padding: 6px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .btn:hover {
+      color: #ffffff;
+      background: rgba(255, 255, 255, 0.08);
+    }
+    .btn.active {
+      color: #ffffff;
+      background: #0284c7;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    }
+    .badge-title {
+      background: rgba(15, 23, 42, 0.88);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 6px;
+      padding: 6px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      color: #f1f5f9;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      backdrop-filter: blur(8px);
+      pointer-events: auto;
+    }
+    .badge-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #38bdf8;
+      display: inline-block;
+    }
+    .controls-right {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      pointer-events: auto;
+    }
+    .control-pill {
+      background: rgba(15, 23, 42, 0.88);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 6px;
+      padding: 4px 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: #94a3b8;
+      backdrop-filter: blur(8px);
+    }
+    .control-pill input[type="range"] {
+      width: 80px;
+      height: 6px;
+      -webkit-appearance: none;
+      appearance: none;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 3px;
+      outline: none;
+      cursor: pointer;
+    }
+    .control-pill input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #38bdf8;
+      cursor: pointer;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+      transition: background 0.15s ease, transform 0.1s ease;
+    }
+    .control-pill input[type="range"]::-webkit-slider-thumb:hover {
+      background: #7dd3fc;
+      transform: scale(1.15);
+    }
+    .btn-icon {
+      background: rgba(15, 23, 42, 0.88);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 6px;
+      color: #94a3b8;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      backdrop-filter: blur(8px);
+      transition: all 0.15s ease;
+    }
+    .btn-icon:hover {
+      color: #ffffff;
+      background: rgba(255, 255, 255, 0.08);
+    }
+    .hint-bar {
+      position: absolute;
+      bottom: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 20px;
+      padding: 5px 14px;
+      font-size: 11px;
+      color: #64748b;
+      pointer-events: none;
+      backdrop-filter: blur(6px);
+      letter-spacing: 0.2px;
+    }
+    #loading {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: #94a3b8;
+      font-size: 13px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      pointer-events: none;
+    }
+    .spinner {
+      width: 28px;
+      height: 28px;
+      border: 2px solid rgba(255, 255, 255, 0.1);
+      border-top-color: #38bdf8;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/PLYLoader.js"></script>
+</head>
+<body>
+  <div class="toolbar">
+    <div id="btnGroup" class="btn-group" style="display: none;">
+      <button id="btnRgbd" class="btn active" onclick="switchScene('rgbd')">RGB-D Fusion</button>
+      <button id="btnMono" class="btn" onclick="switchScene('monocular')">Monocular Fusion</button>
+    </div>
+    <div id="badgeTitle" class="badge-title" style="display: none;">
+      <span class="badge-dot"></span>
+      <span id="badgeText">3D Point Cloud</span>
+    </div>
+    <div class="controls-right">
+      <div class="control-pill">
+        <span>Point Size</span>
+        <input id="sizeSlider" type="range" min="1.0" max="6.0" step="0.5" value="3.0" oninput="updatePointSize(this.value)">
+        <span id="sizeVal" style="min-width: 42px; text-align: right; font-variant-numeric: tabular-nums; color: #cbd5e1;">3.0 px</span>
+      </div>
+      <button class="btn-icon" onclick="resetCamera()">Reset View</button>
+    </div>
+  </div>
+
+  <div id="loading">
+    <div class="spinner"></div>
+    <span id="loadingText">Loading 3D Point Cloud...</span>
+  </div>
+
+  <div class="hint-bar">Left click to rotate &bull; Right click to pan &bull; Scroll to zoom</div>
+  <canvas id="viewport"></canvas>
+
+  <script>
+    const canvas = document.getElementById('viewport');
+    const loading = document.getElementById('loading');
+    const loadingText = document.getElementById('loadingText');
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0f172a);
+
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.05, 50.0);
+    camera.up.set(0, 1, 0);
+
+    const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, powerPreference: "high-performance" });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+    controls.rotateSpeed = 0.8;
+    controls.panSpeed = 0.8;
+    controls.zoomSpeed = 1.0;
+    controls.minDistance = 0.2;
+    controls.maxDistance = 25.0;
+
+    let pointCloudRgbd = null;
+    let pointCloudMono = null;
+    let activeCloud = null;
+    let defaultCameraPos = new THREE.Vector3(0, 0, 3.5);
+    let defaultTarget = new THREE.Vector3(0, 0, 0);
+
+    const loader = new THREE.PLYLoader();
+    let currentPointSize = 3.0;
+
+    function createCircleTexture() {
+      const cvs = document.createElement('canvas');
+      cvs.width = 32;
+      cvs.height = 32;
+      const ctx = cvs.getContext('2d');
+      ctx.beginPath();
+      ctx.arc(16, 16, 14, 0, Math.PI * 2);
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+      return new THREE.CanvasTexture(cvs);
+    }
+    const circleTexture = createCircleTexture();
+
+    let isAnimating = false;
+    let isVisible = true;
+
+    function requestRender() {
+      if (!isAnimating && isVisible) {
+        isAnimating = true;
+        requestAnimationFrame(tick);
+      }
+    }
+
+    function tick() {
+      if (!isVisible) {
+        isAnimating = false;
+        return;
+      }
+      const hasInertia = controls.update();
+      renderer.render(scene, camera);
+      if (hasInertia) {
+        requestAnimationFrame(tick);
+      } else {
+        isAnimating = false;
+      }
+    }
+
+    controls.addEventListener('change', requestRender);
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        isVisible = entry.isIntersecting;
+        if (isVisible) requestRender();
+      });
+    }, { threshold: 0.05 });
+    observer.observe(document.body);
+
+    function prepareGeometry(geometry) {
+      // Scale OpenCV camera coordinates (X right, Y down, Z forward)
+      // into Three.js world coordinates (X right, Y up, -Z forward)
+      geometry.scale(1, -1, -1);
+      geometry.center();
+      geometry.computeBoundingBox();
+      return geometry;
+    }
+
+    function createPoints(geometry) {
+      const material = new THREE.PointsMaterial({
+        size: currentPointSize,
+        vertexColors: true,
+        sizeAttenuation: false,
+        map: circleTexture,
+        alphaTest: 0.5,
+        transparent: false
+      });
+      return new THREE.Points(geometry, material);
+    }
+
+    function fitCamera(pointsObj) {
+      pointsObj.geometry.computeBoundingBox();
+      const bbox = pointsObj.geometry.boundingBox;
+      const size = new THREE.Vector3();
+      bbox.getSize(size);
+      const maxDim = Math.max(size.x, size.y, size.z);
+
+      const dist = maxDim * 1.35;
+      defaultTarget.set(0, 0, 0);
+      defaultCameraPos.set(0, maxDim * 0.1, dist);
+
+      camera.position.copy(defaultCameraPos);
+      controls.target.copy(defaultTarget);
+      camera.lookAt(defaultTarget);
+      controls.update();
+      requestRender();
+    }
+
+    function loadRgbdCloud() {
+      if (pointCloudRgbd) {
+        if (activeCloud) scene.remove(activeCloud);
+        scene.add(pointCloudRgbd);
+        activeCloud = pointCloudRgbd;
+        fitCamera(pointCloudRgbd);
+        requestRender();
+        return;
+      }
+      loading.style.display = 'flex';
+      loadingText.textContent = 'Loading RGB-D Fused Cloud...';
+      loader.load('fused_rgbd_web.ply', function(geometry) {
+        prepareGeometry(geometry);
+        pointCloudRgbd = createPoints(geometry);
+        if (activeCloud) scene.remove(activeCloud);
+        scene.add(pointCloudRgbd);
+        activeCloud = pointCloudRgbd;
+        fitCamera(pointCloudRgbd);
+        loading.style.display = 'none';
+        requestRender();
+      }, undefined, function(err) {
+        console.error('Failed to load fused_rgbd_web.ply', err);
+        loading.style.display = 'none';
+      });
+    }
+
+    function loadMonoCloud() {
+      if (pointCloudMono) {
+        if (activeCloud) scene.remove(activeCloud);
+        scene.add(pointCloudMono);
+        activeCloud = pointCloudMono;
+        fitCamera(pointCloudMono);
+        requestRender();
+        return;
+      }
+      loading.style.display = 'flex';
+      loadingText.textContent = 'Loading Monocular Fused Cloud...';
+      loader.load('fused_monocular_web.ply', function(geometry) {
+        prepareGeometry(geometry);
+        pointCloudMono = createPoints(geometry);
+        if (activeCloud) scene.remove(activeCloud);
+        scene.add(pointCloudMono);
+        activeCloud = pointCloudMono;
+        fitCamera(pointCloudMono);
+        loading.style.display = 'none';
+        requestRender();
+      }, undefined, function(err) {
+        console.error('Failed to load fused_monocular_web.ply', err);
+        loading.style.display = 'none';
+      });
+    }
+
+    function switchScene(mode) {
+      document.getElementById('btnRgbd').classList.toggle('active', mode === 'rgbd');
+      document.getElementById('btnMono').classList.toggle('active', mode === 'monocular');
+      if (mode === 'rgbd') {
+        loadRgbdCloud();
+      } else {
+        loadMonoCloud();
+      }
+    }
+
+    function updatePointSize(val) {
+      currentPointSize = parseFloat(val);
+      document.getElementById('sizeVal').textContent = currentPointSize.toFixed(1) + ' px';
+      if (pointCloudRgbd) pointCloudRgbd.material.size = currentPointSize;
+      if (pointCloudMono) pointCloudMono.material.size = currentPointSize;
+      requestRender();
+    }
+
+    function resetCamera() {
+      camera.position.copy(defaultCameraPos);
+      controls.target.copy(defaultTarget);
+      controls.update();
+      requestRender();
+    }
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      requestRender();
+    });
+
+    // Determine mode from query string
+    const urlParams = new URLSearchParams(window.location.search);
+    const paramMode = urlParams.get('mode');
+
+    const btnGroup = document.getElementById('btnGroup');
+    const badgeTitle = document.getElementById('badgeTitle');
+    const badgeText = document.getElementById('badgeText');
+
+    if (paramMode === 'monocular') {
+      badgeTitle.style.display = 'inline-flex';
+      badgeText.textContent = 'Monocular Fused Point Cloud';
+      loadMonoCloud();
+    } else if (paramMode === 'rgbd') {
+      badgeTitle.style.display = 'inline-flex';
+      badgeText.textContent = 'RGB-D Fused Point Cloud';
+      loadRgbdCloud();
+    } else {
+      // Standalone mode with full toggle controls
+      btnGroup.style.display = 'inline-flex';
+      loadRgbdCloud();
+    }
+  </script>
+</body>
+</html>

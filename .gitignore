@@ -24,6 +24,7 @@ onnx_weight/
 
 # Examples generated output directory
 examples/output/
+data/
 
 # Large demo sequences and downloaded archives
 examples/assets/mustard0/

@@ -5,6 +5,10 @@ repo_url: https://github.com/spatialhub-ai/spatialhub
 repo_name: spatialhub-ai/spatialhub
 copyright: 'Built by <a href="https://github.com/pankajkaushik12">Pankaj Kaushik</a> • <a href="https://github.com/spatialhub-ai/spatialhub">GitHub Repo</a>'
 
+watch:
+  - pipelines
+  - examples
+
 extra:
   social:
     - icon: fontawesome/brands/github
@@ -108,6 +112,9 @@ nav:
       - SAM: models/sam.md
       - CNOS: models/cnos.md
       - FoundationPose: models/foundationpose.md
+  - Reference Pipelines:
+      - RGB-D Fusion: pipelines/rgbd_fusion.md
+      - Monocular Fusion: pipelines/monocular_fusion.md
 
 extra_javascript:
   - javascripts/mathjax.js

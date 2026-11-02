@@ -231,6 +231,25 @@ https://github.com/user-attachments/assets/726ac4bc-338d-4bf9-af38-f0e037ca5f28
 
 ---
 
+## Reference Pipelines
+
+Multi-stage perception workflows composing model adapters, standardized structures, and geometric solvers into end-to-end tasks:
+
+| Pipeline | Description | Documentation |
+| :--- | :--- | :--- |
+| **RGB-D Scene Fusion** | Two-view camera pose estimation via 3D-to-2D PnP RANSAC and dense point cloud fusion. | [Guide](https://spatialhub-ai.github.io/spatialhub/pipelines/rgbd_fusion/) • [Script](pipelines/rgbd_fusion.py) |
+| **Monocular Scene Fusion** | Two-view pose estimation via 5-point Essential RANSAC, metric depth estimation, and scale alignment. | [Guide](https://spatialhub-ai.github.io/spatialhub/pipelines/monocular_fusion/) • [Script](pipelines/monocular_fusion.py) |
+
+```bash
+# Two-view RGB-D camera pose estimation and dense 3D scene reconstruction
+uv run python pipelines/rgbd_fusion.py
+
+# Two-view monocular camera pose estimation, metric scale recovery, and 3D reconstruction
+uv run python pipelines/monocular_fusion.py
+```
+
+---
+
 ## Runnable Demonstration Scripts
 
 Full standalone demonstration scripts with CLI parsing and visual canvas generation are located under `examples/`:
@@ -260,13 +279,27 @@ uv run python examples/render_cad_atlas.py
 
 ---
 
-## ONNX Export
+## ONNX Model Export
 
-Export scripts for converting PyTorch checkpoints to optimized ONNX models are located in `tools/export/`:
+Standalone ONNX export scripts in `tools/export/` convert upstream PyTorch checkpoints into standardized, validated ONNX graphs. Each script uses [PEP 723 inline script metadata](https://peps.python.org/pep-0723/) so `uv run` executes them in isolated ephemeral environments without installing PyTorch into the primary runtime:
+
+| Model Architecture | Supported Variants | Target Task |
+| :--- | :--- | :--- |
+| [**Depth Anything 3**](tools/export/export_depth_anything_3.py) | `small`, `base`, `large`, `giant`, `mono_large`, `metric_large` | Monocular & Multi-View Depth |
+| [**FoundationPose**](tools/export/export_foundationpose.py) | `refiner`, `scorer` | 6D Object Pose Refinement & Scoring |
+| [**EfficientLoFTR**](tools/export/export_efficient_loftr.py) | `full`, `opt` | Semi-Dense Keypoint Matching |
+| [**DINOv2**](tools/export/export_dinov2.py) | `vits14`, `vitb14`, `vitl14`, `vitg14` | Image Patch & Token Embeddings |
+| [**FastSAM**](tools/export/export_fastsam.py) | `s`, `x` | Real-Time Proposal Segmentation |
+| [**SAM**](tools/export/export_sam.py) | `vit_b`, `vit_l`, `vit_h` | Promptable Mask Generation |
 
 ```bash
-uv run python tools/export/export_foundationpose.py
-uv run python tools/export/export_depth_anything_3.py --model-name da3_base
+# Export individual model variants
+uv run tools/export/export_depth_anything_3.py --variant base
+uv run tools/export/export_foundationpose.py --variant refiner
+uv run tools/export/export_efficient_loftr.py --variant opt
+uv run tools/export/export_dinov2.py --variant vitb14
+uv run tools/export/export_fastsam.py --variant s
+uv run tools/export/export_sam.py --variant vit_b
 ```
 
 ---

@@ -160,7 +160,7 @@ def run_foundationpose_tracking(
                 image=frame_rgb,
                 pose=pose_res.pose,
                 intrinsics=k_matrix,
-                bbox_corners_3d=engine.model_bounds,
+                bbox_corners_3d=engine.model_bounds.corners[0],
                 color=(52, 211, 153),
                 thickness=2,
             )

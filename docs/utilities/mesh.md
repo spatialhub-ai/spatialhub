@@ -7,49 +7,38 @@ The `spatialhub.utils.mesh` module provides utilities for loading CAD meshes, ce
 
 ## Data Containers
 
-### `MeshBuffers`
+### `CADModel`
 
 Contiguous C-ordered vertex, face, normal, UV, and texture buffers formatted for GPU upload.
 
-```python
-@dataclass
-class MeshBuffers:
-    vertices: np.ndarray
-    faces: np.ndarray
-    normals: np.ndarray
-    texture: np.ndarray | None = None
-    uvs: np.ndarray | None = None
-    vertex_colors: np.ndarray | None = None
-```
+#### Attributes
 
-| Field | Shape | Dtype | Description |
-| :--- | :--- | :--- | :--- |
-| `vertices` | `(V, 3)` | `float32` | 3D vertex coordinates. |
-| `faces` | `(F, 3)` | `int32` | Triangular element indices. |
-| `normals` | `(V, 3)` | `float32` | Vertex normal unit vectors. |
-| `texture` | `(1, H, W, 3)` or `None` | `float32` | Normalized RGB texture map in `[0.0, 1.0]`. |
-| `uvs` | `(V, 2)` or `None` | `float32` | Normalized UV texture coordinates. |
-| `vertex_colors` | `(V, 3)` or `None` | `float32` | Normalized RGB vertex colors in `[0.0, 1.0]`. |
+| Attribute | Type | Shape | Dtype | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| `vertices` | `np.ndarray` | `(V, 3)` | `float32` | 3D vertex coordinates in meters. |
+| `faces` | `np.ndarray` | `(F, 3)` | `int32` | Triangular face element indices. |
+| `normals` | `np.ndarray` | `(V, 3)` | `float32` | Vertex normal unit vectors. |
+| `texture` | `np.ndarray | None` | `(1, H, W, 3)` | `float32` | Normalized RGB texture map in $[0.0, 1.0]$. |
+| `uvs` | `np.ndarray | None` | `(V, 2)` | `float32` | Normalized UV texture coordinates in $[0.0, 1.0]$. |
+| `vertex_colors` | `np.ndarray | None` | `(V, 3)` | `float32` | Normalized RGB vertex colors in $[0.0, 1.0]$. |
 
----
-
-### `OrientedBoundingBox`
-
-Minimum-volume oriented bounding box (OBB) representation.
+#### Example
 
 ```python
-@dataclass
-class OrientedBoundingBox:
-    corners: np.ndarray
-    extents: np.ndarray
-    to_origin: np.ndarray | None = None
-```
+import numpy as np
+from spatialhub.utils import CADModel, prepare_cad_model, load_mesh, scale_mesh, center_mesh
 
-| Field | Shape | Dtype | Description |
-| :--- | :--- | :--- | :--- |
-| `corners` | `(8, 3)` | `float32` | 8 box corner vertices in the mesh coordinate frame. |
-| `extents` | `(3,)` | `float32` | Box side dimensions `(dx, dy, dz)` along principal axes. |
-| `to_origin` | `(4, 4)` or `None` | `float32` | Transformation matrix mapping mesh coordinates to the origin-centered canonical frame. |
+# load, scale to meters, and center mesh
+mesh = load_mesh("assets/sample_object.obj")
+scale_mesh(mesh, model_unit="mm")
+mesh, _ = center_mesh(mesh)
+
+# construct CADModel with continuous buffers
+cad_model = prepare_cad_model(mesh)
+
+print("Vertices shape:", cad_model.vertices.shape)
+print("Faces shape:   ", cad_model.faces.shape)
+```
 
 ---
 
@@ -194,7 +183,7 @@ Computes the minimum-volume oriented bounding box (OBB) for a mesh.
 ```python
 def compute_obb(
     mesh: trimesh.Trimesh,
-) -> OrientedBoundingBox
+) -> BoundingBox3D
 ```
 
 #### Inputs
@@ -205,7 +194,7 @@ def compute_obb(
 
 #### Outputs
 
-- Returns [`OrientedBoundingBox`](#orientedboundingbox) containing corner coordinates in the mesh frame, dimension extents, and the transformation matrix to canonical origin space.
+- Returns [`BoundingBox3D`](../structures/scene_and_bounds.md#boundingbox3d) containing canonical corner coordinates in the mesh frame of shape `(1, 8, 3)`.
 
 #### Example
 
@@ -215,22 +204,21 @@ from spatialhub.utils import load_mesh, compute_obb
 mesh = load_mesh("assets/sample_object.obj")
 obb = compute_obb(mesh)
 
-print("OBB extents (dx, dy, dz):", obb.extents)
-print("OBB corners shape:", obb.corners.shape)
+print("OBB corners shape:", obb.corners.shape)  # (1, 8, 3)
 ```
 
 ---
 
-### `prepare_mesh_buffers`
+### `prepare_cad_model`
 
-Extracts GPU-ready, C-contiguous vertex attributes, face indices, UV coordinates, and texture buffers from a CAD mesh.
+Extracts GPU-ready, C-contiguous vertex attributes, face indices, UV coordinates, and texture buffers from a CAD mesh into a `CADModel` container.
 
 ```python
-def prepare_mesh_buffers(
+def prepare_cad_model(
     mesh: trimesh.Trimesh,
     max_tex_size: int | None = None,
     flip_uv: bool = True,
-) -> MeshBuffers
+) -> CADModel
 ```
 
 #### Inputs
@@ -243,17 +231,17 @@ def prepare_mesh_buffers(
 
 #### Outputs
 
-- Returns [`MeshBuffers`](#meshbuffers) holding contiguous `float32` and `int32` arrays (`vertices`, `faces`, `normals`, and either `texture`/`uvs` or `vertex_colors`).
+- Returns [`CADModel`](#cadmodel) holding contiguous `float32` and `int32` arrays (`vertices`, `faces`, `normals`, and either `texture`/`uvs` or `vertex_colors`).
 
 #### Example
 
 ```python
-from spatialhub.utils import load_mesh, prepare_mesh_buffers
+from spatialhub.utils import load_mesh, prepare_cad_model
 
 mesh = load_mesh("assets/sample_object.obj")
-buffers = prepare_mesh_buffers(mesh, max_tex_size=1024)
+cad_model = prepare_cad_model(mesh, max_tex_size=1024)
 
-print("Vertices:", buffers.vertices.shape, buffers.vertices.dtype)
-print("Faces:   ", buffers.faces.shape, buffers.faces.dtype)
-print("Normals: ", buffers.normals.shape, buffers.normals.dtype)
+print("Vertices: ", cad_model.vertices.shape, cad_model.vertices.dtype)
+print("Faces:    ", cad_model.faces.shape, cad_model.faces.dtype)
+print("Normals:  ", cad_model.normals.shape, cad_model.normals.dtype)
 ```

@@ -23,7 +23,7 @@ from spatialhub.utils import (
     create_moderngl_context,
     load_image,
     load_mesh,
-    prepare_mesh_buffers,
+    prepare_cad_model,
     unproject_depth_map,
     scale_depth,
     scale_mesh,
@@ -573,10 +573,8 @@ class FoundationPoseAdapter:
         self.model = None
         self.model_name = None
         self.model_bounds = None
-        self.model_extents = None
-        self.to_origin = None
         self.model_diameter = None
-        self.mesh_buffers = None
+        self.cad_model = None
         self.symmetry_tfs = None
         self.rot_grid = None
         self.pose_last = None
@@ -590,7 +588,7 @@ class FoundationPoseAdapter:
             self._own_glctx = True
 
         self.depth_filter = DepthFilter(self.glctx)
-        self.renderer = Renderer(self.glctx, mesh_buffers=None)
+        self.renderer = Renderer(self.glctx, cad_model=None)
 
         self.refiner_cfg = {
             "crop_ratio": 1.2,
@@ -670,11 +668,11 @@ class FoundationPoseAdapter:
         else:
             self.model_name = "target_model"
 
-        self.model_bounds, self.model_extents, self.to_origin = compute_obb(self.model)
+        self.model_bounds = compute_obb(self.model)
         self.model_diameter = compute_mesh_diameter(self.model)
 
-        # Prepare continuous mesh buffers for rendering
-        self.mesh_buffers = prepare_mesh_buffers(self.model)
+        # Prepare continuous CAD model buffers for rendering
+        self.cad_model = prepare_cad_model(self.model)
 
         # Parse symmetry transformation matrices
         if symmetry_tfs is None or (isinstance(symmetry_tfs, bool) and not symmetry_tfs):
@@ -688,7 +686,7 @@ class FoundationPoseAdapter:
 
         # Precompute candidate rotation grid over icosphere
         self.rot_grid = make_rotation_grid(symmetry_tfs=self.symmetry_tfs)
-        self.renderer.set_mesh(self.mesh_buffers)
+        self.renderer.set_mesh(self.cad_model)
         self.pose_last = None
 
     @property

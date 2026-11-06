@@ -12,7 +12,7 @@ import numpy as np
 from spatialhub.structures import CameraIntrinsics
 from spatialhub.utils import (
     AtlasRenderer,
-    MeshBuffers,
+    CADModel,
     intrinsics_to_projection_matrix,
     opencv_to_opengl,
 )
@@ -120,12 +120,12 @@ class Renderer:
     Batched atlas renderer generating synthetic RGBA, XYZ, and normal maps for pose candidate batches.
     """
 
-    def __init__(self, glctx: moderngl.Context, mesh_buffers: MeshBuffers | None = None):
+    def __init__(self, glctx: moderngl.Context, cad_model: CADModel | None = None):
         """Initialize shader programs and static vertex buffer objects.
 
         Args:
             glctx: Execution context instance.
-            mesh_buffers: Optional MeshBuffers container holding vertex positions, normals, faces, and textures.
+            cad_model: Optional CADModel container holding vertex positions, normals, faces, and textures.
         """
         self.glctx = glctx
         self.engine = AtlasRenderer(self.glctx)
@@ -146,8 +146,8 @@ class Renderer:
         self.tex_obj = None
         self.has_tex = False
 
-        if mesh_buffers is not None:
-            self.set_mesh(mesh_buffers)
+        if cad_model is not None:
+            self.set_mesh(cad_model)
 
     def _release_mesh_buffers(self) -> None:
         """Release allocated mesh vertex, normal, index, uv, color and texture buffers."""
@@ -171,34 +171,34 @@ class Renderer:
             self.tex_obj = None
         self.has_tex = False
 
-    def set_mesh(self, mesh_buffers: MeshBuffers) -> None:
-        """Update active 3D CAD mesh buffers for rendering.
+    def set_mesh(self, cad_model: CADModel) -> None:
+        """Update active 3D CAD model buffers for rendering.
 
         Args:
-            mesh_buffers: MeshBuffers container holding vertex positions, normals, faces, and textures.
+            cad_model: CADModel container holding vertex positions, normals, faces, and textures.
         """
         self._release_mesh_buffers()
 
         def to_bytes(arr: np.ndarray, dtype: type) -> bytes:
             return np.ascontiguousarray(arr, dtype=dtype).tobytes()
 
-        self.has_tex = mesh_buffers.texture is not None
+        self.has_tex = cad_model.texture is not None
 
         # Allocate static geometry buffers
-        self.pos_buffer = self.glctx.buffer(to_bytes(mesh_buffers.vertices, np.float32))
-        self.norm_buffer = self.glctx.buffer(to_bytes(mesh_buffers.normals, np.float32))
-        self.idx_buffer = self.glctx.buffer(to_bytes(mesh_buffers.faces, np.int32))
+        self.pos_buffer = self.glctx.buffer(to_bytes(cad_model.vertices, np.float32))
+        self.norm_buffer = self.glctx.buffer(to_bytes(cad_model.normals, np.float32))
+        self.idx_buffer = self.glctx.buffer(to_bytes(cad_model.faces, np.int32))
 
         if self.has_tex:
             uvs = (
-                mesh_buffers.uvs
-                if mesh_buffers.uvs is not None
-                else np.zeros((mesh_buffers.vertices.shape[0], 2), dtype=np.float32)
+                cad_model.uvs
+                if cad_model.uvs is not None
+                else np.zeros((cad_model.vertices.shape[0], 2), dtype=np.float32)
             )
             self.uv_buffer = self.glctx.buffer(to_bytes(uvs, np.float32))
-            self.color_buffer = self.glctx.buffer(to_bytes(np.ones_like(mesh_buffers.vertices), np.float32))
+            self.color_buffer = self.glctx.buffer(to_bytes(np.ones_like(cad_model.vertices), np.float32))
 
-            tex_data = mesh_buffers.texture
+            tex_data = cad_model.texture
             if tex_data.ndim == 4:
                 tex_data = tex_data[0]
             if np.issubdtype(tex_data.dtype, np.floating):
@@ -211,13 +211,13 @@ class Renderer:
             )
         else:
             colors = (
-                mesh_buffers.vertex_colors
-                if mesh_buffers.vertex_colors is not None
-                else np.full_like(mesh_buffers.vertices, 0.5)
+                cad_model.vertex_colors
+                if cad_model.vertex_colors is not None
+                else np.full_like(cad_model.vertices, 0.5)
             )
             self.color_buffer = self.glctx.buffer(to_bytes(colors, np.float32))
             self.uv_buffer = self.glctx.buffer(
-                to_bytes(np.zeros((mesh_buffers.vertices.shape[0], 2)), np.float32)
+                to_bytes(np.zeros((cad_model.vertices.shape[0], 2)), np.float32)
             )
 
     def render(

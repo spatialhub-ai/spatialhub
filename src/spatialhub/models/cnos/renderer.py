@@ -17,7 +17,7 @@ from spatialhub.utils.image import save_image
 from spatialhub.utils.mesh import (
     center_mesh,
     load_mesh,
-    prepare_mesh_buffers,
+    prepare_cad_model,
     scale_mesh,
 )
 from spatialhub.utils.moderngl import (
@@ -262,24 +262,24 @@ class TemplateRenderer:
 
     def _init_mesh_buffers(self) -> None:
         """Allocate static GPU vertex, normal, UV, texture, and index buffers."""
-        mesh_buffers = prepare_mesh_buffers(self.mesh)
+        cad_model = prepare_cad_model(self.mesh)
 
-        self.pos_buffer = self.ctx.buffer(mesh_buffers.vertices.tobytes())
-        self.norm_buffer = self.ctx.buffer(mesh_buffers.normals.tobytes())
-        self.idx_buffer = self.ctx.buffer(mesh_buffers.faces.tobytes())
+        self.pos_buffer = self.ctx.buffer(cad_model.vertices.tobytes())
+        self.norm_buffer = self.ctx.buffer(cad_model.normals.tobytes())
+        self.idx_buffer = self.ctx.buffer(cad_model.faces.tobytes())
 
         self.has_tex = False
         self.tex_obj: moderngl.Texture | None = None
 
-        if mesh_buffers.texture is not None:
-            tex_data = mesh_buffers.texture
+        if cad_model.texture is not None:
+            tex_data = cad_model.texture
             if tex_data.ndim == 4:
                 tex_data = tex_data[0]
             if tex_data.dtype != np.uint8:
                 tex_data = np.clip(tex_data * 255.0, 0.0, 255.0).astype(np.uint8)
 
-            self.uv_buffer = self.ctx.buffer(mesh_buffers.uvs.tobytes())
-            self.color_buffer = self.ctx.buffer(np.ones_like(mesh_buffers.vertices, dtype=np.float32).tobytes())
+            self.uv_buffer = self.ctx.buffer(cad_model.uvs.tobytes())
+            self.color_buffer = self.ctx.buffer(np.ones_like(cad_model.vertices, dtype=np.float32).tobytes())
             self.tex_obj = self.ctx.texture(
                 (tex_data.shape[1], tex_data.shape[0]),
                 3,
@@ -287,8 +287,8 @@ class TemplateRenderer:
             )
             self.has_tex = True
         else:
-            self.color_buffer = self.ctx.buffer(mesh_buffers.vertex_colors.tobytes())
-            self.uv_buffer = self.ctx.buffer(np.zeros((len(mesh_buffers.vertices), 2), dtype=np.float32).tobytes())
+            self.color_buffer = self.ctx.buffer(cad_model.vertex_colors.tobytes())
+            self.uv_buffer = self.ctx.buffer(np.zeros((len(cad_model.vertices), 2), dtype=np.float32).tobytes())
 
     def render_templates(
         self,

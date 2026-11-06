@@ -23,11 +23,11 @@ from spatialhub.utils.camera import (
 )
 from spatialhub.utils.image import save_image
 from spatialhub.utils.mesh import (
-    MeshBuffers,
+    CADModel,
     center_mesh,
     compute_mesh_diameter,
     load_mesh,
-    prepare_mesh_buffers,
+    prepare_cad_model,
     scale_mesh,
 )
 from spatialhub.utils.moderngl import AtlasRenderer, create_moderngl_context
@@ -142,7 +142,7 @@ def export_animated_gif(views: np.ndarray, output_path: str | Path, duration_ms:
 # --8<-- [start:instanced_pipeline]
 def create_instanced_mesh_pipeline(
     ctx: moderngl.Context,
-    buffers: MeshBuffers,
+    cad_model: CADModel,
     mvp_matrices: np.ndarray,
     grid_shape: tuple[int, int],
 ) -> tuple[moderngl.Program, moderngl.VertexArray, list[moderngl.Buffer]]:
@@ -150,7 +150,7 @@ def create_instanced_mesh_pipeline(
 
     Args:
         ctx: Headless OpenGL context.
-        buffers: Vertex, normal, face, and texture coordinate buffers.
+        cad_model: CAD model container holding vertex, normal, face, and texture coordinate buffers.
         mvp_matrices: Instanced column-major Model-View-Projection matrices of shape (N, 16).
         grid_shape: (rows, cols) dimensions of the 2D atlas grid.
 
@@ -213,11 +213,11 @@ def create_instanced_mesh_pipeline(
     program["R"].value = grid_shape[0]
     program["u_texture"].value = 0
 
-    uv_data = buffers.uvs if buffers.uvs is not None else np.zeros((len(buffers.vertices), 2), dtype="f4")
-    vertex_data = np.hstack([buffers.vertices, buffers.normals, uv_data]).astype("f4")
+    uv_data = cad_model.uvs if cad_model.uvs is not None else np.zeros((len(cad_model.vertices), 2), dtype="f4")
+    vertex_data = np.hstack([cad_model.vertices, cad_model.normals, uv_data]).astype("f4")
 
     vbo_geometry = ctx.buffer(vertex_data.tobytes())
-    ibo_faces = ctx.buffer(buffers.faces.astype("i4").tobytes())
+    ibo_faces = ctx.buffer(cad_model.faces.astype("i4").tobytes())
     vbo_mvp = ctx.buffer(mvp_matrices.tobytes())
 
     vao = ctx.vertex_array(
@@ -253,7 +253,7 @@ def render_multiview_atlas(
     """
     # 1. Mesh preparation (scaled to meters, centered at origin)
     mesh = load_centered_mesh(mesh_path, unit="mm")
-    buffers = prepare_mesh_buffers(mesh)
+    cad_model = prepare_cad_model(mesh)
 
     # 2. Viewpoint sampling (Fibonacci sphere around object)
     diameter = compute_mesh_diameter(mesh)
@@ -285,8 +285,8 @@ def render_multiview_atlas(
 
     # 3. Headless OpenGL context and instanced pipeline setup
     ctx = create_moderngl_context()
-    gl_texture = upload_mesh_texture(ctx, buffers.texture)
-    program, vao, gl_buffers = create_instanced_mesh_pipeline(ctx, buffers, mvp_matrices, grid_shape)
+    gl_texture = upload_mesh_texture(ctx, cad_model.texture)
+    program, vao, gl_buffers = create_instanced_mesh_pipeline(ctx, cad_model, mvp_matrices, grid_shape)
 
     # 4. Offscreen atlas rasterization and framebuffer readback
     # --8<-- [start:atlas_renderer_usage]

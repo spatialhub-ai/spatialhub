@@ -10,6 +10,7 @@ import cv2
 import numpy as np
 import trimesh
 
+from spatialhub.structures import BoundingBox3D
 from .camera import sample_sphere_points
 from .transform import extents_to_corners, invert_transform, transform_points
 
@@ -17,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class MeshBuffers:
+class CADModel:
     """Data container holding vertex position, normal, index, and texture render buffers.
 
     Attributes:
@@ -41,35 +42,6 @@ class MeshBuffers:
 
         Returns:
             Dictionary mapping buffer names to non-null arrays.
-        """
-        return {k: v for k, v in self.__dict__.items() if v is not None}
-
-
-@dataclass
-class OrientedBoundingBox:
-    """Oriented bounding box (OBB) representation for a 3D mesh.
-
-    Attributes:
-        corners: 3D corner coordinates of shape (8, 3) in float32 in the mesh coordinate frame.
-        extents: 3D full dimensions (dx, dy, dz) of shape (3,) in float32 along principal axes.
-        to_origin: 4x4 transformation matrix of shape (4, 4) in float32 mapping points from mesh coordinate frame to canonical origin-centered box frame.
-    """
-
-    corners: np.ndarray
-    extents: np.ndarray
-    to_origin: np.ndarray | None = None
-
-    def __iter__(self):
-        """Yield corners, extents, and to_origin for tuple unpacking."""
-        yield self.corners
-        yield self.extents
-        yield self.to_origin
-
-    def as_dict(self) -> dict[str, np.ndarray]:
-        """Convert OBB attributes to a dictionary, omitting None values.
-
-        Returns:
-            Dictionary mapping attribute names to non-null arrays.
         """
         return {k: v for k, v in self.__dict__.items() if v is not None}
 
@@ -202,18 +174,17 @@ def compute_mesh_diameter(
 
 def compute_obb(
     mesh: trimesh.Trimesh
-) -> OrientedBoundingBox:
+) -> BoundingBox3D:
     """Compute the minimum-volume oriented bounding box (OBB) for a mesh.
 
-    Calculates the canonical box extents, the rigid transformation matrix mapping
-    from mesh coordinates to canonical origin-centered box coordinates, and the 8
-    corner vertices in the original mesh coordinate frame.
+    Calculates the canonical box 8 corner vertices in the original
+    mesh coordinate frame.
 
     Args:
         mesh: Input trimesh.Trimesh instance.
 
     Returns:
-        OrientedBoundingBox containing canonical corners, extents, and origin transform.
+        BoundingBox3D containing canonical corners enclosing the mesh.
     """
     to_origin, extents = trimesh.bounds.oriented_bounds(mesh)
     to_origin = to_origin.astype(np.float32)
@@ -223,14 +194,14 @@ def compute_obb(
     mesh_from_origin = invert_transform(to_origin)
     corners_in_mesh = transform_points(corners_canonical, mesh_from_origin)
 
-    return OrientedBoundingBox(corners_in_mesh, extents, to_origin)
+    return BoundingBox3D(corners=corners_in_mesh)
 
 
-def prepare_mesh_buffers(
+def prepare_cad_model(
     mesh: trimesh.Trimesh,
     max_tex_size: int | None = None,
     flip_uv: bool = True,
-) -> MeshBuffers:
+) -> CADModel:
     """Extract contiguous vertex, normal, UV, and texture buffer arrays from a CAD mesh.
 
     Args:
@@ -239,7 +210,7 @@ def prepare_mesh_buffers(
         flip_uv: Whether to invert vertical UV coordinates (1 - V) for OpenGL convention (default: True).
 
     Returns:
-        MeshBuffers container holding formatted buffer arrays.
+        CADModel container holding formatted buffer arrays.
     """
     vertices = np.ascontiguousarray(mesh.vertices, dtype=np.float32)
     faces = np.ascontiguousarray(mesh.faces, dtype=np.int32)
@@ -293,7 +264,7 @@ def prepare_mesh_buffers(
             dtype=np.float32,
         )
 
-    return MeshBuffers(
+    return CADModel(
         vertices=vertices,
         faces=faces,
         normals=normals,
@@ -304,13 +275,12 @@ def prepare_mesh_buffers(
 
 
 __all__ = [
-    "MeshBuffers",
-    "OrientedBoundingBox",
+    "CADModel",
     "center_mesh",
     "compute_mesh_diameter",
     "compute_obb",
     "load_mesh",
-    "prepare_mesh_buffers",
+    "prepare_cad_model",
     "scale_mesh",
 ]
 

@@ -13,14 +13,14 @@ pytestmark = pytest.mark.skipif(
 
 import trimesh
 
+from spatialhub.structures import BoundingBox3D
 from spatialhub.utils.mesh import (
-    MeshBuffers,
-    OrientedBoundingBox,
+    CADModel,
     center_mesh,
     compute_mesh_diameter,
     compute_obb,
     load_mesh,
-    prepare_mesh_buffers,
+    prepare_cad_model,
     scale_mesh,
 )
 
@@ -37,37 +37,6 @@ def temp_obj_file(tmp_path: Path, sample_box_mesh: trimesh.Trimesh) -> Path:
     obj_path = tmp_path / "box.obj"
     sample_box_mesh.export(str(obj_path))
     return obj_path
-
-
-class TestMeshContainers:
-    """Test suite for MeshBuffers and OrientedBoundingBox containers."""
-
-    def test_mesh_buffers_as_dict(self) -> None:
-        v = np.zeros((4, 3), dtype=np.float32)
-        f = np.zeros((2, 3), dtype=np.int32)
-        n = np.zeros((4, 3), dtype=np.float32)
-        buf = MeshBuffers(vertices=v, faces=f, normals=n)
-
-        d = buf.as_dict()
-        assert "vertices" in d
-        assert "faces" in d
-        assert "normals" in d
-        assert "texture" not in d
-        assert "uvs" not in d
-
-    def test_oriented_bounding_box_unpacking(self) -> None:
-        corners = np.zeros((8, 3), dtype=np.float32)
-        extents = np.array([1.0, 2.0, 3.0], dtype=np.float32)
-        to_origin = np.eye(4, dtype=np.float32)
-
-        obb = OrientedBoundingBox(corners=corners, extents=extents, to_origin=to_origin)
-        c, e, t = obb
-        assert np.array_equal(c, corners)
-        assert np.array_equal(e, extents)
-        assert np.array_equal(t, to_origin)
-
-        d = obb.as_dict()
-        assert len(d) == 3
 
 
 class TestLoadMesh:
@@ -156,25 +125,32 @@ class TestComputeOBB:
         box = trimesh.creation.box(extents=[2.0, 4.0, 6.0])
         obb = compute_obb(box)
 
-        assert obb.corners.shape == (8, 3)
-        assert obb.extents.shape == (3,)
-        assert obb.to_origin is not None and obb.to_origin.shape == (4, 4)
-        # Sorted extents should match box dimensions
-        assert np.allclose(sorted(obb.extents), [2.0, 4.0, 6.0], atol=1e-4)
+        assert isinstance(obb, BoundingBox3D)
+        assert obb.corners.shape == (1, 8, 3)
+        edge_lengths = [
+            np.linalg.norm(obb.corners[0, 1] - obb.corners[0, 0]),
+            np.linalg.norm(obb.corners[0, 3] - obb.corners[0, 0]),
+            np.linalg.norm(obb.corners[0, 4] - obb.corners[0, 0]),
+        ]
+        assert np.allclose(sorted(edge_lengths), [2.0, 4.0, 6.0], atol=1e-4)
 
 
-class TestPrepareMeshBuffers:
-    """Test suite for prepare_mesh_buffers."""
+
+
+class TestPrepareCADModel:
+    """Test suite for prepare_cad_model."""
 
     def test_prepare_untextured_mesh(self, sample_box_mesh: trimesh.Trimesh) -> None:
-        buf = prepare_mesh_buffers(sample_box_mesh)
-        assert isinstance(buf, MeshBuffers)
-        assert buf.vertices.shape == (len(sample_box_mesh.vertices), 3)
-        assert buf.faces.shape == (len(sample_box_mesh.faces), 3)
-        assert buf.normals.shape == (len(sample_box_mesh.vertex_normals), 3)
-        assert buf.vertex_colors is not None
-        assert buf.vertex_colors.shape == (len(sample_box_mesh.vertices), 3)
-        assert buf.texture is None
+        cad = prepare_cad_model(sample_box_mesh)
+        assert isinstance(cad, CADModel)
+        assert cad.vertices.shape == (len(sample_box_mesh.vertices), 3)
+        assert cad.faces.shape == (len(sample_box_mesh.faces), 3)
+        assert cad.normals.shape == (len(sample_box_mesh.vertex_normals), 3)
+        assert cad.vertex_colors is not None
+        assert cad.vertex_colors.shape == (len(sample_box_mesh.vertices), 3)
+        assert cad.texture is None
+        assert len(cad.vertices) == len(sample_box_mesh.vertices)
+        assert len(cad.faces) == len(sample_box_mesh.faces)
 
     def test_prepare_textured_mesh(self) -> None:
         # Create a textured mesh with visual material and UVs
@@ -187,9 +163,60 @@ class TestPrepareMeshBuffers:
             image=img,
         )
 
-        buf = prepare_mesh_buffers(mesh, max_tex_size=16, flip_uv=True)
-        assert buf.texture is not None
-        assert buf.texture.shape[1] <= 16
-        assert buf.texture.shape[2] <= 16
-        assert buf.uvs is not None
-        assert buf.uvs.shape == (len(mesh.vertices), 2)
+        cad = prepare_cad_model(mesh, max_tex_size=16, flip_uv=True)
+        assert isinstance(cad, CADModel)
+        assert cad.texture is not None
+        assert cad.texture.shape[0] == 1
+        assert cad.texture.shape[1] <= 16
+        assert cad.texture.shape[2] <= 16
+        assert cad.uvs is not None
+        assert cad.uvs.shape == (len(mesh.vertices), 2)
+
+
+class TestCADModel:
+    """Test suite for CADModel dataclass."""
+
+    def test_minimal_initialization(self) -> None:
+        v = np.zeros((10, 3), dtype=np.float32)
+        f = np.zeros((5, 3), dtype=np.int32)
+        n = np.zeros((10, 3), dtype=np.float32)
+        model = CADModel(vertices=v, faces=f, normals=n)
+        assert len(model.vertices) == 10
+        assert len(model.faces) == 5
+        assert len(model.normals) == 10
+        assert model.texture is None
+        assert model.uvs is None
+        assert model.vertex_colors is None
+
+    def test_full_initialization(self) -> None:
+        v = np.zeros((4, 3), dtype=np.float32)
+        f = np.zeros((2, 3), dtype=np.int32)
+        n = np.zeros((4, 3), dtype=np.float32)
+        tex = np.ones((1, 16, 16, 3), dtype=np.float32)
+        uvs = np.zeros((4, 2), dtype=np.float32)
+        colors = np.ones((4, 3), dtype=np.float32)
+        model = CADModel(
+            vertices=v,
+            faces=f,
+            normals=n,
+            texture=tex,
+            uvs=uvs,
+            vertex_colors=colors,
+        )
+        assert model.texture.shape == (1, 16, 16, 3)
+        assert model.uvs.shape == (4, 2)
+        assert model.vertex_colors.shape == (4, 3)
+
+    def test_as_dict(self) -> None:
+        v = np.zeros((4, 3), dtype=np.float32)
+        f = np.zeros((2, 3), dtype=np.int32)
+        n = np.zeros((4, 3), dtype=np.float32)
+        model = CADModel(vertices=v, faces=f, normals=n)
+        d = model.as_dict()
+        assert "vertices" in d
+        assert "faces" in d
+        assert "normals" in d
+        assert "texture" not in d
+        assert "uvs" not in d
+        assert "vertex_colors" not in d
+

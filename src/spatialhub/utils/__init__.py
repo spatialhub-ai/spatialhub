@@ -48,13 +48,12 @@ from .visualization import (
 
 if TYPE_CHECKING:
     from .mesh import (
-        MeshBuffers,
-        OrientedBoundingBox,
+        CADModel,
         center_mesh,
         compute_mesh_diameter,
         compute_obb,
         load_mesh,
-        prepare_mesh_buffers,
+        prepare_cad_model,
         scale_mesh,
     )
     from .moderngl import (
@@ -65,13 +64,12 @@ if TYPE_CHECKING:
     )
 
 _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
-    "MeshBuffers": (".mesh", "MeshBuffers"),
-    "OrientedBoundingBox": (".mesh", "OrientedBoundingBox"),
+    "CADModel": (".mesh", "CADModel"),
     "center_mesh": (".mesh", "center_mesh"),
     "compute_mesh_diameter": (".mesh", "compute_mesh_diameter"),
     "compute_obb": (".mesh", "compute_obb"),
     "load_mesh": (".mesh", "load_mesh"),
-    "prepare_mesh_buffers": (".mesh", "prepare_mesh_buffers"),
+    "prepare_cad_model": (".mesh", "prepare_cad_model"),
     "scale_mesh": (".mesh", "scale_mesh"),
     "create_moderngl_context": (".moderngl.context", "create_moderngl_context"),
     "validate_moderngl_context": (".moderngl.context", "validate_moderngl_context"),
@@ -80,6 +78,7 @@ _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
 }
 
 __all__ = [
+    "CADModel",
     "to_color",
     "download_file",
     "load_image",
@@ -103,15 +102,13 @@ __all__ = [
     "visualize_global_features",
     "visualize_matched_keypoints",
     "extents_to_corners",
-    "OrientedBoundingBox",
     "compute_obb",
     "sample_sphere_points",
     "invert_transform",
     "transform_points",
     "sample_sphere_poses",
     "sample_icosphere_poses",
-    "MeshBuffers",
-    "prepare_mesh_buffers",
+    "prepare_cad_model",
     "scale_intrinsics",
     "unproject_points",
     "unproject_depth_map",

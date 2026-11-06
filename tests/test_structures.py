@@ -17,6 +17,7 @@ from spatialhub.structures import (
     ObjectPose6D,
     RigidTransform3D,
 )
+from spatialhub.utils.transform import extents_to_corners
 
 
 class TestRigidTransform3D:
@@ -112,9 +113,41 @@ class TestBoundingBox3D:
         assert bbox.corners.shape == (4, 8, 3)
         assert len(bbox) == 4
 
+    def test_slicing(self) -> None:
+        corners = np.zeros((3, 8, 3), dtype=np.float32)
+        bbox = BoundingBox3D(corners=corners)
+
+        sliced = bbox[1:]
+        assert len(sliced) == 2
+        assert sliced.corners.shape == (2, 8, 3)
+
+        single = bbox[0]
+        assert len(single) == 1
+        assert single.corners.shape == (1, 8, 3)
+
+    def test_batch_iteration(self) -> None:
+        corners = np.zeros((3, 8, 3), dtype=np.float32)
+        bbox = BoundingBox3D(corners=corners)
+        items = list(bbox)
+        assert len(items) == 3
+        assert isinstance(items[0], BoundingBox3D)
+        assert items[0].corners.shape == (1, 8, 3)
+
     def test_invalid_shape_raises(self) -> None:
         with pytest.raises(ValueError, match=r"trailing dimensions must be \(8, 3\)"):
             BoundingBox3D(corners=np.zeros((7, 3), dtype=np.float32))
+
+        with pytest.raises(ValueError, match=r"expected ndim="):
+            BoundingBox3D(corners=np.zeros((1, 2, 8, 3), dtype=np.float32))
+
+    def test_invalid_dtype_raises(self) -> None:
+        with pytest.raises(TypeError, match=r"expected dtype"):
+            BoundingBox3D(corners=np.zeros((8, 3), dtype=np.int32))
+
+    def test_canonical_corners_instantiation(self) -> None:
+        valid_corners = extents_to_corners([1.0, 2.0, 3.0])
+        bbox = BoundingBox3D(corners=valid_corners)
+        assert bbox.corners.shape == (1, 8, 3)
 
 
 class TestKeypointMatches:

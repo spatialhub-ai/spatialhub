@@ -228,13 +228,9 @@ def main() -> None:
     with estimator:
         depth_result = estimator.estimate_depth(images=[image_a, image_b])
 
-    # resize predicted depth maps back to original image dimensions
-    depth_a = cv2.resize(
-        depth_result.depth[0], (image_a.shape[1], image_a.shape[0]), interpolation=cv2.INTER_LINEAR
-    )
-    depth_b = cv2.resize(
-        depth_result.depth[1], (image_b.shape[1], image_b.shape[0]), interpolation=cv2.INTER_LINEAR
-    )
+    # extract predicted metric depth maps
+    depth_a = depth_result.depth[0]
+    depth_b = depth_result.depth[1]
 
     # synchronize inlier filtering across paired keypoint coordinates
     inlier_matches = matches[inlier_mask]

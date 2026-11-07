@@ -22,7 +22,6 @@ from spatialhub.utils import (
     unproject_depth_map,
     save_image,
     scale_depth,
-    scale_intrinsics,
     visualize_depth,
 )
 
@@ -55,25 +54,13 @@ def main(save_panels: bool = False, update_docs: bool = False) -> None:
     print(f"Depth scale mode:       {depth_result.depth_type}")
     # --8<-- [end:depth_inference]
 
-    # --8<-- [start:scale_intrinsics]
-    # Scale intrinsic parameters to match model patch grid dimensions
-    orig_h, orig_w = image.shape[:2]
-    pred_h, pred_w = pred_depth.shape
-    pred_intrinsics = scale_intrinsics(
-        intrinsics,
-        orig_size=(orig_w, orig_h),
-        new_size=(pred_w, pred_h),
-    )
-    # --8<-- [end:scale_intrinsics]
-
     # --8<-- [start:metric_alignment]
     # Mask out zero-depth window pixels where interior CAD geometry is absent
     gt_valid = (gt_depth > 0) & np.isfinite(gt_depth)
 
-    # Align relative predictions to metric units via median ratio on valid indoor geometry
-    pred_depth_resized = cv2.resize(pred_depth, (orig_w, orig_h), interpolation=cv2.INTER_LINEAR)
-    scale = float(np.median(gt_depth[gt_valid])) / float(np.median(pred_depth_resized[gt_valid]) + 1e-6)
-    pred_depth_metric = pred_depth_resized * scale
+    # Align predictions to metric ground truth via median ratio on valid indoor geometry
+    scale = float(np.median(gt_depth[gt_valid])) / float(np.median(pred_depth[gt_valid]) + 1e-6)
+    pred_depth_metric = pred_depth * scale
 
     # Compute spatial residual error map
     abs_error = np.abs(pred_depth_metric - gt_depth)

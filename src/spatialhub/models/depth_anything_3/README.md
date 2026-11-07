@@ -83,7 +83,7 @@ $$
 Depth Anything 3 supports three depth output modes:
 
 * **Relative Depth (`da3_small`, `da3_base`, `da3_large`, `da3_giant`, `da3mono_large`)**: Foundation models output non-metric relative depth maps. `da3mono_large` additionally outputs a binary-thresholded sky segmentation mask $M_{\text{sky}}$ where non-zero pixels represent sky regions.
-* **Standalone Metric Depth (`da3metric_large`)**: Directly predicts dense depth maps in physical meters without requiring post-hoc focal normalization.
+* **Standalone Metric Depth (`da3metric_large`)**: Predicts dense physical depth in meters via camera focal length scaling ($D_{\text{metric}} = D_{\text{raw}} \cdot \frac{f_x + f_y}{2 \cdot 300}$).
 * **Nested Dual-Model Metric Projection (`da3nested_*_large`)**: Combines the high-frequency geometric detail of an Any-View model ($D_{\text{rel}}$) with the absolute physical scale of `da3metric_large` ($D_{\text{metric}}$). A closed-form linear least-squares scale parameter $s^*$ is calculated over high-confidence, non-sky pixels $\Omega$:
 
 $$

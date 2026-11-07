@@ -139,7 +139,7 @@ Visualization is saved to `examples/output/da3_depth.png`.
     from spatialhub import DepthAnything3
 
     with DepthAnything3(model_name="da3metric_large", providers=["CUDAExecutionProvider"]) as estimator:
-        result = estimator.estimate_depth(images=["indoor_scene.jpg"])
+        result = estimator.estimate_depth(images=["indoor_scene.jpg"], intrinsics=camera_intrinsics)
         print("Metric depth output range (meters):", result.depth.min(), result.depth.max())
     ```
 
@@ -180,7 +180,8 @@ $$
 ### Model Presets & Scale Alignment
 
 * **Any-View & Mono Presets (`da3_small`, `da3_base`, `da3_large`, `da3_giant`, `da3mono_large`)**: Foundation models predict unscaled relative inverse depth maps $D_{\text{rel}} \in \mathbb{R}^{H \times W}$ and a per-pixel confidence map $C_{\text{rel}} \in [0, 1]^{H \times W}$. In `da3mono_large`, an auxiliary segmentation head emits a binary sky mask $M_{\text{sky}} \in \{0, 1\}^{H \times W}$.
-* **Metric Depth Preset (`da3metric_large`)**: Predicts dense physical depth $D_{\text{metric}} \in \mathbb{R}^{H \times W}$ in meters using canonical focal length normalization ($f_c = 300\text{ px}$).
+* **Metric Depth Preset (`da3metric_large`)**: Predicts dense physical depth $D_{\text{metric}} \in \mathbb{R}^{H \times W}$ in meters using canonical focal length normalization ($f_c = 300\text{ px}$). The raw network output $D_{\text{raw}}$ is scaled to physical meters via camera focal length:
+  $D_{\text{metric}} = D_{\text{raw}} \cdot \frac{f_x + f_y}{2 \cdot 300}$
 * **Nested Dual-Model Presets (`da3nested_*_large`)**: Relative depth models capture fine surface contours, thin structures, and sharp depth discontinuities, but lack metric scale. Metric depth models predict physical distance in meters, but tend to smooth over sharp geometric boundaries. The nested pipeline fuses the geometric sharpness of the relative model with the absolute scale of the metric model via closed-form linear regression.
 
 Scale parameter $s^*$ is fitted over the valid pixel subset $\Omega$:

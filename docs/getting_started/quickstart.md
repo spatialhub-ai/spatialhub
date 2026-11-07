@@ -43,24 +43,12 @@ Monocular depth estimation is executed with [`DepthAnything3`](../models/depthan
 Output:
 
 ```text
-Predicted depth shape:  (504, 504)
+Predicted depth shape:  (1024, 1024)
 Ground-truth shape:     (1024, 1024)
 Depth scale mode:       metric
 ```
 
-The adapter processes images with a Vision Transformer backbone using patch size $P = 14 \times 14$ and target resolution `process_res = 504` ($504 / 14 = 36$ tokens). The raw output is returned at the model's native processing resolution $(504, 504)$ without applying internal upsampling.
-
----
-
-### Scale Intrinsics
-
-The calibration matrix $K$ is defined in pixel coordinates for the original $1024 \times 1024$ sensor. Evaluating $K$ directly against a $(504, 504)$ array would place the principal point $(512.0, 512.0)$ outside the frame boundaries. [`scale_intrinsics`](../utilities/camera.md#scale_intrinsics) scales focal lengths and principal point coordinates proportionally ($s = 504 / 1024 \approx 0.4922$):
-
-```python title="examples/quickstart.py" linenums="59"
---8<-- "examples/quickstart.py:scale_intrinsics"
-```
-
-This maps the optical center to $(252.0, 252.0)$, aligning pinhole geometry with the native $(504, 504)$ prediction array. When unprojecting directly at model resolution, `pred_intrinsics` is used; when unprojecting after resizing back to $(1024, 1024)$, the original $K$ is used.
+The adapter processes images with a Vision Transformer backbone using patch size $P = 14 \times 14$ and target resolution `process_res = 504` ($504 / 14 = 36$ tokens). The predicted depth map is automatically restored to the original input image resolution $(1024, 1024)$ via bilinear interpolation, ensuring direct alignment with the camera intrinsics $K$.
 
 ---
 

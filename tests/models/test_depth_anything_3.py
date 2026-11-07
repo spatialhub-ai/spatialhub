@@ -152,11 +152,166 @@ class TestDepthAnything3Inference:
         assert isinstance(result, DepthMap)
         assert result.depth is not None
         assert result.confidence is not None
+        assert result.depth.shape == (1, 480, 640)
+        assert result.confidence.shape == (1, 480, 640)
         assert result.depth_type == "relative"
         assert isinstance(result.intrinsics, CameraIntrinsics)
         assert isinstance(result.extrinsics, CameraExtrinsics)
         assert result.intrinsics.matrix.shape == (1, 3, 3)
         assert result.extrinsics.matrix.shape == (1, 4, 4)
+
+    @patch("spatialhub.models.depth_anything_3.adapter.resolve_model_path")
+    @patch("spatialhub.models.depth_anything_3.adapter.create_ort_session")
+    def test_estimate_depth_single_array_and_user_intrinsics(self, mock_session, mock_resolve):
+        """Test forward call with single array input and preservation of user intrinsics."""
+        mock_resolve.return_value = Path("/fake/cache/da3_base.onnx")
+
+        mock_session_inst = MagicMock()
+        mock_output_depth = MagicMock()
+        mock_output_depth.name = "depth"
+        mock_output_conf = MagicMock()
+        mock_output_conf.name = "depth_conf"
+        mock_output_sky = MagicMock()
+        mock_output_sky.name = "sky"
+        mock_output_ext = MagicMock()
+        mock_output_ext.name = "extrinsics_out"
+        mock_output_int = MagicMock()
+        mock_output_int.name = "intrinsics_out"
+
+        mock_session_inst.get_outputs.return_value = [
+            mock_output_depth,
+            mock_output_conf,
+            mock_output_sky,
+            mock_output_ext,
+            mock_output_int,
+        ]
+
+        dummy_depth = np.ones((1, 1, 504, 504), dtype=np.float32)
+        dummy_conf = np.ones((1, 1, 504, 504), dtype=np.float32)
+        dummy_sky = np.zeros((1, 1, 504, 504), dtype=np.float32)
+        dummy_ext = np.eye(4, dtype=np.float32).reshape(1, 1, 4, 4)
+        dummy_int = np.eye(3, dtype=np.float32).reshape(1, 1, 3, 3)
+
+        mock_session_inst.run.return_value = [
+            dummy_depth,
+            dummy_conf,
+            dummy_sky,
+            dummy_ext,
+            dummy_int,
+        ]
+        mock_session.return_value = mock_session_inst
+
+        adapter = DepthAnything3(model_name="da3_base")
+        dummy_img = np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
+        user_k = np.array([[500.0, 0.0, 320.0], [0.0, 500.0, 240.0], [0.0, 0.0, 1.0]], dtype=np.float32)
+
+        # Call with unwrapped single 3D image array and user intrinsics
+        result = adapter.estimate_depth(images=dummy_img, intrinsics=user_k)
+
+        assert isinstance(result, DepthMap)
+        assert result.depth.shape == (1, 480, 640)
+        assert result.confidence.shape == (1, 480, 640)
+        assert np.allclose(result.intrinsics.matrix[0], user_k)
+
+    @patch("spatialhub.models.depth_anything_3.adapter.resolve_model_path")
+    @patch("spatialhub.models.depth_anything_3.adapter.create_ort_session")
+    def test_estimate_depth_metric_scaling_applied(self, mock_session, mock_resolve):
+        """Test that da3metric_large scales canonical depth by focal / 300 when intrinsics are provided."""
+        mock_resolve.return_value = Path("/fake/cache/da3metric_large.onnx")
+
+        mock_session_inst = MagicMock()
+        mock_output_depth = MagicMock()
+        mock_output_depth.name = "depth"
+        mock_output_conf = MagicMock()
+        mock_output_conf.name = "depth_conf"
+        mock_output_sky = MagicMock()
+        mock_output_sky.name = "sky"
+        mock_output_ext = MagicMock()
+        mock_output_ext.name = "extrinsics_out"
+        mock_output_int = MagicMock()
+        mock_output_int.name = "intrinsics_out"
+
+        mock_session_inst.get_outputs.return_value = [
+            mock_output_depth,
+            mock_output_conf,
+            mock_output_sky,
+            mock_output_ext,
+            mock_output_int,
+        ]
+
+        dummy_depth = np.ones((1, 1, 504, 504), dtype=np.float32)
+        dummy_conf = np.ones((1, 1, 504, 504), dtype=np.float32)
+        dummy_sky = np.zeros((1, 1, 504, 504), dtype=np.float32)
+        dummy_ext = np.eye(4, dtype=np.float32).reshape(1, 1, 4, 4)
+        dummy_int = np.eye(3, dtype=np.float32).reshape(1, 1, 3, 3)
+
+        mock_session_inst.run.return_value = [
+            dummy_depth,
+            dummy_conf,
+            dummy_sky,
+            dummy_ext,
+            dummy_int,
+        ]
+        mock_session.return_value = mock_session_inst
+
+        adapter = DepthAnything3(model_name="da3metric_large")
+        dummy_img = np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
+        # Focal length = 600.0, expected scale = 600.0 / 300.0 = 2.0
+        user_k = np.array([[600.0, 0.0, 320.0], [0.0, 600.0, 240.0], [0.0, 0.0, 1.0]], dtype=np.float32)
+
+        result = adapter.estimate_depth(images=dummy_img, intrinsics=user_k)
+
+        assert result.depth_type == "metric"
+        assert np.allclose(result.depth, 2.0)
+
+    @patch("spatialhub.models.depth_anything_3.adapter.resolve_model_path")
+    @patch("spatialhub.models.depth_anything_3.adapter.create_ort_session")
+    def test_estimate_depth_metric_scaling_missing_intrinsics_warns(self, mock_session, mock_resolve):
+        """Test that da3metric_large logs warning and leaves depth unscaled when intrinsics are missing."""
+        mock_resolve.return_value = Path("/fake/cache/da3metric_large.onnx")
+
+        mock_session_inst = MagicMock()
+        mock_output_depth = MagicMock()
+        mock_output_depth.name = "depth"
+        mock_output_conf = MagicMock()
+        mock_output_conf.name = "depth_conf"
+        mock_output_sky = MagicMock()
+        mock_output_sky.name = "sky"
+        mock_output_ext = MagicMock()
+        mock_output_ext.name = "extrinsics_out"
+        mock_output_int = MagicMock()
+        mock_output_int.name = "intrinsics_out"
+
+        mock_session_inst.get_outputs.return_value = [
+            mock_output_depth,
+            mock_output_conf,
+            mock_output_sky,
+            mock_output_ext,
+            mock_output_int,
+        ]
+
+        dummy_depth = np.ones((1, 1, 504, 504), dtype=np.float32)
+        dummy_conf = np.ones((1, 1, 504, 504), dtype=np.float32)
+        dummy_sky = np.zeros((1, 1, 504, 504), dtype=np.float32)
+        dummy_ext = np.full((1, 1, 4, 4), -1.0, dtype=np.float32)
+        dummy_int = np.full((1, 1, 3, 3), -1.0, dtype=np.float32)
+
+        mock_session_inst.run.return_value = [
+            dummy_depth,
+            dummy_conf,
+            dummy_sky,
+            dummy_ext,
+            dummy_int,
+        ]
+        mock_session.return_value = mock_session_inst
+
+        adapter = DepthAnything3(model_name="da3metric_large")
+        dummy_img = np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
+
+        result = adapter.estimate_depth(images=dummy_img)
+
+        assert result.depth_type == "metric"
+        assert np.allclose(result.depth, 1.0)
 
     def test_context_manager_and_close(self):
         """Test context manager lifecycle and close method releasing session resources."""

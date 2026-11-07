@@ -24,7 +24,7 @@ import cv2
 from pathlib import Path
 import numpy as np
 
-from spatialhub.utils import load_image, to_color
+from spatialhub.utils import load_image, scale_intrinsics, to_color
 from spatialhub.utils.constants import IMAGENET_MEAN, IMAGENET_STD
 
 from multiprocessing.pool import ThreadPool
@@ -162,7 +162,7 @@ class InputProcessor:
             desc=desc,
         )
 
-        proc_imgs, out_sizes, out_ixts, out_exts = self._unpack_results(results)
+        proc_imgs, out_sizes, orig_sizes, out_ixts, out_exts = self._unpack_results(results)
         proc_imgs, out_sizes, out_ixts = self._unify_batch_shapes(proc_imgs, out_sizes, out_ixts)
 
         batch_tensor = self._stack_batch(proc_imgs)
@@ -176,7 +176,7 @@ class InputProcessor:
             if out_ixts is not None and out_ixts[0] is not None
             else None
         )
-        return (batch_tensor, out_exts, out_ixts)
+        return (batch_tensor, out_exts, out_ixts, orig_sizes)
 
     # __call__ helpers
     def _resolve_sequential(self, sequential: bool | None, num_workers: int) -> bool:
@@ -228,19 +228,20 @@ class InputProcessor:
         return results
 
     def _unpack_results(self, results):
-        """
-        results: List[Tuple[torch.Tensor, Tuple[H, W], Optional[np.ndarray], Optional[np.ndarray]]]
-        -> processed_images, out_sizes, out_intrinsics, out_extrinsics
+        """Unpack worker results into structured component lists.
+
+        results: List[Tuple[np.ndarray, Tuple[H, W], Tuple[orig_h, orig_w], Optional[np.ndarray], Optional[np.ndarray]]]
+        -> processed_images, out_sizes, orig_sizes, out_intrinsics, out_extrinsics
         """
         try:
-            processed_images, out_sizes, out_intrinsics, out_extrinsics = zip(*results)
+            processed_images, out_sizes, orig_sizes, out_intrinsics, out_extrinsics = zip(*results)
         except Exception as e:
             raise RuntimeError(
                 "Unexpected results structure from parallel_execution: "
                 f"{type(results)} / sample: {results[0]}"
             ) from e
 
-        return list(processed_images), list(out_sizes), list(out_intrinsics), list(out_extrinsics)
+        return list(processed_images), list(out_sizes), list(orig_sizes), list(out_intrinsics), list(out_extrinsics)
 
     def _unify_batch_shapes(
         self,
@@ -312,8 +313,8 @@ class InputProcessor:
         _, H, W = img_tensor.shape
         assert (W, H) == (w, h), "Tensor size mismatch with image size after processing."
 
-        # Return: (img_tensor, (H, W), intrinsic, extrinsic)
-        return img_tensor, (H, W), intrinsic, extrinsic
+        # Return: (img_tensor, (H, W), (orig_h, orig_w), intrinsic, extrinsic)
+        return img_tensor, (H, W), (orig_h, orig_w), intrinsic, extrinsic
 
     # Intrinsics transforms
     def _resize_ixt(
@@ -326,11 +327,7 @@ class InputProcessor:
     ) -> np.ndarray | None:
         if intrinsic is None:
             return None
-        K = intrinsic.copy()
-        # scale fx, cx by w ratio; fy, cy by h ratio
-        K[:1] *= w / float(orig_w)
-        K[1:2] *= h / float(orig_h)
-        return K
+        return scale_intrinsics(intrinsic, orig_size=(orig_w, orig_h), new_size=(w, h))
 
     def _crop_ixt(
         self,

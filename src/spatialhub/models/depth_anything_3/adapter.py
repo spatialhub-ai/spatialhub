@@ -4,10 +4,12 @@ import logging
 from pathlib import Path
 from typing import Any
 
+import cv2
 import numpy as np
 
 from spatialhub.core.runtime import create_ort_session, resolve_model_path, ort
 from spatialhub.structures import DepthMap
+from spatialhub.utils import scale_intrinsics
 
 from .input_processor import InputProcessor
 from .utils import (
@@ -209,7 +211,7 @@ class DepthAnything3Adapter:
 
     def estimate_depth(
         self,
-        images: list[np.ndarray | str],
+        images: list[np.ndarray | str] | np.ndarray | str,
         extrinsics: list[np.ndarray] | None = None,
         intrinsics: list[np.ndarray] | None = None,
     ) -> DepthMap:
@@ -246,13 +248,15 @@ class DepthAnything3Adapter:
             main_depth, main_conf, _, pred_ext, pred_int = self._extract_outputs(raw_main)
             metric_depth, _, metric_sky, _, _ = self._extract_outputs(raw_metric)
 
+            nested_intrinsics = np_inputs.get("original_intrinsics") if np_inputs.get("original_intrinsics") is not None else pred_int
+            
             # Dual-model nested alignment
             depth, scale = align_nested_depth_np(
                 main_depth=main_depth,
                 main_conf=main_conf,
                 metric_depth=metric_depth,
                 metric_sky=metric_sky,
-                intrinsics=pred_int,
+                intrinsics=nested_intrinsics,
             )
 
             sky = metric_sky
@@ -260,6 +264,52 @@ class DepthAnything3Adapter:
 
             if pred_ext is not None:
                 pred_ext[:, :3, 3] *= scale
+
+        # Postprocessing
+        depth, conf, pred_ext, resolved_intrinsics = self._postprocess(
+            depth=depth,
+            conf=conf,
+            sky=sky,
+            pred_ext=pred_ext,
+            pred_int=pred_int,
+            np_inputs=np_inputs,
+        )
+
+        return DepthMap(
+            depth=depth,
+            confidence=conf,
+            depth_type=self.model_variant,
+            intrinsics=resolved_intrinsics,
+            extrinsics=pred_ext,
+        )
+
+    def _postprocess(
+        self,
+        depth: np.ndarray,
+        conf: np.ndarray | None,
+        sky: np.ndarray | None,
+        pred_ext: np.ndarray | None,
+        pred_int: np.ndarray | None,
+        np_inputs: dict[str, Any],
+    ) -> tuple[np.ndarray, np.ndarray | None, np.ndarray | None, np.ndarray | None]:
+        """Apply sky suppression, trajectory alignment, and resolution restoration.
+
+        Args:
+            depth: Raw predicted depth map array of shape (N, H, W).
+            conf: Raw confidence map array of shape (N, H, W) or None.
+            sky: Predicted sky mask array of shape (N, H, W) or None.
+            pred_ext: Predicted camera extrinsics of shape (N, 4, 4) or None.
+            pred_int: Predicted camera intrinsics of shape (N, 3, 3) or None.
+            np_inputs: Dictionary of preprocessed input tensors and metadata.
+
+        Returns:
+            Tuple containing aligned (depth, confidence, extrinsics, intrinsics).
+        """
+        # Apply metric focal scaling first for standalone metric models
+        original_intrinsics = np_inputs.get("original_intrinsics")
+        if len(self.ort_sessions) == 1 and self.model_variant == "metric":
+            metric_ixt = original_intrinsics if original_intrinsics is not None else pred_int
+            depth = self._apply_metric_scaling(depth, metric_ixt)
 
         # Postprocess Sky Suppression
         depth, conf = process_mono_sky_estimation_np(depth, conf, sky)
@@ -272,33 +322,69 @@ class DepthAnything3Adapter:
             original_extrinsics=orig_extrinsics,
         )
 
-        return DepthMap(
-            depth=depth,
-            confidence=conf,
-            depth_type=self.model_variant,
-            intrinsics=np_inputs.get("original_intrinsics") if np_inputs.get("original_intrinsics") is not None else pred_int,
-            extrinsics=pred_ext,
-        )
+        # Restore original input image resolution
+        orig_sizes = np_inputs.get("orig_sizes")
+
+        if orig_sizes is not None and len(orig_sizes) == len(depth):
+            if len(set(orig_sizes)) == 1:
+                target_h, target_w = orig_sizes[0]
+                curr_h, curr_w = depth.shape[1], depth.shape[2]
+                if (curr_h, curr_w) != (target_h, target_w):
+                    depth = np.stack(
+                        [cv2.resize(d, (target_w, target_h), interpolation=cv2.INTER_LINEAR) for d in depth],
+                        axis=0,
+                    )
+                    if conf is not None:
+                        conf = np.stack(
+                            [cv2.resize(c, (target_w, target_h), interpolation=cv2.INTER_LINEAR) for c in conf],
+                            axis=0,
+                        )
+                    if pred_int is not None and original_intrinsics is None:
+                        pred_int = scale_intrinsics(
+                            pred_int,
+                            orig_size=(curr_w, curr_h),
+                            new_size=(target_w, target_h),
+                        )
+            else:
+                logger.warning("Varying input image resolutions detected in batch; skipping uniform resize.")
+
+        resolved_intrinsics = original_intrinsics if original_intrinsics is not None else pred_int
+        return depth, conf, pred_ext, resolved_intrinsics
 
     def _preprocess(
         self,
-        images: list[np.ndarray | str],
+        images: list[np.ndarray | str] | np.ndarray | str,
         extrinsics: np.ndarray | None = None,
         intrinsics: np.ndarray | None = None,
-    ) -> dict[str, np.ndarray | None]:
+    ) -> dict[str, Any]:
         """Preprocess inputs for model execution."""
-        imgs_cpu, extrinsics, intrinsics = self.input_processor(
-            images,
-            extrinsics.copy() if extrinsics is not None else None,
-            intrinsics.copy() if intrinsics is not None else None,
+        if isinstance(images, (str, Path)) or (isinstance(images, np.ndarray) and images.ndim == 3):
+            image_list = [images]
+        elif isinstance(images, list):
+            image_list = images
+        else:
+            image_list = list(images)
+
+        original_extrinsics = np.asarray(extrinsics, dtype=np.float32) if extrinsics is not None else None
+        if original_extrinsics is not None and original_extrinsics.ndim == 2:
+            original_extrinsics = original_extrinsics[np.newaxis, ...]
+
+        original_intrinsics = np.asarray(intrinsics, dtype=np.float32) if intrinsics is not None else None
+        if original_intrinsics is not None and original_intrinsics.ndim == 2:
+            original_intrinsics = original_intrinsics[np.newaxis, ...]
+
+        imgs_cpu, proc_extrinsics, proc_intrinsics, orig_sizes = self.input_processor(
+            image_list,
+            original_extrinsics.copy() if original_extrinsics is not None else None,
+            original_intrinsics.copy() if original_intrinsics is not None else None,
             process_res=self.process_res,
             process_res_method=self.process_res_method,
             sequential=True,
         )
 
         imgs = np.expand_dims(imgs_cpu, axis=0).astype(np.float32)
-        ex_t = np.expand_dims(extrinsics, axis=0).astype(np.float32) if extrinsics is not None else None
-        in_t = np.expand_dims(intrinsics, axis=0).astype(np.float32) if intrinsics is not None else None
+        ex_t = np.expand_dims(proc_extrinsics, axis=0).astype(np.float32) if proc_extrinsics is not None else None
+        in_t = np.expand_dims(proc_intrinsics, axis=0).astype(np.float32) if proc_intrinsics is not None else None
 
         ex_t_norm = normalize_extrinsics(ex_t.copy() if ex_t is not None else None)
 
@@ -315,8 +401,9 @@ class DepthAnything3Adapter:
             "ex_t_norm": ex_t_norm,
             "in_t": in_t,
             "imgs_cpu": imgs_cpu,
-            "original_extrinsics": extrinsics,
-            "original_intrinsics": intrinsics,
+            "original_extrinsics": proc_extrinsics,
+            "original_intrinsics": original_intrinsics,
+            "orig_sizes": orig_sizes,
         }
 
     def _run_inference(self, session: ort.InferenceSession, np_inputs: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
@@ -427,7 +514,7 @@ class DepthAnything3Adapter:
 
         return depth, pred_extrinsics
 
-    def _apply_metric_scaling(self, depth: np.ndarray, intrinsics: np.ndarray) -> np.ndarray:
+    def _apply_metric_scaling(self, depth: np.ndarray, intrinsics: np.ndarray | None) -> np.ndarray:
         """Apply metric focal scaling to depth map."""
         if self.model_variant != "metric":
             return depth
@@ -440,7 +527,7 @@ class DepthAnything3Adapter:
         fy = intrinsics[..., 1, 1]
         focal = ((fx + fy) / 2.0).reshape(-1, 1, 1)
 
-        return focal * depth / 300.0
+        return (focal * depth / np.float32(300.0)).astype(np.float32)
 
     def __enter__(self):
         return self

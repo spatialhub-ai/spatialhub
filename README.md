@@ -176,7 +176,7 @@ with CNOS.from_cad_model(
     object_name="bbq_sauce",
     num_viewpoints=42,
 ) as detector:
-    results = detector.inference(image=image, conf_threshold=0.60)
+    results = detector.generate_masks(image=image, conf_threshold=0.60)
 
 overlay = blend_masks(image=image, masks=results.masks)
 save_image(overlay, "cad_detection.png")

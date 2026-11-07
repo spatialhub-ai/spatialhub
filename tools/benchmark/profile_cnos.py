@@ -178,11 +178,10 @@ def profile_cnos_pipeline(
             stats_list.append(stats_templates)
 
             def run_proposal_generation() -> InstanceSegmentation:
-                return CNOSAdapter.generate_proposals(
-                    image=image_rgb,
-                    segmentor=segmentor,
-                    proposal_conf_threshold=0.05,
-                    proposal_iou_threshold=0.90,
+                return segmentor.generate_masks(
+                    image_rgb,
+                    conf_threshold=0.05,
+                    iou_threshold=0.90,
                 )
 
             proposals_sample = run_proposal_generation()
@@ -250,7 +249,7 @@ def profile_cnos_pipeline(
             stats_list.append(stats_matching)
 
             def run_end_to_end() -> InstanceSegmentation:
-                return adapter.inference(
+                return adapter.generate_masks(
                     image=image_rgb,
                     num_max_dets=5,
                     conf_threshold=0.15,

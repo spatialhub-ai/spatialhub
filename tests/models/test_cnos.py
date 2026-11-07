@@ -80,7 +80,7 @@ class TestCNOSInit:
         )
         scene_img = np.zeros((100, 100, 3), dtype=np.uint8)
         with pytest.raises(ValueError, match="Feature dimension mismatch"):
-            adapter.inference(scene_img)
+            adapter.generate_masks(scene_img)
 
     def test_invalid_reference_features_shape_raises(self, mock_descriptor: MagicMock, mock_segmentor: MagicMock):
         wrong_shape = np.random.randn(1024).astype(np.float32)
@@ -382,7 +382,7 @@ class TestCNOSInference:
         )
 
         scene_img = np.zeros((100, 100, 3), dtype=np.uint8)
-        result = mock_adapter.inference(scene_img, conf_threshold=0.15)
+        result = mock_adapter.generate_masks(scene_img, conf_threshold=0.15)
 
         assert isinstance(result, InstanceSegmentation)
         assert len(result.boxes) == 1
@@ -399,7 +399,7 @@ class TestCNOSInference:
         )
 
         scene_img = np.zeros((100, 100, 3), dtype=np.uint8)
-        result = mock_adapter.inference(scene_img)
+        result = mock_adapter.generate_masks(scene_img)
 
         assert len(result.boxes) == 0
         assert len(result.masks) == 0
@@ -430,7 +430,7 @@ class TestCNOSInference:
         )
 
         scene_img = np.zeros((100, 100, 3), dtype=np.uint8)
-        result = mock_adapter.inference(scene_img, conf_threshold=0.0)
+        result = mock_adapter.generate_masks(scene_img, conf_threshold=0.0)
 
         # only 1 non-degenerate box should pass to descriptor and output
         assert len(result.boxes) == 1
@@ -462,7 +462,7 @@ class TestCNOSInference:
         )
 
         scene_img = np.zeros((100, 100, 3), dtype=np.uint8)
-        result = mock_adapter.inference(scene_img, num_max_dets=5, conf_threshold=0.05)
+        result = mock_adapter.generate_masks(scene_img, num_max_dets=5, conf_threshold=0.05)
 
         assert len(result.boxes) == 2
         assert result.scores[0] > result.scores[1]
@@ -477,7 +477,7 @@ class TestCNOSInference:
         )
 
         scene_img = np.zeros((100, 100, 3), dtype=np.uint8)
-        mock_adapter.inference(
+        mock_adapter.generate_masks(
             scene_img,
             proposal_conf_threshold=0.12,
             proposal_iou_threshold=0.85,
@@ -507,7 +507,7 @@ class TestCNOSInference:
         )
 
         scene_img = np.ones((100, 100, 3), dtype=np.uint8) * 255
-        mock_adapter.inference(scene_img)
+        mock_adapter.generate_masks(scene_img)
 
         passed_crop = mock_adapter.descriptor.extract_features.call_args[0][0][0]
         # foreground region (20:40 relative to 10:50 is 10:30) should be non-zero
@@ -541,11 +541,11 @@ class TestCNOSInference:
 
         scene_img = np.zeros((100, 100, 3), dtype=np.uint8)
         # top_k=1 -> mean of top 1 score: 1.0
-        res_k1 = mock_adapter.inference(scene_img, top_k=1, conf_threshold=0.0)
+        res_k1 = mock_adapter.generate_masks(scene_img, top_k=1, conf_threshold=0.0)
         assert np.isclose(res_k1.scores[0], 1.0)
 
         # top_k=2 -> mean of top 2 scores: (1.0 + 0.8) / 2 = 0.9
-        res_k2 = mock_adapter.inference(scene_img, top_k=2, conf_threshold=0.0)
+        res_k2 = mock_adapter.generate_masks(scene_img, top_k=2, conf_threshold=0.0)
         assert np.isclose(res_k2.scores[0], 0.9)
 
     def test_inference_with_nms_deduplication(self, mock_adapter: CNOSAdapter):
@@ -572,15 +572,15 @@ class TestCNOSInference:
 
         scene_img = np.zeros((100, 100, 3), dtype=np.uint8)
         # without NMS, both proposals survive
-        res_no_nms = mock_adapter.inference(scene_img, top_k=1, conf_threshold=0.5)
+        res_no_nms = mock_adapter.generate_masks(scene_img, top_k=1, conf_threshold=0.5)
         assert len(res_no_nms.boxes) == 2
 
         # with NMS (iou_threshold=0.5), duplicate proposal is suppressed
-        res_nms = mock_adapter.inference(scene_img, top_k=1, conf_threshold=0.5, nms_iou_threshold=0.5)
+        res_nms = mock_adapter.generate_masks(scene_img, top_k=1, conf_threshold=0.5, nms_iou_threshold=0.5)
         assert len(res_nms.boxes) == 1
         np.testing.assert_allclose(res_nms.boxes[0], [10, 10, 50, 50])
 
-    def test_generate_proposals_classmethod(self, mock_adapter: CNOSAdapter):
+    def test_generate_masks_invokes_segmentor_when_proposals_none(self, mock_adapter: CNOSAdapter):
         mock_boxes = np.array([[10, 10, 50, 50]], dtype=np.float32)
         mock_masks = np.ones((1, 100, 100), dtype=bool)
         mock_scores = np.array([0.95], dtype=np.float32)
@@ -590,23 +590,25 @@ class TestCNOSInference:
             masks=mock_masks,
             scores=mock_scores,
         )
+        mock_adapter.descriptor.extract_features.return_value = FeatureEmbedding(
+            features=np.ones((1, 128), dtype=np.float32),
+            embedding_type="global",
+            l2_normalized=True,
+        )
 
         scene_img = np.zeros((100, 100, 3), dtype=np.uint8)
-        proposals = CNOSAdapter.generate_proposals(
+        mock_adapter.generate_masks(
             scene_img,
-            segmentor=mock_adapter.segmentor,
             proposal_conf_threshold=0.08,
             proposal_iou_threshold=0.88,
         )
 
-        assert isinstance(proposals, InstanceSegmentation)
-        assert len(proposals.boxes) == 1
         mock_adapter.segmentor.generate_masks.assert_called_once()
         call_args, call_kwargs = mock_adapter.segmentor.generate_masks.call_args
         np.testing.assert_array_equal(call_args[0], scene_img)
         assert call_kwargs == {"conf_threshold": 0.08, "iou_threshold": 0.88}
 
-    def test_inference_with_precomputed_proposals(self, mock_adapter: CNOSAdapter):
+    def test_generate_masks_with_precomputed_proposals(self, mock_adapter: CNOSAdapter):
         mock_boxes = np.array([[10, 10, 50, 50]], dtype=np.float32)
         mock_masks = np.ones((1, 100, 100), dtype=bool)
         mock_scores = np.array([0.95], dtype=np.float32)
@@ -624,7 +626,7 @@ class TestCNOSInference:
         )
 
         scene_img = np.zeros((100, 100, 3), dtype=np.uint8)
-        result = mock_adapter.inference(
+        result = mock_adapter.generate_masks(
             scene_img,
             proposals=precomputed_proposals,
             conf_threshold=0.0,

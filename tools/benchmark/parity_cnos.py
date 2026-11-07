@@ -341,11 +341,10 @@ def evaluate_cnos_parity(
     ref_max_diff = float(np.max(np.abs(pt_ref_feats - ort_ref_feats)))
     ref_cosine_sim = float(np.mean(np.sum(pt_ref_feats * ort_ref_feats, axis=-1)))
 
-    proposals = ort_cnos.generate_proposals(
-        image=image_rgb,
-        segmentor=ort_segmentor,
-        proposal_conf_threshold=0.05,
-        proposal_iou_threshold=0.90,
+    proposals = ort_segmentor.generate_masks(
+        image_rgb,
+        conf_threshold=0.05,
+        iou_threshold=0.90,
     )
 
     # zero out background pixels for proposal bounding box crops
@@ -380,7 +379,7 @@ def evaluate_cnos_parity(
     pt_sorted = np.sort(pt_sim_matrix, axis=1)[:, -top_k_val:]
     pt_scores = np.mean(pt_sorted, axis=1)
 
-    ort_result = ort_cnos.inference(
+    ort_result = ort_cnos.generate_masks(
         image_rgb,
         proposals=proposals,
         conf_threshold=0.0,

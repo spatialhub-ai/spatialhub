@@ -92,7 +92,7 @@ def run_cnos_segmentation(
     )
 
     # Run inference
-    results: InstanceSegmentation = cnos.inference(
+    results: InstanceSegmentation = cnos.generate_masks(
         image=image,
         num_max_dets=num_max_dets,
         conf_threshold=conf_threshold,

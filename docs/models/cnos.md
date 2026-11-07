@@ -81,12 +81,12 @@ cnos = CNOS(
 
 ## Methods
 
-### `inference`
+### `generate_masks`
 
 Generates mask proposals, extracts descriptor embeddings on masked image patches, and matches against CAD templates.
 
 ```python
-results = cnos.inference(image="scene.jpg", conf_threshold=0.60)
+results = cnos.generate_masks(image="scene.jpg", conf_threshold=0.60)
 ```
 
 #### Parameters
@@ -104,7 +104,7 @@ results = cnos.inference(image="scene.jpg", conf_threshold=0.60)
 
 #### Return Value
 
-The `inference` method returns an [`InstanceSegmentation`](../structures/perception_primitives.md#instancesegmentation) dataclass:
+The `generate_masks` method returns an [`InstanceSegmentation`](../structures/perception_primitives.md#instancesegmentation) dataclass:
 
 | Attribute | Shape | Dtype | Description |
 | :--- | :--- | :--- | :--- |
@@ -154,7 +154,7 @@ Visualization is saved to `examples/output/cnos_detection.png`.
         object_name="bbq_sauce",
         num_viewpoints=42,
     ) as cnos:
-        results = cnos.inference(
+        results = cnos.generate_masks(
             image="examples/assets/bba_sauce_rgb.png",
             num_max_dets=1,
             conf_threshold=0.60,
@@ -182,7 +182,7 @@ Visualization is saved to `examples/output/cnos_detection.png`.
         model_unit="mm",
         num_viewpoints=84,
     ) as cnos:
-        results = cnos.inference(
+        results = cnos.generate_masks(
             image="assembly_line_camera.png",
             conf_threshold=0.65,
             nms_iou_threshold=0.40,

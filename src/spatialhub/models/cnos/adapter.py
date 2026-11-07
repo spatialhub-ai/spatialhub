@@ -272,41 +272,7 @@ class CNOSAdapter:
             chunk_size=chunk_size,
         )
 
-
-    @classmethod
-    def generate_proposals(
-        cls,
-        image: str | Path | np.ndarray,
-        segmentor: FastSAMAdapter | SAMAdapter,
-        proposal_conf_threshold: float = 0.05,
-        proposal_iou_threshold: float = 0.90,
-    ) -> InstanceSegmentation:
-        """Generate class-agnostic candidate mask proposals from an input image.
-
-        Args:
-            image: RGB image input (file path or NumPy array).
-            segmentor: FastSAM or SAM proposal segmentor instance.
-            proposal_conf_threshold: Confidence score threshold for segmentor mask proposals (default: 0.05).
-            proposal_iou_threshold: IoU threshold for segmentor mask proposal NMS (default: 0.90).
-
-        Returns:
-            InstanceSegmentation containing candidate mask proposals.
-        """
-        if isinstance(image, (str, Path)):
-            img_rgb = load_image(image, color_mode="RGB")
-        elif isinstance(image, np.ndarray):
-            img_rgb = to_color(image, "RGB")
-        else:
-            raise TypeError(f"Unsupported image input type: {type(image)}")
-
-        return segmentor.generate_masks(
-            img_rgb,
-            conf_threshold=proposal_conf_threshold,
-            iou_threshold=proposal_iou_threshold,
-        )
-
-
-    def inference(
+    def generate_masks(
         self,
         image: str | Path | np.ndarray,
         proposals: InstanceSegmentation | None = None,
@@ -341,11 +307,10 @@ class CNOSAdapter:
         h, w = img_rgb.shape[:2]
 
         if proposals is None:
-            resolved_proposals = self.generate_proposals(
-                image=img_rgb,
-                segmentor=self.segmentor,
-                proposal_conf_threshold=proposal_conf_threshold,
-                proposal_iou_threshold=proposal_iou_threshold,
+            resolved_proposals = self.segmentor.generate_masks(
+                img_rgb,
+                conf_threshold=proposal_conf_threshold,
+                iou_threshold=proposal_iou_threshold,
             )
         else:
             resolved_proposals = proposals

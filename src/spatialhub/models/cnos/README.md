@@ -156,7 +156,7 @@ cnos = CNOS.from_cad_model(
 )
 
 image = load_image("table_scene.png")
-result = cnos.inference(image, num_max_dets=3, conf_threshold=0.15)
+result = cnos.generate_masks(image, num_max_dets=3, conf_threshold=0.15)
 
 vis = blend_masks(image, result.masks)
 vis = draw_boxes_2d(vis, result.boxes, scores=result.scores, names=result.names)
@@ -184,7 +184,7 @@ cnos = CNOS.from_cad_model(
 )
 
 image = load_image("table_scene.png")
-result = cnos.inference(image, num_max_dets=3, conf_threshold=0.15)
+result = cnos.generate_masks(image, num_max_dets=3, conf_threshold=0.15)
 
 vis = blend_masks(image, result.masks)
 vis = draw_boxes_2d(vis, result.boxes, scores=result.scores, names=result.names)

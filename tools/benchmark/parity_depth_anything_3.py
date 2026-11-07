@@ -44,6 +44,7 @@ from pathlib import Path
 import sys
 from typing import Any
 
+import cv2
 import numpy as np
 import onnxruntime as ort
 ort.set_default_logger_severity(3)
@@ -340,6 +341,12 @@ def evaluate_single_parity(
         pt_ext = pt_pred.extrinsics
         pt_int = pt_pred.intrinsics
         del pt_model
+
+        # DA3METRIC-LARGE in PyTorch outputs canonical depth; scale to physical meters when intrinsics provided
+        ref_intrinsics = pt_int_input if pt_int_input is not None else pt_int
+        if entry.get("hf_id") == "depth-anything/DA3METRIC-LARGE" and ref_intrinsics is not None:
+            focal = (ref_intrinsics[..., 0, 0] + ref_intrinsics[..., 1, 1]) / 2.0
+            pt_depth = (pt_depth * (focal.reshape(-1, 1, 1) / 300.0)).astype(np.float32)
     else:
         main_hf_id, metric_hf_id = entry["hf_ids"]
         pt_main_wrapper = DepthAnything3.from_pretrained(main_hf_id).to(torch_device).eval()
@@ -375,6 +382,17 @@ def evaluate_single_parity(
     gc.collect()
 
     # Depth parity metrics
+    if pt_depth.shape != ort_depth.shape:
+        pt_depth = np.stack(
+            [cv2.resize(d, (ort_depth.shape[2], ort_depth.shape[1]), interpolation=cv2.INTER_LINEAR) for d in pt_depth],
+            axis=0,
+        )
+    if pt_conf is not None and ort_conf is not None and pt_conf.shape != ort_conf.shape:
+        pt_conf = np.stack(
+            [cv2.resize(c, (ort_conf.shape[2], ort_conf.shape[1]), interpolation=cv2.INTER_LINEAR) for c in pt_conf],
+            axis=0,
+        )
+
     depth_diff = np.abs(pt_depth - ort_depth)
     depth_mae = float(np.mean(depth_diff))
     depth_max_diff = float(np.max(depth_diff))

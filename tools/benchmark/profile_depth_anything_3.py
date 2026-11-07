@@ -229,11 +229,7 @@ def profile_pipeline_stages(
 
         def postprocess_pass():
             depth, conf, sky, pred_ext, pred_int = adapter._extract_outputs(raw_output)
-            depth = adapter._apply_metric_scaling(depth, np_inputs.get("original_intrinsics"))
-            depth, conf = process_mono_sky_estimation_np(depth, conf, sky)
-            depth, pred_ext = adapter._align_prediction_extrinsics(
-                depth, pred_ext, np_inputs.get("original_extrinsics")
-            )
+            adapter._postprocess(depth, conf, sky, pred_ext, pred_int, np_inputs)
 
         postprocess_stats = benchmark_callable(
             postprocess_pass,
@@ -249,15 +245,17 @@ def profile_pipeline_stages(
         def postprocess_nested_pass():
             main_depth, main_conf, _, pred_ext, pred_int = adapter._extract_outputs(raw_main)
             metric_depth, _, metric_sky, _, _ = adapter._extract_outputs(raw_metric)
+            nested_intrinsics = (
+                np_inputs.get("original_intrinsics")
+                if np_inputs.get("original_intrinsics") is not None
+                else pred_int
+            )
             depth, scale = align_nested_depth_np(
-                main_depth, main_conf, metric_depth, metric_sky, pred_int
+                main_depth, main_conf, metric_depth, metric_sky, nested_intrinsics
             )
             if pred_ext is not None:
                 pred_ext[:, :3, 3] *= scale
-            depth, conf = process_mono_sky_estimation_np(depth, main_conf, metric_sky)
-            depth, pred_ext = adapter._align_prediction_extrinsics(
-                depth, pred_ext, np_inputs.get("original_extrinsics")
-            )
+            adapter._postprocess(depth, main_conf, metric_sky, pred_ext, pred_int, np_inputs)
 
         postprocess_stats = benchmark_callable(
             postprocess_nested_pass,

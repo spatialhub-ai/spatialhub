@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="docs/assets/logo.svg" alt="SpatialHub Logo" width="340" />
+  <img src="https://raw.githubusercontent.com/spatialhub-ai/spatialhub/main/docs/assets/logo.svg" alt="SpatialHub Logo" width="340" />
   <p><strong>Zero-PyTorch Python library for composing deep vision models and geometric algorithms into spatial perception pipelines.</strong></p>
 
   [![PyPI version](https://badge.fury.io/py/spatialhub.svg)](https://badge.fury.io/py/spatialhub)
@@ -14,7 +14,7 @@
 
 SpatialHub decouples deep vision model execution from geometric estimation and 3D rendering through standardized NumPy spatial data contracts:
 
-![SpatialHub Architecture](docs/assets/arch_concept4_dataflow.svg)
+![SpatialHub Architecture](https://raw.githubusercontent.com/spatialhub-ai/spatialhub/main/docs/assets/arch_concept4_dataflow.svg)
 
 * **Input Ingestion**: Ingests raw RGB images, sequential video frames, pinhole camera intrinsics ($K \in \mathbb{R}^{3 \times 3}$), metric depth maps, and 3D CAD meshes (`.ply`, `.obj`, `.stl`).
 * **Zero-PyTorch Inference**: Self-contained ONNX Runtime execution (`CUDAExecutionProvider`, `TensorrtExecutionProvider`, `CPUExecutionProvider`). Pretrained ONNX graphs are automatically resolved and cached from Hugging Face Hub on first run.
@@ -105,7 +105,7 @@ save_image(colored_depth, "depth_visualization.png")
 ```
 
 <p align="center">
-  <img src="docs/assets/da3_depth.png" alt="Depth Anything 3 Metric Depth Estimation" width="100%" />
+  <img src="https://raw.githubusercontent.com/spatialhub-ai/spatialhub/main/docs/assets/da3_depth.png" alt="Depth Anything 3 Metric Depth Estimation" width="100%" />
 </p>
 
 <p align="center">
@@ -128,7 +128,7 @@ save_image(overlay, "segmented_instances.png")
 ```
 
 <p align="center">
-  <img src="docs/assets/fastsam_masks.png" alt="FastSAM Real-Time Instance Segmentation" width="100%" />
+  <img src="https://raw.githubusercontent.com/spatialhub-ai/spatialhub/main/docs/assets/fastsam_masks.png" alt="FastSAM Real-Time Instance Segmentation" width="100%" />
 </p>
 
 ### Semi-Dense Feature Matching (EfficientLoFTR)
@@ -155,7 +155,7 @@ save_image(vis, "keypoint_correspondences.png")
 ```
 
 <p align="center">
-  <img src="docs/assets/eloftr_matches.png" alt="EfficientLoFTR Semi-Dense Feature Correspondences" width="100%" />
+  <img src="https://raw.githubusercontent.com/spatialhub-ai/spatialhub/main/docs/assets/eloftr_matches.png" alt="EfficientLoFTR Semi-Dense Feature Correspondences" width="100%" />
 </p>
 
 ### Zero-Shot CAD Detection (CNOS)
@@ -183,7 +183,7 @@ save_image(overlay, "cad_detection.png")
 ```
 
 <p align="center">
-  <img src="docs/assets/cnos_detection.png" alt="CNOS Zero-Shot CAD Object Detection" width="100%" />
+  <img src="https://raw.githubusercontent.com/spatialhub-ai/spatialhub/main/docs/assets/cnos_detection.png" alt="CNOS Zero-Shot CAD Object Detection" width="100%" />
 </p>
 
 ### Model-Based 6D Pose Tracking (FoundationPose)
@@ -227,7 +227,13 @@ with FoundationPose(
     print(f"Tracked pose translation: {next_pose.pose[0, :3, 3]}")
 ```
 
-https://github.com/user-attachments/assets/726ac4bc-338d-4bf9-af38-f0e037ca5f28
+<p align="center">
+  <img src="https://raw.githubusercontent.com/spatialhub-ai/spatialhub/main/docs/assets/foundationpose_tracking.gif" alt="FoundationPose 6D Object Pose Tracking" width="100%" />
+</p>
+
+<p align="center">
+  <em>For sequential tracking execution, see <a href="https://spatialhub-ai.github.io/spatialhub/pipelines/cad_pose_tracking/">CAD Object Pose Tracking Guide &rarr;</a></em>
+</p>
 
 ---
 
@@ -237,10 +243,14 @@ Multi-stage perception workflows composing model adapters, standardized structur
 
 | Pipeline | Description | Documentation |
 | :--- | :--- | :--- |
+| **CAD Object Pose Tracking** | Category-agnostic 6D rigid object pose registration and continuous video tracking. | [Guide](https://spatialhub-ai.github.io/spatialhub/pipelines/cad_pose_tracking/) • [Script](pipelines/cad_pose_tracking.py) |
 | **RGB-D Scene Fusion** | Two-view camera pose estimation via 3D-to-2D PnP RANSAC and dense point cloud fusion. | [Guide](https://spatialhub-ai.github.io/spatialhub/pipelines/rgbd_fusion/) • [Script](pipelines/rgbd_fusion.py) |
 | **Monocular Scene Fusion** | Two-view pose estimation via 5-point Essential RANSAC, metric depth estimation, and scale alignment. | [Guide](https://spatialhub-ai.github.io/spatialhub/pipelines/monocular_fusion/) • [Script](pipelines/monocular_fusion.py) |
 
 ```bash
+# Model-based 6D CAD object pose tracking across continuous video streams
+uv run python pipelines/cad_pose_tracking.py
+
 # Two-view RGB-D camera pose estimation and dense 3D scene reconstruction
 uv run python pipelines/rgbd_fusion.py
 

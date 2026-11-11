@@ -18,6 +18,7 @@ from spatialhub.structures import (
 )
 from spatialhub.utils import (
     center_mesh,
+    compute_depth_inlier_ratio,
     compute_mesh_diameter,
     compute_obb,
     create_moderngl_context,
@@ -813,8 +814,22 @@ class FoundationPoseAdapter:
         )
 
         best_pose = refined_top_pose[0]
-        best_score = float(sorted_scores[0])
         self.pose_last = best_pose
+
+        # Compute geometric surface inlier ratio between observed and rendered CAD depth
+        H, W = parsed_depth.shape[:2]
+        _, rendered_depth, _, _ = self.renderer.render(
+            intrinsics=self.K,
+            H=H,
+            W=W,
+            ob_in_cams=best_pose[np.newaxis, ...],
+            output_size=(W, H),
+        )
+        best_score = compute_depth_inlier_ratio(
+            depth_observed=filtered_depth,
+            depth_rendered=rendered_depth[0],
+            tolerance=0.02,
+        )
 
         return ObjectPose6D(
             pose=best_pose,
@@ -839,7 +854,7 @@ class FoundationPoseAdapter:
             depth: Current frame metric depth map (file path or NumPy array of shape (H, W)).
             depth_unit: Unit system of input depth ('m', 'cm', 'mm', or float multiplier).
             iteration: Number of tracking refinement iterations (default: 2).
-            verify_conf: Whether to evaluate pose hypothesis confidence using ScorePredictor (default: False).
+            verify_conf: Whether to evaluate geometric tracking confidence using the rendered CAD depth inlier ratio (default: False).
             filter_depth: Whether to apply erosion and bilateral smoothing to depth map (default: True).
             filter_radius: Neighborhood pixel radius for depth filter passes (default: 2).
 
@@ -885,14 +900,19 @@ class FoundationPoseAdapter:
         self.pose_last = best_pose
 
         if verify_conf:
-            _, scores = self.scorer.predict(
-                parsed_rgb,
-                filtered_depth,
-                xyz_map,
-                best_pose[np.newaxis, ...],
-                self.model_diameter,
+            H, W = parsed_depth.shape[:2]
+            _, rendered_depth, _, _ = self.renderer.render(
+                intrinsics=self.K,
+                H=H,
+                W=W,
+                ob_in_cams=best_pose[np.newaxis, ...],
+                output_size=(W, H),
             )
-            score_val = float(scores[0])
+            score_val = compute_depth_inlier_ratio(
+                depth_observed=filtered_depth,
+                depth_rendered=rendered_depth[0],
+                tolerance=0.02,
+            )
         else:
             score_val = 1.0
 

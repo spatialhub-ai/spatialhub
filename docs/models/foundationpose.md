@@ -83,7 +83,7 @@ The `register` method returns an [`ObjectPose6D`](../structures/poses_and_camera
 | Attribute | Shape | Dtype | Description |
 | :--- | :--- | :--- | :--- |
 | `pose` | `(N, 4, 4)` | `np.float32` | Rigid homogeneous transformation matrices $[R \mid t] \in \mathrm{SE}(3)$ from object coordinates to camera coordinates. |
-| `scores` | `(N,)` | `np.float32` | Tournament knockout scoring confidence values. |
+| `scores` | `(N,)` | `np.float32` | Confidence scores representing the geometric depth inlier ratio in range $[0.0, 1.0]$. |
 | `ids` | `(N,)` | `np.int32` | Zero-indexed object instance identifiers. |
 | `names` | `list[str]` | `list[str]` | Target semantic object name labels (`[model_name]`). |
 
@@ -105,7 +105,7 @@ tracked_pose = engine.track(rgb="next_frame.png", depth="next_depth.png", depth_
 | `depth` | `str | Path | np.ndarray` | *required* | Current frame depth map as file path or array $(H, W)$. |
 | `depth_unit` | `str | float` | `"m"` | Linear depth unit of current frame depth array (`"m"`, `"cm"`, `"mm"`, or float multiplier). |
 | `iteration` | `int` | `2` | Number of refinement iterations per tracking frame. |
-| `verify_conf` | `bool` | `False` | Evaluates hypothesis confidence via ScoreNet forward pass (omitted during real-time tracking). |
+| `verify_conf` | `bool` | `False` | Enables confidence evaluation of geometric surface alignment using the rendered CAD depth inlier ratio. |
 | `filter_depth` | `bool` | `True` | Applies GPU depth filtering to input depth map. |
 | `filter_radius` | `int` | `2` | Kernel radius for depth filtering. |
 

@@ -1,6 +1,6 @@
 # Cameras
 
-The `spatialhub.utils.camera` module implements pinhole camera operations, depth unprojection to 3D Cartesian coordinates, 3D point projection to 2D image coordinates, OpenGL projection matrix generation, and spherical camera viewpoint sampling.
+The `spatialhub.utils.camera` module implements pinhole camera operations, depth unprojection to 3D Cartesian coordinates, 3D point projection to 2D image coordinates, geometric depth inlier ratio evaluation, OpenGL projection matrix generation, and spherical camera viewpoint sampling.
 
 ## Functions
 
@@ -143,6 +143,69 @@ intrinsics = np.array([
 points_3d = unproject_depth_map(depth, intrinsics)
 print("Point cloud shape:", points_3d.shape)
 print("Center optical depth Z:", points_3d[240, 320, 2])
+```
+
+---
+
+### `compute_depth_inlier_ratio`
+
+Computes the fraction of observed depth pixels consistent with a reference or rendered depth map within a metric tolerance threshold.
+
+```python
+def compute_depth_inlier_ratio(
+    depth_observed: np.ndarray,
+    depth_rendered: np.ndarray,
+    tolerance: float = 0.02,
+    mask: np.ndarray | None = None,
+    min_depth: float = 0.001,
+    max_depth: float | None = None,
+) -> float
+```
+
+#### Mathematical Formulation
+
+For each pixel $u$ within the target evaluation domain $M$:
+
+$$\text{inlier}(u) = \mathbb{I}\left(d_{\min} \le D_{\text{obs}}(u) \le d_{\max} \;\land\; |D_{\text{obs}}(u) - D_{\text{ren}}(u)| < \epsilon\right)$$
+
+$$\text{ratio} = \frac{1}{|M|} \sum_{u \in M} \text{inlier}(u)$$
+
+Where the target evaluation domain $M$ is defined by:
+
+$$M = \begin{cases} \{u \mid \text{mask}[u] > 0 \;\land\; d_{\min} \le D_{\text{ren}}(u) \le d_{\max}\}, & \text{if mask is provided} \\ \{u \mid d_{\min} \le D_{\text{ren}}(u) \le d_{\max}\}, & \text{otherwise} \end{cases}$$
+
+If $|M| = 0$, the function returns `0.0`.
+
+#### Inputs
+
+| Argument | Type / Shape | Dtype | Description |
+| :--- | :--- | :--- | :--- |
+| `depth_observed` | `(H, W)` | `float32` | Observed metric depth map from sensor or prediction in meters. |
+| `depth_rendered` | `(H, W)` | `float32` | Reference or rendered metric depth map in meters. |
+| `tolerance` | `float` | `float` | Maximum absolute depth discrepancy in meters for an inlier (default: `0.02`). |
+| `mask` | `(H, W)` or `None` | `uint8` or `bool` | Optional mask restricting the target evaluation domain. |
+| `min_depth` | `float` | `float` | Minimum valid depth threshold in meters (default: `0.001`). |
+| `max_depth` | `float` or `None` | `float` | Optional maximum valid depth threshold in meters (default: `None`). |
+
+#### Outputs
+
+- Returns inlier ratio as a `float` in the range `[0.0, 1.0]`.
+
+#### Example
+
+```python
+import numpy as np
+from spatialhub.utils import compute_depth_inlier_ratio
+
+observed_depth = np.full((480, 640), 1.20, dtype=np.float32)
+rendered_depth = np.full((480, 640), 1.21, dtype=np.float32)
+
+score = compute_depth_inlier_ratio(
+    depth_observed=observed_depth,
+    depth_rendered=rendered_depth,
+    tolerance=0.02,
+)
+print(f"Surface depth inlier ratio: {score:.4f}")
 ```
 
 ---

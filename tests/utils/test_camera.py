@@ -6,6 +6,7 @@ import numpy as np
 import pytest
 
 from spatialhub.utils.camera import (
+    compute_depth_inlier_ratio,
     intrinsics_to_projection_matrix,
     project_points_to_image,
     sample_icosphere_poses,
@@ -278,3 +279,75 @@ class TestSphereSampling:
 
         poses_min = sample_icosphere_poses(min_n_views=40, radius=1.0)
         assert len(poses_min) >= 40
+
+
+class TestComputeDepthInlierRatio:
+    """Test suite for geometric depth inlier ratio evaluation."""
+
+    def test_perfect_alignment_returns_one(self) -> None:
+        depth = np.ones((10, 10), dtype=np.float32) * 1.5
+        ratio = compute_depth_inlier_ratio(depth_observed=depth, depth_rendered=depth, tolerance=0.02)
+        assert np.isclose(ratio, 1.0)
+
+    def test_partial_inliers(self) -> None:
+        ren = np.ones((10, 10), dtype=np.float32) * 1.0
+        obs = ren.copy()
+        # Displace 40 out of 100 pixels beyond 0.02m tolerance
+        obs[:4, :] += 0.05
+        ratio = compute_depth_inlier_ratio(depth_observed=obs, depth_rendered=ren, tolerance=0.02)
+        assert np.isclose(ratio, 0.6)
+
+    def test_sensor_dropouts_penalized(self) -> None:
+        ren = np.ones((10, 10), dtype=np.float32) * 1.0
+        obs = ren.copy()
+        # Set 30 pixels to 0.0 (sensor dropout)
+        obs[:3, :] = 0.0
+        ratio = compute_depth_inlier_ratio(depth_observed=obs, depth_rendered=ren, tolerance=0.02)
+        assert np.isclose(ratio, 0.7)
+
+    def test_with_explicit_mask(self) -> None:
+        ren = np.ones((10, 10), dtype=np.float32) * 1.0
+        obs = np.ones((10, 10), dtype=np.float32) * 1.0
+        # Mismatch outside mask should be ignored
+        obs[5:, :] += 0.5
+        mask = np.zeros((10, 10), dtype=np.uint8)
+        mask[:5, :] = 1  # evaluate only upper half where depth matches
+        ratio = compute_depth_inlier_ratio(
+            depth_observed=obs, depth_rendered=ren, tolerance=0.02, mask=mask
+        )
+        assert np.isclose(ratio, 1.0)
+
+    def test_empty_target_domain_returns_zero(self) -> None:
+        ren = np.zeros((10, 10), dtype=np.float32)
+        obs = np.ones((10, 10), dtype=np.float32) * 1.0
+        ratio = compute_depth_inlier_ratio(depth_observed=obs, depth_rendered=ren, tolerance=0.02)
+        assert np.isclose(ratio, 0.0)
+
+    def test_max_depth_threshold(self) -> None:
+        ren = np.ones((10, 10), dtype=np.float32) * 4.0
+        obs = np.ones((10, 10), dtype=np.float32) * 4.0
+        # When max_depth is 3.0, 4.0m pixels are invalid
+        ratio = compute_depth_inlier_ratio(
+            depth_observed=obs, depth_rendered=ren, tolerance=0.02, max_depth=3.0
+        )
+        assert np.isclose(ratio, 0.0)
+
+    def test_nan_and_inf_handling(self) -> None:
+        ren = np.ones((10, 10), dtype=np.float32) * 1.0
+        obs = ren.copy()
+        obs[0, 0] = np.nan
+        obs[0, 1] = np.inf
+        ratio = compute_depth_inlier_ratio(depth_observed=obs, depth_rendered=ren, tolerance=0.02)
+        assert np.isclose(ratio, 0.98)
+
+    def test_shape_mismatch_raises(self) -> None:
+        obs = np.ones((10, 10), dtype=np.float32)
+        ren = np.ones((10, 12), dtype=np.float32)
+        with pytest.raises(ValueError, match="Shape mismatch"):
+            compute_depth_inlier_ratio(depth_observed=obs, depth_rendered=ren)
+
+    def test_non_positive_tolerance_raises(self) -> None:
+        depth = np.ones((10, 10), dtype=np.float32)
+        with pytest.raises(ValueError, match="tolerance must be strictly positive"):
+            compute_depth_inlier_ratio(depth_observed=depth, depth_rendered=depth, tolerance=0.0)
+

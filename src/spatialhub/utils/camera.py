@@ -174,6 +174,94 @@ def unproject_depth_map(
     return xyz
 
 
+def compute_depth_inlier_ratio(
+    depth_observed: np.ndarray,
+    depth_rendered: np.ndarray,
+    tolerance: float = 0.02,
+    mask: np.ndarray | None = None,
+    min_depth: float = 0.001,
+    max_depth: float | None = None,
+) -> float:
+    """Compute the fraction of observed depth pixels consistent with rendered depth.
+
+    Evaluates geometric surface alignment between an observed depth map and a
+    rendered reference depth map. A pixel u is an inlier if:
+        |depth_observed[u] - depth_rendered[u]| < tolerance
+
+    The target evaluation domain is defined by mask if provided, or by pixels where
+    rendered depth is within [min_depth, max_depth]. Within this domain, pixels where
+    observed depth is invalid (non-finite, < min_depth, or > max_depth) or exceeds
+    tolerance are counted as outliers.
+
+    Args:
+        depth_observed: Observed metric depth map of shape (H, W) in meters.
+        depth_rendered: Rendered reference depth map of shape (H, W) in meters.
+        tolerance: Maximum absolute depth discrepancy in meters for an inlier (default: 0.02).
+        mask: Optional boolean or uint8 mask of shape (H, W) defining the evaluation domain.
+            If None, defaults to pixels where depth_rendered is valid.
+        min_depth: Minimum valid depth threshold in meters (default: 0.001).
+        max_depth: Optional maximum valid depth threshold in meters.
+
+    Returns:
+        Fraction of valid inlier pixels in the range [0.0, 1.0]. Returns 0.0 if the
+        target evaluation domain contains no valid pixels.
+
+    Raises:
+        ValueError: If array dimensions do not match, if inputs are not 2D arrays,
+            or if tolerance is non-positive.
+    """
+    observed_depth = np.asarray(depth_observed, dtype=np.float32)
+    rendered_depth = np.asarray(depth_rendered, dtype=np.float32)
+
+    if observed_depth.ndim == 3 and observed_depth.shape[-1] == 1:
+        observed_depth = observed_depth.squeeze(-1)
+    if rendered_depth.ndim == 3 and rendered_depth.shape[-1] == 1:
+        rendered_depth = rendered_depth.squeeze(-1)
+
+    validate_array("depth_observed", observed_depth, ndim=2, dtype=np.floating)
+    validate_array("depth_rendered", rendered_depth, ndim=2, dtype=np.floating)
+
+    if observed_depth.shape != rendered_depth.shape:
+        raise ValueError(
+            f"Shape mismatch between depth_observed {observed_depth.shape} and depth_rendered {rendered_depth.shape}"
+        )
+
+    if tolerance <= 0.0:
+        raise ValueError(f"tolerance must be strictly positive, got {tolerance}")
+
+    valid_rendered_mask = np.isfinite(rendered_depth) & (rendered_depth >= min_depth)
+    if max_depth is not None:
+        valid_rendered_mask &= (rendered_depth <= max_depth)
+
+    if mask is not None:
+        target_mask = np.asarray(mask)
+        if target_mask.ndim == 3 and target_mask.shape[-1] == 1:
+            target_mask = target_mask.squeeze(-1)
+        validate_array("mask", target_mask, ndim=2)
+        if target_mask.shape != observed_depth.shape:
+            raise ValueError(f"Shape mismatch between mask {target_mask.shape} and depth maps {observed_depth.shape}")
+        target_domain_mask = (target_mask > 0) & valid_rendered_mask
+    else:
+        target_domain_mask = valid_rendered_mask
+
+    total_target_pixels = int(np.count_nonzero(target_domain_mask))
+    if total_target_pixels == 0:
+        return 0.0
+
+    valid_observed_mask = np.isfinite(observed_depth) & (observed_depth >= min_depth)
+    if max_depth is not None:
+        valid_observed_mask &= (observed_depth <= max_depth)
+
+    inlier_mask = (
+        target_domain_mask
+        & valid_observed_mask
+        & (np.abs(observed_depth - rendered_depth) < tolerance)
+    )
+    inlier_count = int(np.count_nonzero(inlier_mask))
+
+    return float(inlier_count / total_target_pixels)
+
+
 def project_points_to_image(
     points: np.ndarray,
     intrinsics: np.ndarray,
@@ -474,6 +562,7 @@ def sample_icosphere_poses(
 
 
 __all__ = [
+    "compute_depth_inlier_ratio",
     "sample_sphere_points",
     "intrinsics_to_projection_matrix",
     "project_points_to_image",

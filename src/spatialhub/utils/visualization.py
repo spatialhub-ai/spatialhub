@@ -6,7 +6,7 @@ import cv2
 import numpy as np
 
 from .camera import project_points_to_image
-from .colors import resolve_colormap, validate_color
+from .colors import resolve_colormap, to_color, validate_color
 from .validation import validate_array
 
 
@@ -548,11 +548,46 @@ def visualize_global_features(
     return vis_rgb
 
 
+def show_image(
+    image: np.ndarray,
+    window_name: str = "SpatialHub",
+    wait_ms: int = 0,
+) -> bool:
+    """Display an RGB image in an interactive window if GUI OpenCV is available.
+
+    Converts the internal RGB image array to BGR before displaying. If running in a
+    headless environment (e.g. opencv-python-headless), catches the error and returns
+    False without raising an exception.
+
+    Args:
+        image: RGB image array of shape (H, W, 3) in uint8.
+        window_name: Window title string (default: "SpatialHub").
+        wait_ms: Key wait delay in milliseconds, 0 for infinite (default: 0).
+
+    Returns:
+        True if the image was displayed successfully, False if running headless.
+
+    Raises:
+        TypeError: If image is not a numpy array.
+        ValueError: If image dimensions or channel count are invalid.
+    """
+    validate_array("image", image, ndim=3, shape_suffix=(3,), dtype=np.uint8)
+    image_bgr = to_color(image, dst="BGR", src="RGB")
+
+    try:
+        cv2.imshow(window_name, image_bgr)
+        cv2.waitKey(wait_ms)
+        return True
+    except (cv2.error, AttributeError):
+        return False
+
+
 __all__ = [
     "draw_3d_axis",
     "draw_3d_box",
     "blend_masks",
     "draw_boxes_2d",
+    "show_image",
     "visualize_depth",
     "visualize_matched_keypoints",
     "visualize_dense_features",

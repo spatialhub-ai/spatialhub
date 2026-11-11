@@ -12,6 +12,7 @@ from spatialhub.utils.visualization import (
     draw_3d_axis,
     draw_3d_box,
     draw_boxes_2d,
+    show_image,
     visualize_dense_features,
     visualize_depth,
     visualize_global_features,
@@ -237,3 +238,23 @@ class TestVisualizeFeatures:
         vis = visualize_global_features(feats, colormap="viridis")
         assert vis.shape == (10, 10, 3)
         assert vis.dtype == np.uint8
+
+
+class TestShowImage:
+    """Test suite for show_image utility with headless fallback."""
+
+    def test_show_image_headless_or_gui(self) -> None:
+        image = np.zeros((100, 100, 3), dtype=np.uint8)
+        # Should return boolean (True if GUI available, False if headless) without raising
+        result = show_image(image, window_name="TestWindow", wait_ms=1)
+        assert isinstance(result, bool)
+
+    def test_show_image_invalid_shape_raises(self) -> None:
+        image_2d = np.zeros((100, 100), dtype=np.uint8)
+        with pytest.raises(ValueError, match="image expected ndim=3"):
+            show_image(image_2d)
+
+    def test_show_image_invalid_dtype_raises(self) -> None:
+        image_f32 = np.zeros((100, 100, 3), dtype=np.float32)
+        with pytest.raises(TypeError, match="image expected dtype in"):
+            show_image(image_f32)

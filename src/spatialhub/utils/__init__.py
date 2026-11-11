@@ -2,6 +2,7 @@ import importlib
 from typing import TYPE_CHECKING, Any
 
 from .camera import (
+    compute_depth_inlier_ratio,
     sample_sphere_points,
     intrinsics_to_projection_matrix,
     project_points_to_image,
@@ -40,6 +41,7 @@ from .visualization import (
     draw_3d_axis,
     draw_3d_box,
     draw_boxes_2d,
+    show_image,
     visualize_dense_features,
     visualize_depth,
     visualize_global_features,
@@ -97,6 +99,7 @@ __all__ = [
     "draw_3d_axis",
     "draw_3d_box",
     "draw_boxes_2d",
+    "show_image",
     "visualize_dense_features",
     "visualize_depth",
     "visualize_global_features",
@@ -112,6 +115,7 @@ __all__ = [
     "scale_intrinsics",
     "unproject_points",
     "unproject_depth_map",
+    "compute_depth_inlier_ratio",
     "intrinsics_to_projection_matrix",
     "opencv_to_opengl",
     "project_points_to_image",

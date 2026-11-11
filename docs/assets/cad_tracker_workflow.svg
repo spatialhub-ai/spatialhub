@@ -1,0 +1,185 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 270" width="100%" height="100%">
+  <defs>
+    <style>
+      .label-title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; fill: #94a3b8; }
+      .label-header { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 11px; font-weight: 700; fill: #f8fafc; }
+      .label-body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 9.5px; fill: #94a3b8; }
+      .label-dim { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 9px; fill: #38bdf8; }
+      .label-math { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 8.5px; fill: #34d399; }
+      .code-amber { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 8.5px; fill: #fbbf24; }
+    </style>
+    <linearGradient id="depthGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#312e81" />
+      <stop offset="50%" stop-color="#0284c7" />
+      <stop offset="100%" stop-color="#10b981" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background Canvas -->
+  <rect width="1180" height="270" rx="10" fill="#0f172a" stroke="#1e293b" stroke-width="1.5"/>
+
+  <!-- Architecture Title -->
+  <text x="25" y="27" class="label-title">CAD Object Pose Tracking Pipeline Architecture</text>
+
+  <!-- Card 1: Input Stream & Assets (x: 25, w: 200) -->
+  <g transform="translate(25, 44)">
+    <rect width="200" height="202" rx="8" fill="#182234" stroke="#334155" stroke-width="1"/>
+    <rect width="200" height="30" rx="8" fill="#1e293b"/>
+    <rect y="22" width="200" height="8" fill="#1e293b"/>
+    <text x="14" y="20" class="label-header">Input Stream &amp; Assets</text>
+
+    <g transform="translate(16, 44)">
+      <!-- RGB Input -->
+      <rect x="0" y="0" width="76" height="46" rx="4" fill="#0b1120" stroke="#38bdf8" stroke-width="1.2"/>
+      <text x="38" y="27" class="label-body" text-anchor="middle" font-weight="600" fill="#f8fafc">RGB Frame</text>
+      <text x="38" y="60" class="label-dim" text-anchor="middle">(H, W, 3)</text>
+
+      <!-- Depth Input -->
+      <g transform="translate(90, 0)">
+        <rect x="0" y="0" width="76" height="46" rx="4" fill="url(#depthGrad)" stroke="#475569" stroke-width="1"/>
+        <text x="38" y="27" class="label-body" text-anchor="middle" font-weight="600" fill="#f8fafc">Depth Map</text>
+        <text x="38" y="60" class="label-dim" text-anchor="middle">(H, W)</text>
+      </g>
+    </g>
+
+    <g transform="translate(16, 122)">
+      <rect width="168" height="26" rx="4" fill="#0b1120" stroke="#334155" stroke-width="0.8"/>
+      <text x="10" y="17" class="label-body" fill="#cbd5e1">CAD Target Mesh</text>
+      <text x="158" y="17" class="label-dim" text-anchor="end">.obj / .ply</text>
+
+      <g transform="translate(0, 32)">
+        <rect width="168" height="26" rx="4" fill="#0b1120" stroke="#334155" stroke-width="0.8"/>
+        <text x="10" y="17" class="label-body" fill="#cbd5e1">Intrinsics K</text>
+        <text x="158" y="17" class="label-math" text-anchor="end">(3, 3)</text>
+      </g>
+    </g>
+  </g>
+
+  <!-- Flow Arrow 1 -> 2 -->
+  <g transform="translate(233, 140)">
+    <line x1="0" y1="0" x2="20" y2="0" stroke="#38bdf8" stroke-width="1.5"/>
+    <polygon points="20,0 14,-3 14,3" fill="#38bdf8"/>
+  </g>
+
+  <!-- Card 2: Model Adapters (x: 261, w: 215) -->
+  <g transform="translate(261, 44)">
+    <rect width="215" height="202" rx="8" fill="#182234" stroke="#334155" stroke-width="1"/>
+    <rect width="215" height="30" rx="8" fill="#1e293b"/>
+    <rect y="22" width="215" height="8" fill="#1e293b"/>
+    <text x="14" y="20" class="label-header">Pipeline Adapters</text>
+
+    <g transform="translate(14, 42)">
+      <!-- FoundationPose -->
+      <rect width="187" height="66" rx="4" fill="#0b1120" stroke="#38bdf8" stroke-width="1"/>
+      <text x="10" y="17" class="label-header" fill="#38bdf8">FoundationPose</text>
+      <text x="10" y="34" class="label-body">6D Registration &amp; Tracking</text>
+      <text x="10" y="52" class="code-amber">register() | track()</text>
+
+      <!-- CNOS -->
+      <g transform="translate(0, 76)">
+        <rect width="187" height="68" rx="4" fill="#0b1120" stroke="#475569" stroke-width="0.8"/>
+        <text x="10" y="17" class="label-body" font-weight="600" fill="#f8fafc">CNOS (Optional Detector)</text>
+        <text x="10" y="34" class="label-body">DINOv2 + FastSAM Backbone</text>
+        <text x="10" y="52" class="code-amber">generate_masks()</text>
+      </g>
+    </g>
+  </g>
+
+  <!-- Flow Arrow 2 -> 3 -->
+  <g transform="translate(484, 140)">
+    <line x1="0" y1="0" x2="20" y2="0" stroke="#38bdf8" stroke-width="1.5"/>
+    <polygon points="20,0 14,-3 14,3" fill="#38bdf8"/>
+  </g>
+
+  <!-- Card 3: Frame 0 Registration (x: 512, w: 200) -->
+  <g transform="translate(512, 44)">
+    <rect width="200" height="202" rx="8" fill="#182234" stroke="#334155" stroke-width="1"/>
+    <rect width="200" height="30" rx="8" fill="#1e293b"/>
+    <rect y="22" width="200" height="8" fill="#1e293b"/>
+    <text x="14" y="20" class="label-header">Frame 0: Registration</text>
+
+    <g transform="translate(14, 44)">
+      <rect width="172" height="42" rx="4" fill="#0b1120" stroke="#334155" stroke-width="0.8"/>
+      <text x="10" y="16" class="label-body" fill="#f8fafc" font-weight="600">Mask Selection</text>
+      <text x="10" y="30" class="label-dim">CNOS argmax or GT mask</text>
+    </g>
+
+    <g transform="translate(14, 94)">
+      <rect width="172" height="46" rx="4" fill="#0b1120" stroke="#334155" stroke-width="0.8"/>
+      <text x="10" y="16" class="label-body" fill="#f8fafc" font-weight="600">Hypothesis Optimization</text>
+      <text x="10" y="30" class="label-body">Render-Refine Iterations +</text>
+      <text x="10" y="41" class="code-amber">Tournament Scoring</text>
+    </g>
+
+    <g transform="translate(14, 148)">
+      <rect width="172" height="38" rx="4" fill="#064e3b" stroke="#059669" stroke-width="0.8"/>
+      <text x="10" y="15" class="label-header" fill="#34d399">tracker.register()</text>
+      <text x="10" y="29" class="label-dim" fill="#a7f3d0">Initial Pose T_0 established</text>
+    </g>
+  </g>
+
+  <!-- Flow Arrow 3 -> 4 -->
+  <g transform="translate(720, 140)">
+    <line x1="0" y1="0" x2="20" y2="0" stroke="#38bdf8" stroke-width="1.5"/>
+    <polygon points="20,0 14,-3 14,3" fill="#38bdf8"/>
+  </g>
+
+  <!-- Card 4: Frame t Sequential Tracking (x: 748, w: 200) -->
+  <g transform="translate(748, 44)">
+    <rect width="200" height="202" rx="8" fill="#182234" stroke="#334155" stroke-width="1"/>
+    <rect width="200" height="30" rx="8" fill="#1e293b"/>
+    <rect y="22" width="200" height="8" fill="#1e293b"/>
+    <text x="14" y="20" class="label-header">Frame t: Sequential Tracking</text>
+
+    <g transform="translate(14, 44)">
+      <rect width="172" height="42" rx="4" fill="#0b1120" stroke="#334155" stroke-width="0.8"/>
+      <text x="10" y="16" class="label-body" fill="#f8fafc" font-weight="600">Bounding Box Cropping</text>
+      <text x="10" y="30" class="label-dim">Project OBB from T_{t-1}</text>
+    </g>
+
+    <g transform="translate(14, 94)">
+      <rect width="172" height="42" rx="4" fill="#0b1120" stroke="#334155" stroke-width="0.8"/>
+      <text x="10" y="16" class="label-body" fill="#f8fafc" font-weight="600">Iterative Refinement</text>
+      <text x="10" y="30" class="label-math">T_t = \Delta T \cdot T_{t-1}</text>
+    </g>
+
+    <g transform="translate(14, 144)">
+      <rect width="172" height="42" rx="4" fill="#0b1120" stroke="#38bdf8" stroke-width="0.8"/>
+      <text x="10" y="16" class="label-header" fill="#38bdf8">tracker.track()</text>
+      <text x="10" y="30" class="code-amber">Updates T_t without masks</text>
+    </g>
+  </g>
+
+  <!-- Flow Arrow 4 -> 5 -->
+  <g transform="translate(956, 140)">
+    <line x1="0" y1="0" x2="20" y2="0" stroke="#38bdf8" stroke-width="1.5"/>
+    <polygon points="20,0 14,-3 14,3" fill="#38bdf8"/>
+  </g>
+
+  <!-- Card 5: Output & Overlays (x: 984, w: 171) -->
+  <g transform="translate(984, 44)">
+    <rect width="171" height="202" rx="8" fill="#182234" stroke="#334155" stroke-width="1"/>
+    <rect width="171" height="30" rx="8" fill="#1e293b"/>
+    <rect y="22" width="171" height="8" fill="#1e293b"/>
+    <text x="14" y="20" class="label-header">Output &amp; Overlays</text>
+
+    <g transform="translate(12, 44)">
+      <rect width="147" height="36" rx="4" fill="#0b1120" stroke="#38bdf8" stroke-width="0.8"/>
+      <text x="8" y="15" class="label-body" fill="#38bdf8" font-weight="600">ObjectPose6D</text>
+      <text x="8" y="28" class="label-math">pose (4,4) | scores</text>
+    </g>
+
+    <g transform="translate(12, 88)">
+      <rect width="147" height="46" rx="4" fill="#0b1120" stroke="#334155" stroke-width="0.8"/>
+      <text x="8" y="16" class="label-body" fill="#f8fafc">Geometric Overlays</text>
+      <text x="8" y="29" class="label-dim">draw_3d_box()</text>
+      <text x="8" y="41" class="label-dim">draw_3d_axis()</text>
+    </g>
+
+    <g transform="translate(12, 142)">
+      <rect width="147" height="44" rx="4" fill="#0b1120" stroke="#475569" stroke-width="0.8"/>
+      <text x="8" y="16" class="label-body" fill="#f8fafc">Video Stream</text>
+      <text x="8" y="30" class="label-dim">save_video() (30 FPS)</text>
+    </g>
+  </g>
+</svg>

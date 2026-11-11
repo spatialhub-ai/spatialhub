@@ -516,12 +516,19 @@
 .md-typeset ol {
   text-align: justify;
   text-justify: inter-word;
-  hyphens: auto;
+  hyphens: none !important;
+  -webkit-hyphens: none !important;
+  -ms-hyphens: none !important;
+  word-break: normal;
 }
 
 .md-typeset li {
   text-align: justify;
   text-justify: inter-word;
+  hyphens: none !important;
+  -webkit-hyphens: none !important;
+  -ms-hyphens: none !important;
+  word-break: normal;
 }
 
 /* -------------------------------------------------------------------------

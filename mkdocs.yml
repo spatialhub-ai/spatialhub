@@ -115,6 +115,7 @@ nav:
   - Reference Pipelines:
       - RGB-D Fusion: pipelines/rgbd_fusion.md
       - Monocular Fusion: pipelines/monocular_fusion.md
+      - CAD Pose Tracking: pipelines/cad_pose_tracking.md
 
 extra_javascript:
   - javascripts/mathjax.js

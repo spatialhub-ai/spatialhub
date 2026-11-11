@@ -1,1 +1,1 @@
-"""Two-view pose estimation pipelines."""
+"""Reference perception pipelines and workflows."""

@@ -267,8 +267,9 @@ class TestResolveExecutionProviders:
         assert provs == ["CPUExecutionProvider"]
 
     def test_resolve_cuda_target(self):
-        provs = resolve_execution_providers(providers="cuda")
-        assert provs == ["CUDAExecutionProvider", "CPUExecutionProvider"]
+        with patch("onnxruntime.get_available_providers", return_value=["CUDAExecutionProvider", "CPUExecutionProvider"]):
+            provs = resolve_execution_providers(providers="cuda")
+            assert provs == ["CUDAExecutionProvider", "CPUExecutionProvider"]
 
     def test_resolve_auto_target_with_cuda_available(self):
         with patch("onnxruntime.get_available_providers", return_value=["CUDAExecutionProvider", "CPUExecutionProvider"]):

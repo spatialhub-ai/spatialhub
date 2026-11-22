@@ -16,6 +16,7 @@ from .colors import (
     to_color,
 )
 from .download import download_file
+from .validation import validate_array
 from .geometry import (
     estimate_relative_pose_2d,
     solve_pnp_ransac,
@@ -125,6 +126,7 @@ __all__ = [
     "validate_moderngl_context",
     "AtlasRenderer",
     "FullscreenRenderer",
+    "validate_array",
 ]
 
 

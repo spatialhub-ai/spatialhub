@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence
 
 import cv2
 import numpy as np
 
-from spatialhub.core.runtime import create_ort_session, resolve_model_path
+from spatialhub.core.runtime import create_ort_session, resolve_execution_providers, resolve_model_path
 from spatialhub.structures import FeatureEmbedding
-from spatialhub.utils import load_image, normalize_image, pad_to_square, to_color
+from spatialhub.utils import load_image, normalize_image, pad_to_square, to_color, validate_array
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +56,7 @@ class DINOv2Adapter:
         model_path: str | Path | None = None,
         model_variant: str = "vitl14",
         target_size: int = 224,
-        providers: list[str] | str | None = None,
+        providers: list[str | tuple[str, dict[str, Any]]] | str | None = None,
     ) -> None:
         """Initialize DINOv2 feature extractor.
 
@@ -69,7 +69,7 @@ class DINOv2Adapter:
             target_size:
                 Target spatial input dimension for square resizing and padding (must be a positive multiple of 14, default: 224).
             providers:
-                Execution providers.
+                Execution providers. Accepts None, 'cpu', 'cuda', full provider names, or custom options list.
 
         Raises:
             ValueError:
@@ -102,9 +102,10 @@ class DINOv2Adapter:
             filename=filename,
         )
 
+        resolved_providers = resolve_execution_providers(providers=providers)
         self.session = create_ort_session(
             model_path=resolved_path,
-            providers=providers,
+            providers=resolved_providers,
         )
 
         self.target_size = target_size
@@ -128,7 +129,7 @@ class DINOv2Adapter:
 
     def _preprocess(
         self,
-        images: np.ndarray | str | Path | list[np.ndarray | str | Path],
+        images: np.ndarray | str | Path | Sequence[np.ndarray | str | Path],
     ) -> np.ndarray:
         """Preprocess RGB image(s) into a normalized tensor batch.
 
@@ -137,7 +138,7 @@ class DINOv2Adapter:
         Input arrays must have raw pixel values in [0, 255].
 
         Args:
-            images: Single image (array, str, or Path) or list of images.
+            images: Single image (NumPy array, str, or Path) or collection of images.
 
         Returns:
             np.ndarray: Normalized batch tensor of shape (N, 3, target_size, target_size) with dtype float32.
@@ -165,6 +166,8 @@ class DINOv2Adapter:
                 if isinstance(item, (str, Path)):
                     raw_list.append(load_image(item, color_mode="RGB"))
                 elif isinstance(item, np.ndarray):
+                    if item.ndim not in (2, 3):
+                        raise ValueError(f"Expected 2D or 3D image array, got ndim={item.ndim} with shape {item.shape}")
                     raw_list.append(to_color(item, "RGB"))
                 else:
                     raise TypeError(f"Unsupported image element type: {type(item).__name__}")
@@ -190,16 +193,16 @@ class DINOv2Adapter:
 
     def extract_features(
         self,
-        images: np.ndarray | str | Path | list[np.ndarray | str | Path],
+        images: np.ndarray | str | Path | Sequence[np.ndarray | str | Path],
         l2_normalize: bool = False,
     ) -> FeatureEmbedding:
         """Extract global DINOv2 CLS token embeddings.
 
         Args:
-            images: Input RGB image or list of images. Supports:
-                - Single image: NumPy array with raw pixel values in [0, 255], image file path (str or Path).
-                - Batch image: NumPy array (N, H, W, 3) or (N, H, W, C).
-                - Image collection: List of NumPy arrays, file path strings, or Path objects.
+            images: Input RGB image, array, file path, or list of images.
+                - Single image: NumPy array with raw pixel values in [0, 255] or image file path.
+                - Batch image: NumPy array (N, H, W, 3).
+                - Image collection: List of NumPy arrays or file paths.
             l2_normalize: If True, applies L2 normalization along feature embedding dimension.
 
         Returns:
@@ -223,7 +226,7 @@ class DINOv2Adapter:
             features = features / np.maximum(norms, 1e-6)
 
         return FeatureEmbedding(
-            features=features.astype(np.float32),
+            features=features,
             embedding_type="global",
             l2_normalized=l2_normalize,
         )

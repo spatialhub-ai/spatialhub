@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence
 
 import cv2
 import numpy as np
 
-from spatialhub.core.runtime import create_ort_session, resolve_model_path, ort
+from spatialhub.core.runtime import create_ort_session, resolve_execution_providers, resolve_model_path, ort
 from spatialhub.structures import DepthMap
-from spatialhub.utils import scale_intrinsics
+from spatialhub.utils import scale_intrinsics, validate_array
 
 from .input_processor import InputProcessor
 from .utils import (
@@ -82,7 +82,7 @@ class DepthAnything3Adapter:
         self,
         model_name: str | Path | list[str | Path] = "da3_base",
         model_variant: str | None = None,
-        providers: list[str] | str | None = None,
+        providers: list[str | tuple[str, dict[str, Any]]] | str | None = None,
         align_to_input_ext_scale: bool = True,
         ransac_view_thresh: int = 10,
         process_res: int = 504,
@@ -109,7 +109,7 @@ class DepthAnything3Adapter:
                 Depth interpretation mode ('relative' or 'metric'). If None, automatically determined
                 ('metric' for nested presets and metric models, otherwise 'relative').
             providers:
-                Execution providers (e.g. 'CUDAExecutionProvider', 'CPUExecutionProvider').
+                Execution providers. Accepts None, 'cpu', 'cuda', full provider names, or custom options list.
             align_to_input_ext_scale:
                 If True, scales predicted depth to match original input camera extrinsics scale.
             ransac_view_thresh:
@@ -187,6 +187,8 @@ class DepthAnything3Adapter:
 
         self.ort_sessions: list[ort.InferenceSession] = []
 
+        resolved_providers = resolve_execution_providers(providers=providers)
+
         # Resolve and load ONNX session(s) using core runtime helpers
         for filename in models_to_load:
             file_path = Path(filename)
@@ -198,7 +200,7 @@ class DepthAnything3Adapter:
 
             session = create_ort_session(
                 model_path=resolved_path,
-                providers=providers,
+                providers=resolved_providers,
             )
             self.ort_sessions.append(session)
 
@@ -211,7 +213,7 @@ class DepthAnything3Adapter:
 
     def estimate_depth(
         self,
-        images: list[np.ndarray | str] | np.ndarray | str,
+        images: np.ndarray | str | Path | Sequence[np.ndarray | str | Path],
         extrinsics: list[np.ndarray] | None = None,
         intrinsics: list[np.ndarray] | None = None,
     ) -> DepthMap:
@@ -219,7 +221,7 @@ class DepthAnything3Adapter:
 
         Args:
             images:
-                List of input images (file paths or RGB NumPy arrays).
+                List of input images, single image (file paths or RGB NumPy arrays).
             extrinsics:
                 Optional ground truth camera extrinsics matrices of shape (N, 4, 4).
             intrinsics:
@@ -233,8 +235,18 @@ class DepthAnything3Adapter:
         if not getattr(self, "ort_sessions", None):
             raise RuntimeError("Inference session has been closed or was not initialized.")
 
+        if isinstance(images, np.ndarray):
+            validate_array("images", images, ndim=(2, 3, 4))
+            resolved_images = images
+        elif isinstance(images, (str, Path)):
+            resolved_images = images
+        elif isinstance(images, (list, tuple)):
+            resolved_images = list(images)
+        else:
+            raise TypeError(f"images must be a numpy.ndarray, str, Path, or sequence of images, got {type(images).__name__}")
+
         # Preprocess input images and camera parameters
-        np_inputs = self._preprocess(images=images, extrinsics=extrinsics, intrinsics=intrinsics)
+        np_inputs = self._preprocess(images=resolved_images, extrinsics=extrinsics, intrinsics=intrinsics)
 
         # Run inference (single session or dual-model nested session)
         if len(self.ort_sessions) == 1:

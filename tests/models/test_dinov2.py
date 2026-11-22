@@ -272,3 +272,21 @@ class TestDINOv2Inference:
         """Test exception when passing a tuple instead of a list."""
         with pytest.raises(TypeError, match="Unsupported image input type for preprocessing"):
             mock_adapter.extract_features((np.zeros((224, 224, 3), dtype=np.uint8),))
+
+    def test_extract_features_contract_polymorphism(self):
+        """Test contract conformance returning standard FeatureEmbedding dataclass."""
+        with patch.object(DINOv2Adapter, "__init__", return_value=None):
+            adapter = DINOv2Adapter()
+            adapter.session = MagicMock()
+            adapter.input_name = "input"
+            adapter.target_size = 224
+
+            adapter._preprocess = MagicMock(return_value=np.zeros((1, 3, 224, 224), dtype=np.float32))
+            adapter.session.run.return_value = [np.ones((1, 384), dtype=np.float32)]
+
+            img_arr = np.zeros((100, 100, 3), dtype=np.uint8)
+            res = adapter.extract_features(img_arr)
+
+            assert isinstance(res, FeatureEmbedding)
+            assert isinstance(res.features, np.ndarray)
+            assert res.features.shape == (1, 384)

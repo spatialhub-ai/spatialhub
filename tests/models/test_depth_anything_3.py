@@ -329,3 +329,21 @@ class TestDepthAnything3Inference:
         adapter.ort_sessions = []
         with pytest.raises(RuntimeError, match="Inference session has been closed"):
             adapter.estimate_depth(images=[np.zeros((480, 640, 3), dtype=np.uint8)])
+
+    def test_estimate_depth_contract_polymorphism(self):
+        """Test contract conformance returning standard DepthMap dataclass."""
+        with patch.object(DepthAnything3Adapter, "__init__", return_value=None):
+            adapter = DepthAnything3Adapter()
+            adapter.ort_sessions = [MagicMock()]
+            adapter.model_variant = "relative"
+            adapter._preprocess = MagicMock(return_value={})
+            adapter._run_inference = MagicMock(return_value={})
+            adapter._extract_outputs = MagicMock(return_value=(np.ones((1, 100, 100), dtype=np.float32), None, None, None, None))
+            adapter._postprocess = MagicMock(return_value=(np.ones((1, 100, 100), dtype=np.float32), None, None, None))
+
+            img_arr = np.zeros((100, 100, 3), dtype=np.uint8)
+            res = adapter.estimate_depth(img_arr)
+
+            assert isinstance(res, DepthMap)
+            assert isinstance(res.depth, np.ndarray)
+            assert res.depth.shape == (1, 100, 100)

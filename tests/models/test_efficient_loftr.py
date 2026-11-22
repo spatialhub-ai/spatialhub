@@ -227,6 +227,31 @@ class TestEfficientLoFTRMatching:
 class TestEfficientLoFTRIntegration:
     """Integration test suite for EfficientLoFTR end-to-end pipeline."""
 
+    def test_match_contract_polymorphism(self):
+        """Test contract conformance returning standard KeypointMatches dataclass."""
+        with patch.object(EfficientLoFTRAdapter, "__init__", return_value=None):
+            adapter = EfficientLoFTRAdapter()
+            adapter.session = MagicMock()
+            adapter.input_names = ["img0", "img1"]
+            adapter._preprocess = MagicMock(side_effect=[
+                (np.zeros((1, 1, 32, 32), dtype=np.float32), np.array([1.0, 1.0])),
+                (np.zeros((1, 1, 32, 32), dtype=np.float32), np.array([1.0, 1.0])),
+            ])
+            adapter.session.run.return_value = [
+                np.array([[5.0, 5.0]], dtype=np.float32),
+                np.array([[6.0, 6.0]], dtype=np.float32),
+                np.array([0.99], dtype=np.float32),
+            ]
+
+            arr_a = np.zeros((32, 32, 3), dtype=np.uint8)
+            arr_b = np.zeros((32, 32, 3), dtype=np.uint8)
+            res = adapter.match(arr_a, arr_b)
+
+            assert isinstance(res, KeypointMatches)
+            assert isinstance(res.keypoints_a, np.ndarray)
+            assert isinstance(res.keypoints_b, np.ndarray)
+            assert isinstance(res.confidence, np.ndarray)
+
     @pytest.mark.integration
     def test_efficient_loftr_match_file_paths(self, sample_pair_image_files: tuple[str, str]):
         """Test feature matching pipeline on image pair from file paths."""

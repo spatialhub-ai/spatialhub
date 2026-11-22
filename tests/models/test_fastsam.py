@@ -311,3 +311,32 @@ class TestFastSAMInference:
         with pytest.raises(ValueError, match="Unsupported number of image channels"):
             adapter.generate_masks(np.zeros((100, 100, 5), dtype=np.uint8))
 
+    def test_generate_masks_contract_polymorphism(self):
+        """Test contract conformance returning standard InstanceSegmentation dataclass."""
+        with patch.object(FastSAMAdapter, "__init__", return_value=None):
+            adapter = FastSAMAdapter()
+            adapter.session = MagicMock()
+            adapter.input_name = "images"
+            adapter.imgsz = 640
+            adapter.default_conf_threshold = 0.25
+            adapter.default_iou_threshold = 0.45
+            adapter.default_max_det = 50
+
+            adapter._preprocess = MagicMock(return_value=(np.zeros((1, 3, 640, 640), dtype=np.float32), (1.0, 0, 0, 0, 0)))
+            adapter._postprocess = MagicMock(
+                return_value=InstanceSegmentation(
+                    masks=np.ones((1, 100, 100), dtype=bool),
+                    boxes=np.array([[10, 10, 50, 50]], dtype=np.float32),
+                    scores=np.array([0.95], dtype=np.float32),
+                )
+            )
+            adapter.session.run.return_value = [np.zeros((1, 37, 8400), dtype=np.float32), np.zeros((1, 32, 160, 160), dtype=np.float32)]
+
+            img_arr = np.zeros((100, 100, 3), dtype=np.uint8)
+            res = adapter.generate_masks(img_arr)
+
+            assert isinstance(res, InstanceSegmentation)
+            assert isinstance(res.masks, np.ndarray)
+            assert isinstance(res.boxes, np.ndarray)
+            assert isinstance(res.scores, np.ndarray)
+

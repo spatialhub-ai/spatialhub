@@ -7,9 +7,9 @@ from typing import Any
 import cv2
 import numpy as np
 
-from spatialhub.core.runtime import create_ort_session, resolve_model_path
+from spatialhub.core.runtime import create_ort_session, resolve_execution_providers, resolve_model_path
 from spatialhub.structures import InstanceSegmentation
-from spatialhub.utils import load_image, nms_boxes, normalize_image, to_color
+from spatialhub.utils import load_image, nms_boxes, normalize_image, to_color, validate_array
 
 
 logger = logging.getLogger(__name__)
@@ -81,7 +81,7 @@ class SAMAdapter:
         pred_iou_thresh: float = 0.88,
         stability_score_thresh: float = 0.95,
         box_nms_thresh: float = 0.7,
-        providers: list[str] | str | None = None,
+        providers: list[str | tuple[str, dict[str, Any]]] | str | None = None,
     ) -> None:
         """Initialize SAM segmentor.
 
@@ -105,7 +105,7 @@ class SAMAdapter:
             box_nms_thresh:
                 IoU cutoff threshold for duplicate mask removal via NMS.
             providers:
-                Execution providers.
+                Execution providers. Accepts None, 'cpu', 'cuda', full provider names, or custom options list.
 
         Raises:
             ValueError:
@@ -131,13 +131,15 @@ class SAMAdapter:
             filename=reg_entry["decoder_filename"] if decoder_onnx_path is None else None,
         )
 
+        resolved_providers = resolve_execution_providers(providers=providers)
+
         self.encoder_session = create_ort_session(
             model_path=resolved_enc,
-            providers=providers,
+            providers=resolved_providers,
         )
         self.decoder_session = create_ort_session(
             model_path=resolved_dec,
-            providers=providers,
+            providers=resolved_providers,
         )
 
         self.target_size = target_size
@@ -375,11 +377,15 @@ class SAMAdapter:
             scores=surviving_scores,
         )
 
-    def generate_masks(self, image: str | Path | np.ndarray, **kwargs) -> InstanceSegmentation:
+    def generate_masks(
+        self,
+        image: np.ndarray | str | Path,
+        **kwargs: Any,
+    ) -> InstanceSegmentation:
         """Execute Automatic Mask Generation (AMG) over input image.
 
         Args:
-            image: Input image (file path or RGB NumPy array with pixel values in [0, 255]).
+            image: Input image as RGB NumPy array with pixel values in [0, 255] or image file path.
             kwargs: Optional threshold overrides ('pred_iou_thresh', 'stability_score_thresh', 'iou_threshold', 'points_per_side').
 
         Returns:
@@ -398,14 +404,16 @@ class SAMAdapter:
         box_nms_thresh = kwargs.get("iou_threshold", self.default_box_nms_thresh)
 
         if isinstance(image, (str, Path)):
-            image = load_image(image, color_mode="RGB")
+            resolved_img = load_image(image, color_mode="RGB")
         elif isinstance(image, np.ndarray):
-            image = to_color(image, "RGB")
+            if image.ndim not in (2, 3):
+                raise ValueError(f"Expected 2D or 3D image array, got ndim={image.ndim} with shape {image.shape}")
+            resolved_img = to_color(image, "RGB")
         else:
             raise TypeError(f"image must be a str, Path, or np.ndarray, got {type(image).__name__}")
 
         # Preprocess
-        input_tensor, scale, (orig_h, orig_w) = self._preprocess_image(image)
+        input_tensor, scale, (orig_h, orig_w) = self._preprocess_image(resolved_img)
 
         # Encode
         image_embedding = self._encode_image(input_tensor)
@@ -427,7 +435,7 @@ class SAMAdapter:
 
         # Postprocess
         return self._postprocess(
-            image=image,
+            image=resolved_img,
             all_raw_masks=all_raw_masks,
             all_iou_preds=all_iou_preds,
             orig_h=orig_h,

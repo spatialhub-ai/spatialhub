@@ -7,9 +7,9 @@ from typing import Any
 import cv2
 import numpy as np
 
-from spatialhub.core.runtime import create_ort_session, resolve_model_path
+from spatialhub.core.runtime import create_ort_session, resolve_execution_providers, resolve_model_path
 from spatialhub.structures import InstanceSegmentation
-from spatialhub.utils import load_image, nms_boxes, to_color
+from spatialhub.utils import load_image, nms_boxes, to_color, validate_array
 
 
 logger = logging.getLogger(__name__)
@@ -72,7 +72,7 @@ class FastSAMAdapter:
         conf_threshold: float = 0.05,
         iou_threshold: float = 0.7,
         max_det: int = 50,
-        providers: list[str] | str | None = None,
+        providers: list[str | tuple[str, dict[str, Any]]] | str | None = None,
     ) -> None:
         """Initialize FastSAM segmentor.
 
@@ -91,7 +91,7 @@ class FastSAMAdapter:
             max_det:
                 Maximum number of output detections to retain after NMS (default: 50).
             providers:
-                Execution providers.
+                Execution providers. Accepts None, 'cpu', 'cuda', full provider names, or custom options list.
 
         Raises:
             ValueError:
@@ -115,9 +115,10 @@ class FastSAMAdapter:
             filename=filename,
         )
 
+        resolved_providers = resolve_execution_providers(providers=providers)
         self.session = create_ort_session(
             model_path=resolved_path,
-            providers=providers,
+            providers=resolved_providers,
         )
         self.input_name = self.session.get_inputs()[0].name
 
@@ -402,7 +403,7 @@ class FastSAMAdapter:
 
     def generate_masks(
         self,
-        image: str | Path | np.ndarray,
+        image: np.ndarray | str | Path,
         conf_threshold: float | None = None,
         iou_threshold: float | None = None,
         max_det: int | None = None,
@@ -410,7 +411,7 @@ class FastSAMAdapter:
         """Generate object proposals and instance segmentation masks.
 
         Args:
-            image: Input image (file path or RGB NumPy array with pixel values in [0, 255]).
+            image: Input image as RGB NumPy array with pixel values in [0, 255] or image file path.
             conf_threshold: Overrides default confidence score threshold.
             iou_threshold: Overrides default NMS IoU threshold.
             max_det: Overrides default maximum detections threshold.
@@ -431,23 +432,25 @@ class FastSAMAdapter:
         max_detections = max_det if max_det is not None else self.default_max_det
 
         if isinstance(image, (str, Path)):
-            image = load_image(image, color_mode="RGB")
+            resolved_img = load_image(image, color_mode="RGB")
         elif isinstance(image, np.ndarray):
-            image = to_color(image, "RGB")
+            if image.ndim not in (2, 3):
+                raise ValueError(f"Expected 2D or 3D image array, got ndim={image.ndim} with shape {image.shape}")
+            resolved_img = to_color(image, "RGB")
         else:
             raise TypeError(f"image must be a str, Path, or np.ndarray, got {type(image).__name__}")
 
-        orig_h, orig_w = image.shape[:2]
+        orig_h, orig_w = resolved_img.shape[:2]
 
         # Preprocessing
-        input_tensor, letterbox = self._preprocess(image, orig_h, orig_w)
+        input_tensor, letterbox = self._preprocess(resolved_img, orig_h, orig_w)
 
         # Model inference
         outputs = self.session.run(None, {self.input_name: input_tensor})
 
         # Postprocessing
         return self._postprocess(
-            image=image,
+            image=resolved_img,
             outputs=outputs,
             orig_h=orig_h,
             orig_w=orig_w,

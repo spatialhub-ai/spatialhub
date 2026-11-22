@@ -7,9 +7,9 @@ from typing import Any
 import cv2
 import numpy as np
 
-from spatialhub.core.runtime import create_ort_session, resolve_model_path
+from spatialhub.core.runtime import create_ort_session, resolve_execution_providers, resolve_model_path
 from spatialhub.structures import KeypointMatches
-from spatialhub.utils import load_image, to_color
+from spatialhub.utils import load_image, to_color, validate_array
 
 
 logger = logging.getLogger(__name__)
@@ -39,7 +39,7 @@ class EfficientLoFTRAdapter:
         self,
         model_path: str | Path | None = None,
         model_type: str = "full",
-        providers: list[str] | str | None = None,
+        providers: list[str | tuple[str, dict[str, Any]]] | str | None = None,
     ) -> None:
         """Initialize the EfficientLoFTR matcher.
 
@@ -50,7 +50,7 @@ class EfficientLoFTRAdapter:
             model_type:
                 Model variant, either 'full' (higher accuracy) or 'opt' (faster, default: 'full').
             providers:
-                Execution providers (e.g. 'CUDAExecutionProvider', 'CPUExecutionProvider').
+                Execution providers. Accepts None, 'cpu', 'cuda', full provider names, or custom options list.
 
         Raises:
             ValueError:
@@ -79,26 +79,28 @@ class EfficientLoFTRAdapter:
             filename=filename,
         )
 
+        resolved_providers = resolve_execution_providers(providers=providers)
+
         # Initialize session via core runtime helper
         self.session = create_ort_session(
             model_path=resolved_path,
-            providers=providers,
+            providers=resolved_providers,
         )
         self.input_names = [i.name for i in self.session.get_inputs()]
 
     def match(
         self,
-        image_a: str | Path | np.ndarray,
-        image_b: str | Path | np.ndarray,
+        image_a: np.ndarray | str | Path,
+        image_b: np.ndarray | str | Path,
         max_dim: int | None = 1024,
     ) -> KeypointMatches:
         """Perform semi-dense feature matching between two images.
 
         Args:
             image_a:
-                First image input (file path or NumPy array with pixel values in [0, 255]).
+                First image input as RGB/grayscale NumPy array with pixel values in [0, 255] or file path.
             image_b:
-                Second image input (file path or NumPy array with pixel values in [0, 255]).
+                Second image input as RGB/grayscale NumPy array with pixel values in [0, 255] or file path.
             max_dim:
                 Optional maximum spatial dimension to downscale input images before
                 matching. Keeps aspect ratio intact.
@@ -169,7 +171,7 @@ class EfficientLoFTRAdapter:
 
     def _preprocess(
         self,
-        img_input: str | Path | np.ndarray,
+        img_input: np.ndarray | str | Path,
         max_dim: int | None = 1024,
     ) -> tuple[np.ndarray, np.ndarray]:
         """Preprocess an input image for EfficientLoFTR.
@@ -191,6 +193,7 @@ class EfficientLoFTRAdapter:
         if isinstance(img_input, (str, Path)):
             img = load_image(img_input, color_mode="GRAY")
         elif isinstance(img_input, np.ndarray):
+            validate_array("img_input", img_input, ndim=(2, 3))
             img = to_color(img_input, "GRAY")
         else:
             raise TypeError(f"img_input must be a str, Path, or np.ndarray, got {type(img_input).__name__}")

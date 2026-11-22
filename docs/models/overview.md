@@ -20,17 +20,29 @@ SpatialHub provides ONNX Runtime inference adapters for deep vision architecture
 
 ## Execution Providers
 
-Adapters configure hardware execution through the `providers` parameter, accepting ONNX Runtime execution provider names ordered by preference:
+Adapters configure hardware execution through the `providers` parameter, accepting shorthand strings, ONNX Runtime execution provider names, or custom configuration options:
 
 ```python
-# Hardware acceleration with CPU fallback
-providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
+# Automatic hardware selection (CUDA/TensorRT/ROCm/DirectML with CPU fallback)
+model = DepthAnything3()
 
-# Host CPU execution
-providers = ["CPUExecutionProvider"]
+# Convenience shorthands
+model = DepthAnything3(providers="cuda")
+model = DepthAnything3(providers="cpu")
+
+# Explicit ONNX Runtime execution provider list
+providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
+model = DepthAnything3(providers=providers)
+
+# Configured provider options (e.g., targeting GPU 1)
+providers = [
+    ("CUDAExecutionProvider", {"device_id": 1}),
+    "CPUExecutionProvider",
+]
+model = DepthAnything3(providers=providers)
 ```
 
-When omitted, execution defaults to available host runtime providers.
+When omitted, execution defaults to the highest priority accelerated provider available on the host.
 
 ---
 

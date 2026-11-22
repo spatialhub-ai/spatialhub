@@ -19,6 +19,7 @@ from spatialhub.utils import (
     nms_boxes,
     pad_to_square,
     to_color,
+    validate_array,
 )
 
 if TYPE_CHECKING:
@@ -274,7 +275,7 @@ class CNOSAdapter:
 
     def generate_masks(
         self,
-        image: str | Path | np.ndarray,
+        image: np.ndarray | str | Path,
         proposals: InstanceSegmentation | None = None,
         num_max_dets: int = 5,
         conf_threshold: float = 0.15,
@@ -286,7 +287,7 @@ class CNOSAdapter:
         """Execute zero-shot object detection and segmentation on input image.
 
         Args:
-            image: RGB image input (file path or NumPy array).
+            image: RGB image input as NumPy array or file path.
             proposals: Optional pre-computed InstanceSegmentation containing mask proposals.
             num_max_dets: Maximum detections to return.
             conf_threshold: Cosine similarity matching threshold for target identification.
@@ -301,9 +302,10 @@ class CNOSAdapter:
         if isinstance(image, (str, Path)):
             img_rgb = load_image(image, color_mode="RGB")
         elif isinstance(image, np.ndarray):
+            validate_array("image", image, ndim=(2, 3))
             img_rgb = to_color(image, "RGB")
         else:
-            raise TypeError(f"Unsupported image input type: {type(image)}")
+            raise TypeError(f"image must be a str, Path, or np.ndarray, got {type(image).__name__}")
         h, w = img_rgb.shape[:2]
 
         if proposals is None:
